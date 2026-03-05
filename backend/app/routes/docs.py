@@ -1,15 +1,20 @@
 import os
 from typing import List
 
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 
 from ..config import load_config, docs_dir
 from ..models.docs import UploadResponse, DocumentList, DocumentInfo
+from ..dependencies.auth import get_current_user
 from ..storage.vector_store import VectorStore
 from ..services.embeddings import EmbeddingService
 from ..services.rag import chunk_text
 
-router = APIRouter(prefix="/api/v1/docs", tags=["docs"])
+router = APIRouter(
+    prefix="/api/v1/docs",
+    tags=["docs"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 def _read_file_content(path: str) -> str:

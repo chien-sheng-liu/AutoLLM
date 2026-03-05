@@ -1,10 +1,15 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from ..config import load_config, save_config
+from ..dependencies.auth import get_current_user
 
 
-router = APIRouter(prefix="/api/v1/config", tags=["config"])
+router = APIRouter(
+    prefix="/api/v1/config",
+    tags=["config"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 class ConfigPayload(BaseModel):

@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .routes.auth import router as auth_router
 from .routes.chat import router as chat_router
 from .routes.docs import router as docs_router
 from .routes.config import router as config_router
@@ -23,6 +24,7 @@ def create_app() -> FastAPI:
     def healthz():
         return {"ok": True}
 
+    app.include_router(auth_router)
     app.include_router(config_router)
     app.include_router(docs_router)
     app.include_router(chat_router)

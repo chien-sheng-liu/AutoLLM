@@ -12,12 +12,13 @@ This document guides agents/builders working in this repo. Follow these rules fo
   - API: FastAPI under `/api/v1/*`.
   - Ingestion: file upload -> parse -> chunk -> embed (OpenAI) -> store.
   - Vector store: SQLite for metadata + binary embedding blobs; cosine similarity in Python (numpy). No external DB required.
-  - RAG: top‑k retrieval -> grounding context -> OpenAI chat completion.
+  - RAG: top-k retrieval -> grounding context -> OpenAI chat completion.
   - Provenance: every answer returns citations with document, chunk id, and snippet.
   - Config: persisted JSON for workspace settings (chunk size/overlap, top_k, model names).
+  - Auth: PostgreSQL-backed user store (`users` table, auto-created) with bcrypt hashes + JWT issuance; every router except `/auth/*` depends on `get_current_user`.
 - Frontend (`frontend/`):
   - Pages: Dashboard, Data (upload/list/delete), Settings (RAG params), Chat (converse with citations).
-  - Uses `NEXT_PUBLIC_API_BASE_URL` to call backend.
+  - Uses `NEXT_PUBLIC_API_BASE_URL` to call backend with JWT stored in localStorage + cookie; middleware enforces redirects for unauthenticated visitors.
 
 ## Directory Layout
 ```
@@ -29,15 +30,23 @@ backend/
       chat.py
       docs.py
       common.py
+      auth.py
     routes/
+      auth.py
       chat.py
       docs.py
       config.py
+      providers.py
     services/
       rag.py
       embeddings.py
+      auth.py
+      users.py
+    dependencies/
+      auth.py
     storage/
       vector_store.py
+      user_store.py
   data/            # created at runtime (docs/, rag.sqlite, config.json)
   requirements.txt
 
@@ -48,13 +57,21 @@ frontend/
     chat/page.tsx
     data/page.tsx
     settings/page.tsx
+    login/page.tsx
+    register/page.tsx
   lib/api.ts
+  lib/session.ts
+  middleware.ts
   next.config.js
   package.json
   tsconfig.json
 ```
 
 ## API Contracts (v1)
+- `POST /api/v1/auth/register`: create account (requires `email`, `password`, optional `name`)
+- `POST /api/v1/auth/login`: returns `{ access_token, token_type, user }`
+- `GET /api/v1/auth/me`: current profile (requires JWT)
+- `POST /api/v1/auth/logout`: stateless acknowledgement
 - `POST /api/v1/docs/upload` (multipart): {file}
   - Response: { document_id, name }
 - `GET /api/v1/docs`: list documents
@@ -90,6 +107,8 @@ frontend/
   - `OPENAI_EMBEDDING_MODEL` (default: text-embedding-3-small)
   - `DB_PATH` (default: backend/data/rag.sqlite)
   - `DATA_DIR` (default: backend/data)
+  - `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`, `POSTGRES_HOST` (Docker Compose Postgres service uses host `postgres`; backend auto-uses port 5432 when host is `postgres`)
+  - `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `JWT_EXPIRES_MINUTES` (JWT issuance for auth)
 - Frontend:
   - `NEXT_PUBLIC_API_BASE_URL` (e.g., http://localhost:8000)
 
@@ -111,6 +130,7 @@ frontend/
 - Never log raw document content or API keys.
 - Enforce CORS to expected origins in production.
 - Validate file size/type on upload (basic checks included; expand as needed).
+- Require valid JWT (`Authorization: Bearer <token>`) for every API call except `/api/v1/auth/*`; the frontend middleware redirects unauthenticated users to `/login`.
 
 ## Definition of Done
 - Uploads index successfully; chat returns grounded answers with citations.

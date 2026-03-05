@@ -28,6 +28,19 @@ services:
       - backend
     restart: unless-stopped
 
+  postgres:
+    image: postgres:15
+    container_name: autollm-postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-autollm}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-autollm}
+    ports:
+      - "${POSTGRES_PORT:-5050}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
 volumes:
   backend_data:
-
+  postgres_data:

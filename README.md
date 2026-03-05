@@ -14,6 +14,8 @@ Features
 - Configurable chunk_size, chunk_overlap, top_k, chat model/provider
 - Health check for providers (API keys and basic reachability)
 - Polished UI (Tailwind + small UI kit) and responsive layouts
+- JWT 驗證：註冊 / 登入 / 登出，所有 API 與頁面皆需登入後才能使用
+- 使用 PostgreSQL 儲存使用者帳號（Docker Compose 已內建資料庫服務）
 
 Directory
 backend/
@@ -46,16 +48,23 @@ Important variables (backend):
 - OPENAI_EMBEDDING_MODEL=text-embedding-3-small (default)
 - RAG_CHUNK_SIZE=1000, RAG_CHUNK_OVERLAP=200, RAG_TOP_K=4
 - DATA_DIR=backend/data, DB_PATH=backend/data/rag.sqlite
+- POSTGRES_USER=autollm, POSTGRES_PASSWORD=postgres, POSTGRES_DB=autollm, POSTGRES_PORT=5050
+- POSTGRES_HOST=postgres （Docker 內部服務名稱；若本機直跑請改成 localhost）
+- 後端容器偵測到 `POSTGRES_HOST=postgres` 時會自動改用資料庫內部埠號 5432 連線（主機 5050 僅供外部連線用）
+- JWT_SECRET_KEY=change-me, JWT_ALGORITHM=HS256, JWT_EXPIRES_MINUTES=60
 
 Frontend:
 - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 
 Run (Docker + Make)
 cp .env.example .env
-make up           # build + start (frontend:3000, backend:8000)
+make up           # build + start (frontend:3000, backend:8000, postgres:5050)
 make logs         # tail logs
 make down         # stop
 make clean        # remove volumes
+
+PostgreSQL runs in Docker with the defaults above (user `autollm`, password `postgres`, database `autollm`, host `postgres`).
+前端啟動後請先造訪 `http://localhost:3000/login` 註冊／登入，取得 JWT 後才能使用其餘頁面與 API。
 
 Run (Dev)
 Backend:
@@ -89,6 +98,7 @@ API (v1)
 - `POST /api/v1/chat` and `POST /api/v1/chat/stream`
   - request: `{ messages, top_k?, temperature?, chat_model? }`
   - response: `{ answer, citations, used_prompt }` (stream emits delta/done events)
+- Auth endpoints (JWT): `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, `POST /api/v1/auth/logout`
 
 UI Notes
 - Home: stats + recent documents
@@ -108,4 +118,3 @@ Troubleshooting
 
 License
 MIT (or your preferred license)
-

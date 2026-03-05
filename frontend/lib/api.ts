@@ -1,3 +1,5 @@
+import { clearSession, getAccessToken, type AuthUser } from '@/lib/session';
+
 export type Message = { role: 'system' | 'user' | 'assistant'; content: string };
 export type Citation = { document_id: string; name: string; chunk_id: string; score: number; snippet: string };
 export type Config = {
@@ -12,6 +14,13 @@ export type Config = {
 export type DocumentItem = { document_id: string; name: string };
 export type DocumentsList = { items: DocumentItem[] };
 export type ChatResponse = { answer: string; citations?: Citation[]; used_prompt?: string };
+export type LoginResult = { access_token: string; token_type: string; user: AuthUser };
+
+function shouldRedirectOn401() {
+  if (typeof window === 'undefined') return false;
+  const path = window.location.pathname;
+  return !(path.startsWith('/login') || path.startsWith('/register'));
+}
 
 function apiBase() {
   const base = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
@@ -19,8 +28,15 @@ function apiBase() {
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${apiBase()}${path}`, init);
+  const headers = new Headers(init?.headers || {});
+  const token = getAccessToken();
+  if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`);
+  const res = await fetch(`${apiBase()}${path}`, { ...init, headers });
   if (!res.ok) {
+    if (res.status === 401 && shouldRedirectOn401()) {
+      clearSession();
+      if (typeof window !== 'undefined') window.location.href = '/login';
+    }
     let message = `Request failed (${res.status})`;
     try {
       const data = await res.json();
@@ -92,9 +108,12 @@ export async function chatStream(
 ): Promise<void> {
   const ctrl = new AbortController();
   const signal = options?.signal || ctrl.signal;
+  const token = getAccessToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(`${apiBase()}/api/v1/chat/stream`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ messages, ...options }),
     signal,
   });
@@ -128,6 +147,8 @@ export function uploadDocumentWithProgress(file: File, onProgress: (pct: number)
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${apiBase()}/api/v1/docs/upload`);
+    const token = getAccessToken();
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         try { resolve(JSON.parse(xhr.responseText)); } catch (e) { reject(new Error('Invalid server response')); }
@@ -144,4 +165,28 @@ export function uploadDocumentWithProgress(file: File, onProgress: (pct: number)
     fd.append('file', file);
     xhr.send(fd);
   });
+}
+
+export async function registerAccount(payload: { email: string; password: string; name?: string | null }): Promise<AuthUser> {
+  return apiFetch<AuthUser>(`/api/v1/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function login(payload: { email: string; password: string }): Promise<LoginResult> {
+  return apiFetch<LoginResult>(`/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function logout(): Promise<void> {
+  await apiFetch(`/api/v1/auth/logout`, { method: 'POST' });
+}
+
+export async function fetchProfile(): Promise<AuthUser> {
+  return apiFetch<AuthUser>(`/api/v1/auth/me`);
 }

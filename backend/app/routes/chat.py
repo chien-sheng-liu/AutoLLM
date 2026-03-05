@@ -1,6 +1,6 @@
 from typing import List, Generator
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 import json
 from ..config import load_config
@@ -9,9 +9,14 @@ from ..services.embeddings import EmbeddingService
 from ..services.rag import retrieve, build_context_snippets, system_prompt_guidance
 from ..storage.vector_store import VectorStore
 from ..services.providers.factory import get_chat_provider
+from ..dependencies.auth import get_current_user
 
 
-router = APIRouter(prefix="/api/v1", tags=["chat"])
+router = APIRouter(
+    prefix="/api/v1",
+    tags=["chat"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.post("/chat", response_model=ChatResponse)
