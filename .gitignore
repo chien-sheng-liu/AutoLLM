@@ -19,9 +19,14 @@ venv/
 
 # Env files (DO NOT COMMIT SECRETS)
 .env
-.env.*
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
 frontend/.env
 backend/.env
+# allow checked-in examples
+!.env.example
 
 # Runtime data
 backend/data/
@@ -30,4 +35,3 @@ backend/app/__pycache__/
 # Logs / coverage
 *.log
 coverage/
-
