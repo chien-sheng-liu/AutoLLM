@@ -1,0 +1,33 @@
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/
+
+# Node / Next.js
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+
+# Python / FastAPI
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+venv/
+.venv/
+
+# Env files (DO NOT COMMIT SECRETS)
+.env
+.env.*
+frontend/.env
+backend/.env
+
+# Runtime data
+backend/data/
+backend/app/__pycache__/
+
+# Logs / coverage
+*.log
+coverage/
+
