@@ -99,6 +99,8 @@ export async function uploadDocument(file: File): Promise<{ document_id: string;
   });
 }
 
+// content quick search API removed
+
 export async function chat(messages: Message[], options?: { top_k?: number; temperature?: number; chat_model?: string; chat_provider?: string }): Promise<ChatResponse> {
   return apiFetch<ChatResponse>(`/api/v1/chat`, {
     method: 'POST',

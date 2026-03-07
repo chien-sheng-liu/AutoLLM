@@ -172,6 +172,8 @@ class VectorStore:
             results.append((cr, float(row["score"])) )
         return results
 
+    # Substring search removed per request (frontend quick search deleted)
+
     def _format_vector_literal(self, vec: np.ndarray) -> str:
         values = ",".join(f"{float(x):.6f}" for x in vec.tolist())
         return f"[{values}]"

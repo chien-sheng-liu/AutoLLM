@@ -36,7 +36,7 @@ export default function Segmented({ options, value, onChange, className, name }:
             key={opt.id}
             role="tab"
             aria-selected={selected}
-            className={`relative z-10 h-7 px-2.5 leading-none rounded-md transition-colors duration-150 ${
+            className={`relative z-10 h-7 px-2.5 leading-none rounded-md transition-colors duration-150 whitespace-nowrap ${
               selected
                 ? 'text-white'
                 : 'text-gray-700 hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-indigo-400 dark:text-gray-200 dark:hover:bg-neutral-700'
@@ -57,4 +57,3 @@ export default function Segmented({ options, value, onChange, className, name }:
     </div>
   );
 }
-
