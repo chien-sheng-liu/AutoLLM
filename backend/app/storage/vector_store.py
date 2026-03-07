@@ -133,27 +133,48 @@ class VectorStore:
                 )
             conn.commit()
 
-    def query_similar(self, query_vec: np.ndarray, top_k: int = 4) -> List[Tuple[ChunkRecord, float]]:
+    def query_similar(self, query_vec: np.ndarray, top_k: int = 4, allow_document_ids: Optional[Sequence[str]] = None) -> List[Tuple[ChunkRecord, float]]:
         qvec = query_vec.astype(np.float32, copy=False)
         literal = self._format_vector_literal(qvec)
         with self._connect() as conn, conn.cursor(row_factory=dict_row) as cur:
-            cur.execute(
-                """
-                SELECT c.id::text AS id,
-                       c.document_id::text AS document_id,
-                       d.name,
-                       c.cindex,
-                       c.text,
-                       c.metadata,
-                       1 - (e.embedding <=> %s::vector) AS score
-                FROM embeddings e
-                JOIN chunks c ON c.id = e.chunk_id
-                JOIN documents d ON d.id = c.document_id
-                ORDER BY e.embedding <=> %s::vector
-                LIMIT %s
-                """,
-                (literal, literal, top_k),
-            )
+            if allow_document_ids:
+                ids = tuple(allow_document_ids)
+                cur.execute(
+                    """
+                    SELECT c.id::text AS id,
+                           c.document_id::text AS document_id,
+                           d.name,
+                           c.cindex,
+                           c.text,
+                           c.metadata,
+                           1 - (e.embedding <=> %s::vector) AS score
+                    FROM embeddings e
+                    JOIN chunks c ON c.id = e.chunk_id
+                    JOIN documents d ON d.id = c.document_id
+                    WHERE c.document_id = ANY(%s::uuid[])
+                    ORDER BY e.embedding <=> %s::vector
+                    LIMIT %s
+                    """,
+                    (literal, list(ids), literal, top_k),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT c.id::text AS id,
+                           c.document_id::text AS document_id,
+                           d.name,
+                           c.cindex,
+                           c.text,
+                           c.metadata,
+                           1 - (e.embedding <=> %s::vector) AS score
+                    FROM embeddings e
+                    JOIN chunks c ON c.id = e.chunk_id
+                    JOIN documents d ON d.id = c.document_id
+                    ORDER BY e.embedding <=> %s::vector
+                    LIMIT %s
+                    """,
+                    (literal, literal, top_k),
+                )
             rows = cur.fetchall()
         results: List[Tuple[ChunkRecord, float]] = []
         for row in rows:

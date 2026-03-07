@@ -13,6 +13,7 @@ from ..services.providers.factory import get_chat_provider
 from ..dependencies.auth import get_current_user
 from ..models.auth import UserOut
 from dataclasses import replace
+from ..storage.user_store import get_user_store
 
 
 router = APIRouter(
@@ -42,7 +43,12 @@ def chat(req: ChatRequest, current_user: UserOut = Depends(get_current_user)):
     if not last_user:
         raise HTTPException(status_code=422, detail="no user message provided")
 
-    retrieved = retrieve(store, embedder, last_user, top_k=top_k)
+    # Document permissions: if user has explicit permissions, restrict retrieval; otherwise allow all
+    user_store = get_user_store(cfg)
+    allow_ids = user_store.get_user_allowed_docs(current_user.id)
+    if not allow_ids:
+        allow_ids = None  # None => no restriction
+    retrieved = retrieve(store, embedder, last_user, top_k=top_k, allow_document_ids=allow_ids)
     context = build_context_snippets(retrieved)
 
     # Build prompt
@@ -123,7 +129,11 @@ def chat_stream(req: ChatRequest, current_user: UserOut = Depends(get_current_us
     if not last_user:
         raise HTTPException(status_code=422, detail="no user message provided")
 
-    retrieved = retrieve(store, embedder, last_user, top_k=top_k)
+    user_store = get_user_store(cfg)
+    allow_ids = user_store.get_user_allowed_docs(current_user.id)
+    if not allow_ids:
+        allow_ids = None
+    retrieved = retrieve(store, embedder, last_user, top_k=top_k, allow_document_ids=allow_ids)
     context = build_context_snippets(retrieved)
 
     sys_prompt = system_prompt_guidance()

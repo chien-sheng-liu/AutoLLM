@@ -25,9 +25,10 @@ def retrieve(
     embedder: EmbeddingService,
     query: str,
     top_k: int,
+    allow_document_ids: list[str] | None = None,
 ) -> List[Tuple[ChunkRecord, float]]:
     qvec = embedder.embed_texts([query])[0]
-    results = store.query_similar(qvec, top_k=top_k)
+    results = store.query_similar(qvec, top_k=top_k, allow_document_ids=allow_document_ids)
     return results
 
 

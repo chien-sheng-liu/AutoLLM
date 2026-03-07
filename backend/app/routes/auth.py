@@ -22,7 +22,11 @@ def register(payload: RegisterRequest):
     store = get_user_store(cfg)
     hashed = hash_password(payload.password)
     try:
-        user = store.create_user(payload.email, hashed, payload.name)
+        # First user becomes admin automatically
+        auth = "user"
+        if store.count_users() == 0 and not store.any_admin_exists():
+            auth = "admin"
+        user = store.create_user(payload.email, hashed, payload.name, auth=auth)
     except ValueError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered") from None
     return to_user_out(user)

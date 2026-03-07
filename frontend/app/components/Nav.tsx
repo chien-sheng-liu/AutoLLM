@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { buttonClasses } from "@/app/components/ui/Button";
 import { clearSession, getStoredUser, type AuthUser } from "@/lib/session";
-import { logout as apiLogout } from "@/lib/api";
+import { logout as apiLogout, fetchProfile } from "@/lib/api";
 
 export default function Nav() {
   const pathname = usePathname();
@@ -17,6 +17,11 @@ export default function Nav() {
   }, [pathname]);
 
   useEffect(() => {
+    // Best-effort: refresh profile to get latest auth
+    fetchProfile().then((u) => {
+      try { window.localStorage.setItem('autollm_user', JSON.stringify(u)); } catch {}
+      setUser(u);
+    }).catch(() => {});
     const onStorage = (e: StorageEvent) => {
       if (e.key === 'autollm_user' || e.key === 'autollm_token') {
         setUser(getStoredUser());
@@ -42,6 +47,9 @@ export default function Nav() {
     }
   }
 
+  const isAdmin = ((user?.auth || '') as string).toLowerCase();
+  const canAdmin = isAdmin === 'admin' || isAdmin === 'administrator';
+
   return (
     <div className="sticky top-0 z-50 border-b border-gray-200/70 bg-white/70 backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/60">
       <div className="mx-auto flex max-w-screen-xl items-center justify-between gap-4 px-5 py-3">
@@ -55,6 +63,9 @@ export default function Nav() {
           <Link className={`${buttonClasses({ variant: 'outline', size: 'sm' })} ${isActive("/data") ? 'bg-gray-100 dark:bg-neutral-800' : ''}`} href="/data">資料</Link>
           <Link className={`${buttonClasses({ variant: 'outline', size: 'sm' })} ${isActive("/settings") ? 'bg-gray-100 dark:bg-neutral-800' : ''}`} href="/settings">設定</Link>
           <Link className={`${buttonClasses({ variant: 'outline', size: 'sm' })} ${isActive("/guide") ? 'bg-gray-100 dark:bg-neutral-800' : ''}`} href="/guide">教學</Link>
+          {canAdmin && (
+            <Link className={`${buttonClasses({ variant: 'outline', size: 'sm' })} ${isActive("/admin") ? 'bg-gray-100 dark:bg-neutral-800' : ''}`} href="/admin">管理</Link>
+          )}
         </nav>
         <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
           {user ? (

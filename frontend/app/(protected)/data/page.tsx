@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { getStoredUser } from "@/lib/session";
+import { fetchProfile } from "@/lib/api";
 import { listDocuments, deleteDocument, uploadDocumentWithProgress, type DocumentsList } from "@/lib/api";
 import { showToast } from "@/app/components/Toaster";
 import Button, { buttonClasses } from "@/app/components/ui/Button";
@@ -27,6 +29,7 @@ export default function DataPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTargets, setConfirmTargets] = useState<string[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   // content quick search removed per request
   const nameSearchRef = useRef<HTMLInputElement>(null);
 
@@ -60,6 +63,16 @@ export default function DataPage() {
 
   useEffect(() => {
     refresh();
+  }, []);
+  useEffect(() => {
+    const u = getStoredUser();
+    const auth = (u?.auth || 'user').toLowerCase();
+    setIsAdmin(auth === 'admin' || auth === 'administrator');
+    fetchProfile().then((u)=>{
+      try { window.localStorage.setItem('autollm_user', JSON.stringify(u)); } catch {}
+      const auth = (u?.auth || 'user').toLowerCase();
+      setIsAdmin(auth === 'admin' || auth === 'administrator');
+    }).catch(()=>{});
   }, []);
 
   // content quick search removed per request
@@ -229,9 +242,11 @@ export default function DataPage() {
           <Button variant="outline" onClick={() => setSortAsc((s) => !s)}>名稱 {sortAsc ? "A→Z" : "Z→A"}</Button>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="danger" disabled={busy || selectedIds.length === 0} onClick={() => askDelete(selectedIds)}>
-            刪除已選（{selectedIds.length}）
-          </Button>
+          {isAdmin && (
+            <Button variant="danger" disabled={busy || selectedIds.length === 0} onClick={() => askDelete(selectedIds)}>
+              刪除已選（{selectedIds.length}）
+            </Button>
+          )}
         </div>
       </div>
 
@@ -279,7 +294,9 @@ export default function DataPage() {
                 </div>
                 <div className="flex items-center justify-end gap-2">
                   <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(d.document_id).then(() => showToast('已複製 ID', { kind: 'success' })).catch(() => showToast('複製失敗', { kind: 'error' }))}>複製 ID</Button>
-                  <Button variant="danger" size="sm" onClick={() => askDelete([d.document_id])} disabled={busy}>刪除</Button>
+                  {isAdmin && (
+                    <Button variant="danger" size="sm" onClick={() => askDelete([d.document_id])} disabled={busy}>刪除</Button>
+                  )}
                 </div>
               </div>
             ))}

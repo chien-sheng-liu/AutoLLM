@@ -1,11 +1,11 @@
 import os
 from typing import List
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, status
 
 from ..config import load_config, docs_dir
 from ..models.docs import UploadResponse, DocumentList, DocumentInfo
-from ..dependencies.auth import get_current_user
+from ..dependencies.auth import get_current_user, require_admin
 from ..storage.vector_store import VectorStore
 from ..services.embeddings import EmbeddingService
 from ..services.rag import chunk_text
@@ -52,7 +52,7 @@ def _read_file_content(path: str) -> str:
 
 
 @router.post("/upload", response_model=UploadResponse)
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(file: UploadFile = File(...), current_user=Depends(get_current_user)):
     cfg = load_config()
     # Validate embedding provider/API key via service initialization
     docs_path = docs_dir(cfg)
@@ -104,14 +104,29 @@ async def upload_document(file: UploadFile = File(...)):
     vectors = embedder.embed_texts(texts)
     store.upsert_embeddings(chunk_ids, vectors)
 
+    # Grant uploader access (permissioned mode)
+    try:
+        from ..storage.user_store import get_user_store as _get_us
+        us = _get_us(cfg)
+        current = us.get_user_allowed_docs(current_user.id)
+        if doc_id not in current:
+            us.set_user_allowed_docs(current_user.id, [doc_id, *current])
+    except Exception:
+        pass
     return UploadResponse(document_id=doc_id, name=filename)
 
 
 @router.get("", response_model=DocumentList)
-def list_documents():
+def list_documents(current_user=Depends(get_current_user)):
     cfg = load_config()
     store = VectorStore(cfg)
-    items = [DocumentInfo(**d) for d in store.get_documents()]
+    items_all = store.get_documents()
+    from ..storage.user_store import get_user_store as _get_us
+    us = _get_us(cfg)
+    allowed = set(us.get_user_allowed_docs(current_user.id))
+    if allowed:
+        items_all = [d for d in items_all if d.get("document_id") in allowed]
+    items = [DocumentInfo(**d) for d in items_all]
     return DocumentList(items=items)
 
 
@@ -119,7 +134,7 @@ def list_documents():
 
 
 @router.delete("/{document_id:uuid}")
-def delete_document(document_id: str):
+def delete_document(document_id: str, _: str = Depends(require_admin)):
     cfg = load_config()
     store = VectorStore(cfg)
     # Remove metadata/embeddings
