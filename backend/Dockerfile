@@ -12,8 +12,6 @@ COPY app /app/app
 
 # Persist data inside container at /app/data; can be mounted via compose
 ENV DATA_DIR=/app/data
-ENV DB_PATH=/app/data/rag.sqlite
 
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-

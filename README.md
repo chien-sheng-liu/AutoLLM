@@ -5,10 +5,10 @@ A no‑code Retrieval‑Augmented Generation (RAG) chatbot. Non‑technical user
 - Backend: FastAPI (Python)
 - Frontend: Next.js (TypeScript, App Router)
 - Model Providers: OpenAI, Gemini (Google), Claude (Anthropic) via a pluggable provider layer
-- Vector store: SQLite (metadata + embedding blobs), cosine similarity with NumPy
+- Vector store: PostgreSQL + pgvector（metadata + embeddings 都儲存在資料庫）
 
 Features
-- Upload txt/pdf → parse → chunk → embed → store (SQLite)
+- Upload txt/pdf → parse → chunk → embed → store (PostgreSQL/pgvector)
 - Top‑K retrieval + grounding context → chat completion
 - Provenance: citations per answer (doc, chunk id, score, snippet)
 - Configurable chunk_size, chunk_overlap, top_k, chat model/provider
@@ -26,7 +26,7 @@ backend/
     routes/
     services/
     storage/
-  data/            # created at runtime (docs/, rag.sqlite, config.json)
+  data/            # created at runtime (docs/, config.json)
   requirements.txt
 
 frontend/
@@ -34,6 +34,11 @@ frontend/
   lib/
   package.json
   tailwind.config.js
+
+- Storage layout：
+  - `documents`：原始檔案的基本資訊（名稱、來源、建立時間）。
+  - `chunks`：切分後的文字與對應 metadata（JSONB），全數存於 PostgreSQL。
+  - `embeddings`：使用 pgvector 的 `vector` 欄位保存每個 chunk 的向量，並透過 `<=>` 進行 cosine 距離搜尋。
 
 Environment
 Copy `.env.example` to `.env` and fill values (secrets are git‑ignored).
@@ -46,8 +51,9 @@ Important variables (backend):
 - EMBEDDING_PROVIDER=openai | gemini (default: openai)
 - OPENAI_CHAT_MODEL=gpt-4o-mini (default)
 - OPENAI_EMBEDDING_MODEL=text-embedding-3-small (default)
+- EMBEDDING_DIM=1536（pgvector 欄位長度；若使用不同嵌入模型請調整）
 - RAG_CHUNK_SIZE=1000, RAG_CHUNK_OVERLAP=200, RAG_TOP_K=4
-- DATA_DIR=backend/data, DB_PATH=backend/data/rag.sqlite
+- DATA_DIR=backend/data（原始檔案會保存於此）
 - POSTGRES_USER=autollm, POSTGRES_PASSWORD=postgres, POSTGRES_DB=autollm, POSTGRES_PORT=5050
 - POSTGRES_HOST=postgres （Docker 內部服務名稱；若本機直跑請改成 localhost）
 - 後端容器偵測到 `POSTGRES_HOST=postgres` 時會自動改用資料庫內部埠號 5432 連線（主機 5050 僅供外部連線用）
@@ -63,7 +69,7 @@ make logs         # tail logs
 make down         # stop
 make clean        # remove volumes
 
-PostgreSQL runs in Docker with the defaults above (user `autollm`, password `postgres`, database `autollm`, host `postgres`).
+PostgreSQL（內建 pgvector 擴充套件）會跟著 Docker 一起啟動（user `autollm`、password `postgres`、database `autollm`、host `postgres`）。容器啟動後會自動執行 `CREATE EXTENSION IF NOT EXISTS vector`，若你採自行安裝的 PostgreSQL 請記得手動安裝 pgvector 並建立 extension。
 前端啟動後請先造訪 `http://localhost:3000/login` 註冊／登入，取得 JWT 後才能使用其餘頁面與 API。
 
 Run (Dev)

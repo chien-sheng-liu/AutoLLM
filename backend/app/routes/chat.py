@@ -8,8 +8,11 @@ from ..models.chat import ChatRequest, ChatResponse, Citation
 from ..services.embeddings import EmbeddingService
 from ..services.rag import retrieve, build_context_snippets, system_prompt_guidance
 from ..storage.vector_store import VectorStore
+from ..storage.chat_store import get_chat_store
 from ..services.providers.factory import get_chat_provider
 from ..dependencies.auth import get_current_user
+from ..models.auth import UserOut
+from dataclasses import replace
 
 
 router = APIRouter(
@@ -20,12 +23,12 @@ router = APIRouter(
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest):
+def chat(req: ChatRequest, current_user: UserOut = Depends(get_current_user)):
     cfg = load_config()
     # Provider will validate corresponding API key
 
     top_k = req.top_k or cfg.top_k
-    store = VectorStore(cfg.db_path)
+    store = VectorStore(cfg)
     embedder = EmbeddingService.from_config(cfg)
 
     # Use last user message for retrieval
@@ -47,44 +50,67 @@ def chat(req: ChatRequest):
     user_prompt = f"User question:\n{last_user}\n\nContext sources:\n{context}\n\nAnswer with citations as [n]."
 
     # Chat via provider
-    provider = get_chat_provider(cfg)
+    # Allow provider override per request
+    provider_cfg = replace(cfg, chat_provider=(req.chat_provider or cfg.chat_provider).lower())
+    provider = get_chat_provider(provider_cfg)
     model = (req.chat_model or cfg.chat_model).strip() or cfg.chat_model
-    answer = provider.complete(
-        messages=[
-            {"role": "system", "content": sys_prompt},
-            *[{"role": m.role, "content": m.content} for m in req.messages if m.role != "system"],
-            {"role": "user", "content": user_prompt},
-        ],
-        model=model,
-        temperature=req.temperature or 0.2,
-    )
+    temperature = req.temperature if req.temperature is not None else cfg.temperature
+    messages_payload = [
+        {"role": "system", "content": sys_prompt},
+        *[{"role": m.role, "content": m.content} for m in req.messages if m.role != "system"],
+        {"role": "user", "content": user_prompt},
+    ]
+    try:
+        answer = provider.complete(
+            messages=messages_payload,
+            model=model,
+            temperature=temperature,
+            max_tokens=cfg.max_tokens,
+            top_p=cfg.top_p,
+            presence_penalty=cfg.presence_penalty,
+            frequency_penalty=cfg.frequency_penalty,
+        )
+    except Exception:
+        # Fallback if configured
+        fb_provider = cfg.fallback_chat_provider
+        fb_model = cfg.fallback_chat_model
+        if fb_provider and fb_model:
+            fb_cfg = replace(cfg, chat_provider=fb_provider)
+            fb = get_chat_provider(fb_cfg)
+            answer = fb.complete(messages=messages_payload, model=fb_model, temperature=temperature)
+        else:
+            raise
 
     citations: List[Citation] = []
-    for idx, (cr, score) in enumerate(retrieved, start=1):
+    for idx, (cr, _score) in enumerate(retrieved, start=1):
         name = cr.metadata.get("name") if isinstance(cr.metadata, dict) else cr.document_id
-        snippet = (cr.text or "").strip()
-        if len(snippet) > 200:
-            snippet = snippet[:200] + "…"
-        citations.append(
-            Citation(
-                document_id=cr.document_id,
-                name=name,
-                chunk_id=cr.chunk_id,
-                score=float(score),
-                snippet=snippet,
-            )
-        )
+        page = None
+        if isinstance(cr.metadata, dict):
+            p = cr.metadata.get("page")
+            if isinstance(p, int):
+                page = p
+        citations.append(Citation(name=name, page=page))
 
-    return ChatResponse(answer=answer, citations=citations, used_prompt=sys_prompt)
+    # Log chat message and return answer_id
+    store = get_chat_store(cfg)
+    answer_id = store.insert_chat_message(
+        user_id=current_user.id,
+        question=last_user,
+        answer=answer,
+        citations=[c.dict() for c in citations],
+        used_prompt=sys_prompt,
+    )
+
+    return ChatResponse(answer=answer, citations=citations, used_prompt=sys_prompt, answer_id=answer_id)
 
 
 @router.post("/chat/stream")
-def chat_stream(req: ChatRequest):
+def chat_stream(req: ChatRequest, current_user: UserOut = Depends(get_current_user)):
     cfg = load_config()
     # Provider will validate corresponding API key
 
     top_k = req.top_k or cfg.top_k
-    store = VectorStore(cfg.db_path)
+    store = VectorStore(cfg)
     embedder = EmbeddingService.from_config(cfg)
 
     if not req.messages:
@@ -103,42 +129,74 @@ def chat_stream(req: ChatRequest):
     sys_prompt = system_prompt_guidance()
     user_prompt = f"User question:\n{last_user}\n\nContext sources:\n{context}\n\nAnswer with citations as [n]."
 
-    provider = get_chat_provider(cfg)
+    provider_cfg = replace(cfg, chat_provider=(req.chat_provider or cfg.chat_provider).lower())
+    provider = get_chat_provider(provider_cfg)
     model = (req.chat_model or cfg.chat_model).strip() or cfg.chat_model
+    temperature = req.temperature if req.temperature is not None else cfg.temperature
 
     def iter_events() -> Generator[bytes, None, None]:
         try:
-            for delta in provider.stream(
-                messages=[
-                    {"role": "system", "content": sys_prompt},
-                    *[{"role": m.role, "content": m.content} for m in req.messages if m.role != "system"],
-                    {"role": "user", "content": user_prompt},
-                ],
-                model=model,
-                temperature=req.temperature or 0.2,
-            ):
-                payload = {"type": "delta", "content": delta}
-                yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+            acc = ""
+            try:
+                for delta in provider.stream(
+                    messages=[
+                        {"role": "system", "content": sys_prompt},
+                        *[{"role": m.role, "content": m.content} for m in req.messages if m.role != "system"],
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    model=model,
+                    temperature=temperature,
+                    max_tokens=cfg.max_tokens,
+                    top_p=cfg.top_p,
+                    presence_penalty=cfg.presence_penalty,
+                    frequency_penalty=cfg.frequency_penalty,
+                ):
+                    acc += delta or ""
+                    payload = {"type": "delta", "content": delta}
+                    yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+            except Exception:
+                # Try fallback as non-stream complete
+                fb_provider = cfg.fallback_chat_provider
+                fb_model = cfg.fallback_chat_model
+                if fb_provider and fb_model:
+                    fb_cfg = replace(cfg, chat_provider=fb_provider)
+                    fb = get_chat_provider(fb_cfg)
+                    acc = fb.complete(
+                        messages=[
+                            {"role": "system", "content": sys_prompt},
+                            *[{"role": m.role, "content": m.content} for m in req.messages if m.role != "system"],
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        model=fb_model,
+                        temperature=temperature,
+                    )
+                else:
+                    raise
         except Exception as e:
             err = {"type": "error", "message": str(e)}
             yield f"data: {json.dumps(err, ensure_ascii=False)}\n\n".encode("utf-8")
         # after stream, send citations and prompt
         citations: List[Citation] = []
-        for idx, (cr, score) in enumerate(retrieved, start=1):
+        for idx, (cr, _score) in enumerate(retrieved, start=1):
             name = cr.metadata.get("name") if isinstance(cr.metadata, dict) else cr.document_id
-            snippet = (cr.text or "").strip()
-            if len(snippet) > 200:
-                snippet = snippet[:200] + "…"
-            citations.append(
-                Citation(
-                    document_id=cr.document_id,
-                    name=name,
-                    chunk_id=cr.chunk_id,
-                    score=float(score),
-                    snippet=snippet,
-                )
-            )
-        final = {"type": "done", "citations": [c.dict() for c in citations], "used_prompt": sys_prompt}
+            page = None
+            if isinstance(cr.metadata, dict):
+                p = cr.metadata.get("page")
+                if isinstance(p, int):
+                    page = p
+            citations.append(Citation(name=name, page=page))
+
+        # Log the chat message and include answer_id
+        store = get_chat_store(cfg)
+        answer_id = store.insert_chat_message(
+            user_id=current_user.id,
+            question=last_user,
+            answer=acc,
+            citations=[c.dict() for c in citations],
+            used_prompt=sys_prompt,
+        )
+
+        final = {"type": "done", "citations": [c.dict() for c in citations], "used_prompt": sys_prompt, "answer_id": answer_id}
         yield f"data: {json.dumps(final, ensure_ascii=False)}\n\n".encode("utf-8")
 
     return StreamingResponse(iter_events(), media_type="text/event-stream")

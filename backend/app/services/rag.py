@@ -33,9 +33,14 @@ def retrieve(
 
 def build_context_snippets(chunks: List[Tuple[ChunkRecord, float]]) -> str:
     lines: List[str] = []
-    for i, (cr, score) in enumerate(chunks, start=1):
+    for i, (cr, _score) in enumerate(chunks, start=1):
         name = cr.metadata.get("name") if isinstance(cr.metadata, dict) else None
-        header = f"[Source {i}] doc={name or cr.document_id} chunk={cr.cindex} score={score:.3f}"
+        page = None
+        if isinstance(cr.metadata, dict):
+            p = cr.metadata.get("page")
+            if isinstance(p, int):
+                page = p
+        header = f"[Source {i}] doc={name or cr.document_id}" + (f" page={page}" if page is not None else "")
         lines.append(header)
         lines.append(cr.text.strip())
         lines.append("")
@@ -48,4 +53,3 @@ def system_prompt_guidance() -> str:
         "Cite sources inline as [n] where n is the 1-based index of the source.\n"
         "Only answer from the provided sources; if the answer is not present, say you don't know.\n"
     )
-

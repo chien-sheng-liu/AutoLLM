@@ -19,17 +19,21 @@ class GeminiChatProvider(ChatProvider):
     def __init__(self, api_key: str):
         self.api_key = api_key
 
-    def complete(self, messages: List[dict], model: str, temperature: float = 0.2) -> str:
+    def complete(
+        self, messages: List[dict], model: str, temperature: float = 0.2, *, max_tokens: int | None = None, top_p: float | None = None, **_: dict
+    ) -> str:
         # Convert OpenAI-style messages to Gemini contents
         contents = []
         for m in messages:
             role = "user" if m.get("role") == "user" else ("model" if m.get("role") == "assistant" else "user")
             contents.append({"role": role, "parts": [{"text": m.get("content", "")}]} )
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={parse.quote(self.api_key)}"
-        payload = {
-            "contents": contents,
-            "generationConfig": {"temperature": temperature},
-        }
+        gen: dict = {"temperature": temperature}
+        if top_p is not None:
+            gen["topP"] = float(top_p)
+        if max_tokens is not None:
+            gen["maxOutputTokens"] = int(max_tokens)
+        payload = {"contents": contents, "generationConfig": gen}
         data = _http_post(url, payload, headers={})
         try:
             return data["candidates"][0]["content"]["parts"][0]["text"]
@@ -58,4 +62,3 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
                 vec = []
             out.append(np.array(vec, dtype=np.float32))
         return out
-

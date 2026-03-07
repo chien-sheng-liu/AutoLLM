@@ -11,7 +11,7 @@ This document guides agents/builders working in this repo. Follow these rules fo
 - Backend (`backend/`):
   - API: FastAPI under `/api/v1/*`.
   - Ingestion: file upload -> parse -> chunk -> embed (OpenAI) -> store.
-  - Vector store: SQLite for metadata + binary embedding blobs; cosine similarity in Python (numpy). No external DB required.
+  - Vector store: PostgreSQL + pgvector for metadata & embeddings; similarity via SQL (cosine distance). Tables: `documents`, `chunks`, `embeddings` (vector column).
   - RAG: top-k retrieval -> grounding context -> OpenAI chat completion.
   - Provenance: every answer returns citations with document, chunk id, and snippet.
   - Config: persisted JSON for workspace settings (chunk size/overlap, top_k, model names).
@@ -47,7 +47,7 @@ backend/
     storage/
       vector_store.py
       user_store.py
-  data/            # created at runtime (docs/, rag.sqlite, config.json)
+  data/            # created at runtime (docs/, config.json)
   requirements.txt
 
 frontend/
@@ -105,9 +105,9 @@ frontend/
   - `OPENAI_API_KEY` (required)
   - `OPENAI_CHAT_MODEL` (default: gpt-4o-mini)
   - `OPENAI_EMBEDDING_MODEL` (default: text-embedding-3-small)
-  - `DB_PATH` (default: backend/data/rag.sqlite)
   - `DATA_DIR` (default: backend/data)
   - `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`, `POSTGRES_HOST` (Docker Compose Postgres service uses host `postgres`; backend auto-uses port 5432 when host is `postgres`)
+  - `EMBEDDING_DIM` (pgvector column dimension; must match embedding model output size)
   - `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `JWT_EXPIRES_MINUTES` (JWT issuance for auth)
 - Frontend:
   - `NEXT_PUBLIC_API_BASE_URL` (e.g., http://localhost:8000)

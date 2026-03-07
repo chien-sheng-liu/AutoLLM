@@ -1,19 +1,30 @@
 import { clearSession, getAccessToken, type AuthUser } from '@/lib/session';
 
 export type Message = { role: 'system' | 'user' | 'assistant'; content: string };
-export type Citation = { document_id: string; name: string; chunk_id: string; score: number; snippet: string };
+export type Citation = { name: string; page?: number | null };
 export type Config = {
   chat_provider?: 'openai' | 'gemini' | 'anthropic' | string;
   embedding_provider?: 'openai' | 'gemini' | 'anthropic' | string;
   chat_model: string;
   embedding_model: string;
+  temperature?: number;
   chunk_size: number;
   chunk_overlap: number;
   top_k: number;
+  fallback_chat_provider?: string | null;
+  fallback_chat_model?: string | null;
+  // Simple mode fields
+  ui_mode?: 'simple' | 'advanced' | string;
+  preset?: 'qna' | 'summarize' | 'extract' | 'brainstorm' | 'compliance' | string;
+  creativity?: 'precise' | 'balanced' | 'creative' | string;
+  answer_length?: 'short' | 'medium' | 'long' | string;
+  show_sources?: boolean;
+  override_retrieval?: boolean;
+  override_generation?: boolean;
 };
 export type DocumentItem = { document_id: string; name: string };
 export type DocumentsList = { items: DocumentItem[] };
-export type ChatResponse = { answer: string; citations?: Citation[]; used_prompt?: string };
+export type ChatResponse = { answer: string; citations?: Citation[]; used_prompt?: string; answer_id: string };
 export type LoginResult = { access_token: string; token_type: string; user: AuthUser };
 
 function shouldRedirectOn401() {
@@ -88,7 +99,7 @@ export async function uploadDocument(file: File): Promise<{ document_id: string;
   });
 }
 
-export async function chat(messages: Message[], options?: { top_k?: number; temperature?: number; chat_model?: string }): Promise<ChatResponse> {
+export async function chat(messages: Message[], options?: { top_k?: number; temperature?: number; chat_model?: string; chat_provider?: string }): Promise<ChatResponse> {
   return apiFetch<ChatResponse>(`/api/v1/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -98,13 +109,13 @@ export async function chat(messages: Message[], options?: { top_k?: number; temp
 
 export type ChatStreamEvent =
   | { type: 'delta'; content: string }
-  | { type: 'done'; citations?: Citation[]; used_prompt?: string }
+  | { type: 'done'; citations?: Citation[]; used_prompt?: string; answer_id: string }
   | { type: 'error'; message: string };
 
 export async function chatStream(
   messages: Message[],
   onEvent: (ev: ChatStreamEvent) => void,
-  options?: { top_k?: number; temperature?: number; chat_model?: string; signal?: AbortSignal }
+  options?: { top_k?: number; temperature?: number; chat_model?: string; chat_provider?: string; signal?: AbortSignal }
 ): Promise<void> {
   const ctrl = new AbortController();
   const signal = options?.signal || ctrl.signal;
@@ -118,6 +129,10 @@ export async function chatStream(
     signal,
   });
   if (!res.ok || !res.body) {
+    if (res.status === 401 && shouldRedirectOn401()) {
+      clearSession();
+      if (typeof window !== 'undefined') window.location.href = '/login';
+    }
     const text = await res.text().catch(() => '');
     throw new Error(text || `Stream failed (${res.status})`);
   }
@@ -141,6 +156,14 @@ export async function chatStream(
       }
     }
   }
+}
+
+export async function sendFeedback(answerId: string, vote: 'up'|'down'): Promise<{ ok: boolean }>{
+  return apiFetch<{ ok: boolean }>(`/api/v1/feedback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ answer_id: answerId, vote }),
+  });
 }
 
 export function uploadDocumentWithProgress(file: File, onProgress: (pct: number) => void): Promise<{ document_id: string; name: string }> {

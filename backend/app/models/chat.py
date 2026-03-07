@@ -12,17 +12,25 @@ class ChatRequest(BaseModel):
     top_k: Optional[int] = None
     temperature: Optional[float] = 0.2
     chat_model: Optional[str] = None
+    chat_provider: Optional[str] = None
 
 
 class Citation(BaseModel):
-    document_id: str
     name: str
-    chunk_id: str
-    score: float
-    snippet: str
+    page: Optional[int] = None
 
 
 class ChatResponse(BaseModel):
     answer: str
     citations: List[Citation]
     used_prompt: str
+    answer_id: str
+
+
+class FeedbackRequest(BaseModel):
+    answer_id: str
+    vote: Literal["up", "down"]
+
+
+class FeedbackResponse(BaseModel):
+    ok: bool = True

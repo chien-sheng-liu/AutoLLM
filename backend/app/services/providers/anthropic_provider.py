@@ -18,7 +18,7 @@ class AnthropicChatProvider(ChatProvider):
     def __init__(self, api_key: str):
         self.api_key = api_key
 
-    def complete(self, messages: List[dict], model: str, temperature: float = 0.2) -> str:
+    def complete(self, messages: List[dict], model: str, temperature: float = 0.2, *, max_tokens: int | None = None, top_p: float | None = None, **_: dict) -> str:
         # Anthropic Messages API expects system prompt separately and messages without system
         system = None
         converted: List[dict] = []
@@ -32,10 +32,12 @@ class AnthropicChatProvider(ChatProvider):
                 converted.append({"role": role, "content": m.get("content", "")})
         payload = {
             "model": model,
-            "max_tokens": 1024,
+            "max_tokens": int(max_tokens) if max_tokens is not None else 1024,
             "temperature": temperature,
             "messages": converted,
         }
+        if top_p is not None:
+            payload["top_p"] = float(top_p)
         if system:
             payload["system"] = system
         headers = {
@@ -47,4 +49,3 @@ class AnthropicChatProvider(ChatProvider):
             return data["content"][0]["text"]
         except Exception:
             return data.get("output_text") or ""
-

@@ -40,7 +40,7 @@ async def upload_document(file: UploadFile = File(...)):
     cfg = load_config()
     # Validate embedding provider/API key via service initialization
     docs_path = docs_dir(cfg)
-    store = VectorStore(cfg.db_path)
+    store = VectorStore(cfg)
     embedder = EmbeddingService.from_config(cfg)
 
     # Persist file first
@@ -53,10 +53,27 @@ async def upload_document(file: UploadFile = File(...)):
         f.write(contents)
 
     # Ingest
-    text = _read_file_content(save_path)
-    chunks = chunk_text(text, cfg.chunk_size, cfg.chunk_overlap)
-    chunk_ids = store.add_chunks(doc_id, chunks, metadatas=[{"ext": ext, "name": filename} for _ in chunks])
-    vectors = embedder.embed_texts(chunks)
+    texts: List[str] = []
+    metadatas: List[dict] = []
+    if ext.lower() == ".pdf":
+        try:
+            from pypdf import PdfReader
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"PDF parsing requires pypdf: {e}")
+        reader = PdfReader(save_path)
+        for idx, page in enumerate(reader.pages, start=1):
+            page_text = page.extract_text() or ""
+            for ch in chunk_text(page_text, cfg.chunk_size, cfg.chunk_overlap):
+                texts.append(ch)
+                metadatas.append({"ext": ext, "name": filename, "page": idx})
+    else:
+        text = _read_file_content(save_path)
+        for ch in chunk_text(text, cfg.chunk_size, cfg.chunk_overlap):
+            texts.append(ch)
+            metadatas.append({"ext": ext, "name": filename, "page": 1})
+
+    chunk_ids = store.add_chunks(doc_id, texts, metadatas=metadatas)
+    vectors = embedder.embed_texts(texts)
     store.upsert_embeddings(chunk_ids, vectors)
 
     return UploadResponse(document_id=doc_id, name=filename)
@@ -65,7 +82,7 @@ async def upload_document(file: UploadFile = File(...)):
 @router.get("", response_model=DocumentList)
 def list_documents():
     cfg = load_config()
-    store = VectorStore(cfg.db_path)
+    store = VectorStore(cfg)
     items = [DocumentInfo(**d) for d in store.get_documents()]
     return DocumentList(items=items)
 
@@ -73,7 +90,7 @@ def list_documents():
 @router.delete("/{document_id}")
 def delete_document(document_id: str):
     cfg = load_config()
-    store = VectorStore(cfg.db_path)
+    store = VectorStore(cfg)
     # Remove metadata/embeddings
     store.delete_document(document_id)
     # Remove file if exists

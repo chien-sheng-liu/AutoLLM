@@ -9,7 +9,6 @@ services:
       - .env
     environment:
       - DATA_DIR=/app/data
-      - DB_PATH=/app/data/rag.sqlite
     ports:
       - "8000:8000"
     volumes:
@@ -29,7 +28,7 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: postgres:15
+    image: ankane/pgvector:latest
     container_name: autollm-postgres
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-autollm}
