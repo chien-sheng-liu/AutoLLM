@@ -30,7 +30,7 @@ export default function GuidePage() {
           <div className="mb-2 text-sm font-semibold">2) 上傳與索引</div>
           <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
             <li>前往「資料」頁，上傳 <strong>.txt</strong> 或 <strong>.pdf</strong>。</li>
-            <li>系統自動：切分 → 向量化（OpenAI） → 儲存（SQLite）。</li>
+            <li>系統自動：切分 → 向量化（OpenAI） → 儲存（PostgreSQL + pgvector）。</li>
             <li>完成後會顯示於列表，並可被檢索。</li>
           </ul>
         </div>
@@ -79,7 +79,6 @@ export default function GuidePage() {
               <li>OPENAI_API_KEY（必要）</li>
               <li>OPENAI_CHAT_MODEL（預設 gpt-4o-mini）</li>
               <li>OPENAI_EMBEDDING_MODEL（預設 text-embedding-3-small）</li>
-              <li>DB_PATH（預設 backend/data/rag.sqlite）</li>
               <li>DATA_DIR（預設 backend/data）</li>
             </ul>
           </div>
@@ -128,4 +127,3 @@ npm install && npm run dev`}
     </div>
   );
 }
-

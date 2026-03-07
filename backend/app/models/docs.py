@@ -16,3 +16,5 @@ class UploadResponse(BaseModel):
     document_id: str
     name: str
 
+
+# Content search models removed per request

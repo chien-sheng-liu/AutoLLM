@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { listDocuments, deleteDocument, uploadDocumentWithProgress, type DocumentsList } from "@/lib/api";
 import { showToast } from "@/app/components/Toaster";
 import Button, { buttonClasses } from "@/app/components/ui/Button";
@@ -27,6 +27,8 @@ export default function DataPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTargets, setConfirmTargets] = useState<string[]>([]);
+  // content quick search removed per request
+  const nameSearchRef = useRef<HTMLInputElement>(null);
 
   function isAllowed(f: File) {
     const ext = f.name.toLowerCase();
@@ -59,6 +61,8 @@ export default function DataPage() {
   useEffect(() => {
     refresh();
   }, []);
+
+  // content quick search removed per request
 
   const overallProgress = useMemo(() => {
     if (!uploading || selectedFiles.length === 0) return 0;
@@ -134,6 +138,20 @@ export default function DataPage() {
     return arr;
   }, [docs, query, sortAsc]);
 
+  // Keyboard shortcut to focus name/ID search
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || (target as any)?.isContentEditable)) return;
+      if (e.key === '/') {
+        e.preventDefault();
+        nameSearchRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
     <div className="grid gap-6">
       {/* Header */}
@@ -207,7 +225,7 @@ export default function DataPage() {
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <div className="relative w-64"><Input placeholder="搜尋名稱或 ID…" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
+          <div className="relative w-72"><Input ref={nameSearchRef} placeholder="搜尋名稱或 ID…（按 / 聚焦）" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
           <Button variant="outline" onClick={() => setSortAsc((s) => !s)}>名稱 {sortAsc ? "A→Z" : "Z→A"}</Button>
         </div>
         <div className="flex items-center gap-2">
@@ -281,7 +299,7 @@ export default function DataPage() {
           </>
         }
       >
-        此動作無法復原，確定要刪除選取的 {confirmTargets.length} 筆文件？
+        此動作無法復原，將從資料庫與索引中永久刪除選取的 {confirmTargets.length} 筆文件，確定要刪除？
       </Modal>
     </div>
   );

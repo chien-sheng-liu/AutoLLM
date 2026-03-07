@@ -7,7 +7,7 @@ import python from "highlight.js/lib/languages/python";
 import bash from "highlight.js/lib/languages/bash";
 import jsonLang from "highlight.js/lib/languages/json";
 import markdown from "highlight.js/lib/languages/markdown";
-import "highlight.js/styles/github-dark.css";
+import "highlight.js/styles/github.css";
 import { showToast } from "@/app/components/Toaster";
 
 hljs.registerLanguage('javascript', javascript);
@@ -41,10 +41,20 @@ export default function CodeBlock({ code, lang }: { code: string; lang?: string 
 
   return (
     <div className="relative">
-      <pre className="rounded-xl border border-gray-200 bg-neutral-900 p-3 text-neutral-100 dark:border-neutral-800">
+      {(lang || '').length > 0 && (
+        <div className="pointer-events-none absolute left-2 top-2 rounded bg-gray-200/80 px-2 py-0.5 text-[11px] uppercase tracking-wide text-gray-700 dark:bg-neutral-700/60 dark:text-gray-200">
+          {lang}
+        </div>
+      )}
+      <pre className="overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-2 text-gray-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-gray-100">
         <code ref={ref} />
       </pre>
-      <button onClick={copy} className="absolute right-2 top-2 rounded-md border border-gray-700/40 bg-neutral-800/60 px-2 py-1 text-xs text-gray-200 hover:bg-neutral-700">複製</button>
+      <button
+        onClick={copy}
+        className="absolute right-2 top-2 rounded-md border border-gray-200 bg-white/80 px-2 py-0.5 text-xs text-gray-700 shadow hover:bg-white dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200"
+      >
+        複製
+      </button>
     </div>
   );
 }

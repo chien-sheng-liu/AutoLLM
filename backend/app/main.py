@@ -6,6 +6,7 @@ from .routes.chat import router as chat_router
 from .routes.docs import router as docs_router
 from .routes.config import router as config_router
 from .routes.providers import router as providers_router
+from .routes.feedback import router as feedback_router
 
 
 def create_app() -> FastAPI:
@@ -29,6 +30,7 @@ def create_app() -> FastAPI:
     app.include_router(docs_router)
     app.include_router(chat_router)
     app.include_router(providers_router)
+    app.include_router(feedback_router)
     return app
 
 

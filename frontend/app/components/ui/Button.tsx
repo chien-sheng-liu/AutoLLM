@@ -7,7 +7,7 @@ type Size = "sm" | "md";
 
 export function buttonClasses({ variant = "primary", size = "md" as Size }: { variant?: Variant; size?: Size }) {
   const base =
-    "inline-flex items-center justify-center select-none rounded-xl font-medium transition focus:outline-none disabled:opacity-60 disabled:pointer-events-none";
+    "inline-flex items-center justify-center select-none rounded-xl font-medium transition focus:outline-none disabled:opacity-60 disabled:pointer-events-none whitespace-nowrap";
   const sizes: Record<Size, string> = {
     sm: "h-9 px-3 text-sm",
     md: "h-11 px-4 text-sm",
@@ -36,4 +36,3 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
 });
 
 export default Button;
-
