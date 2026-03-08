@@ -34,6 +34,9 @@ class ConversationStore:
     def _key(self, user_id: str) -> str:
         return f"{self._key_prefix}:{user_id}"
 
+    def _msg_key(self, user_id: str, conv_id: str) -> str:
+        return f"{self._key_prefix}:msg:{user_id}:{conv_id}"
+
     def get_conversations(self, user_id: str) -> List[dict[str, Any]]:
         raw = self._client.get(self._key(user_id))
         if not raw:
@@ -86,7 +89,13 @@ class ConversationStore:
                 }
             )
         payload = {"user_id": user_id, "items": sanitized}
-        self._client.set(self._key(user_id), json.dumps(payload))
+        key = self._key(user_id)
+        self._client.set(key, json.dumps(payload))
+        try:
+            # Cache index for 3 days; Postgres remains the permanent source
+            self._client.expire(key, 3 * 24 * 3600)
+        except Exception:
+            pass
         # Write-through: ensure conversation rows exist in Postgres for this user
         try:
             from .conv_pg_store import get_conv_pg_store
@@ -119,6 +128,38 @@ class ConversationStore:
     def delete_conversation_meta(self, user_id: str, conversation_id: str) -> None:
         items = [it for it in self.get_conversations(user_id) if str(it.get("id")) != conversation_id]
         self.save_conversations(user_id, items)
+
+    # Per-conversation messages cached in Redis (3-day TTL)
+    def append_message(self, user_id: str, conversation_id: str, role: str, content: str) -> None:
+        key = self._msg_key(user_id, conversation_id)
+        try:
+            self._client.rpush(key, json.dumps({"role": role, "content": content}, ensure_ascii=False))
+            self._client.expire(key, 3 * 24 * 3600)
+        except Exception:
+            return
+
+    def get_messages(self, user_id: str, conversation_id: str) -> list[dict[str, Any]]:
+        key = self._msg_key(user_id, conversation_id)
+        try:
+            arr = self._client.lrange(key, 0, -1)
+            msgs: list[dict[str, Any]] = []
+            for s in arr or []:
+                try:
+                    d = json.loads(s)
+                    if isinstance(d, dict):
+                        msgs.append(d)
+                except Exception:
+                    continue
+            return msgs
+        except Exception:
+            return []
+
+    def delete_messages(self, user_id: str, conversation_id: str) -> None:
+        key = self._msg_key(user_id, conversation_id)
+        try:
+            self._client.delete(key)
+        except Exception:
+            pass
 
     def clear(self, user_id: str) -> None:
         self._client.delete(self._key(user_id))

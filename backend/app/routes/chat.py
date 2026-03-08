@@ -144,9 +144,12 @@ def chat(req: ChatRequest, current_user: UserOut = Depends(get_current_user)):
     # Persist conversation + messages
     conv_store = get_conv_pg_store(cfg)
     conv = conv_store.get_or_create_conversation(user_id=current_user.id, conversation_id=req.conversation_id, title=title_from_first_user_message(req.messages))
-    # append user and assistant messages
+    cache = get_conversation_store(cfg)
+    # append user and assistant messages to Postgres (audit) and Redis (cache)
     conv_store.append_message(user_id=current_user.id, conversation_id=conv["id"], role="user", content=last_user)
+    cache.append_message(current_user.id, conv["id"], "user", last_user)
     conv_store.append_message(user_id=current_user.id, conversation_id=conv["id"], role="assistant", content=answer)
+    cache.append_message(current_user.id, conv["id"], "assistant", answer)
 
     # Log chat message and return answer_id (legacy table)
     store = get_chat_store(cfg)
@@ -208,7 +211,9 @@ def chat_stream(req: ChatRequest, current_user: UserOut = Depends(get_current_us
             # persist conversation + the initial user message
             conv_store = get_conv_pg_store(cfg)
             conv = conv_store.get_or_create_conversation(user_id=current_user.id, conversation_id=req.conversation_id, title=title_from_first_user_message(req.messages))
+            cache = get_conversation_store(cfg)
             conv_store.append_message(user_id=current_user.id, conversation_id=conv["id"], role="user", content=last_user)
+            cache.append_message(current_user.id, conv["id"], "user", last_user)
             try:
                 for delta in provider.stream(
                     messages=[
@@ -261,6 +266,7 @@ def chat_stream(req: ChatRequest, current_user: UserOut = Depends(get_current_us
         # Persist assistant message in Postgres conversation messages
         try:
             conv_store.append_message(user_id=current_user.id, conversation_id=conv["id"], role="assistant", content=acc)
+            cache.append_message(current_user.id, conv["id"], "assistant", acc)
         except Exception:
             pass
 
@@ -294,43 +300,10 @@ def title_from_first_user_message(msgs: list[dict]) -> str:
 @router.get("/chat/conversations", response_model=ConversationListPayload)
 def list_conversations(current_user: UserOut = Depends(get_current_user)):
     cfg = load_config()
-    pg = get_conv_pg_store(cfg)
-    rows = pg.list_conversations(user_id=current_user.id)
-    # Fallback: if no rows in Postgres yet (legacy Redis-only), hydrate from Redis and write-through
-    if not rows:
-        legacy = get_conversation_store(cfg).get_conversations(current_user.id)
-        if legacy:
-            from datetime import datetime
-            hydrated = []
-            for it in legacy:
-                try:
-                    cid = str(it.get("id") or "").strip() or None
-                    title = str(it.get("title") or "新的對話")
-                    conv = pg.get_or_create_conversation(user_id=current_user.id, conversation_id=cid, title=title)
-                    hydrated.append(conv)
-                    # optional: message hydration moved to explicit migrate endpoint to avoid double-writes
-                except Exception:
-                    continue
-            if hydrated:
-                rows = pg.list_conversations(user_id=current_user.id)
-    items = []
-    from datetime import datetime
-    for r in rows:
-        try:
-            # best-effort to convert to epoch ms
-            def to_ms(txt: str) -> int:
-                dt = datetime.fromisoformat(txt.replace("Z", "+00:00"))
-                return int(dt.timestamp() * 1000)
-            items.append({
-                "id": r["id"],
-                "title": r["title"],
-                "createdAt": to_ms(r["created_at"]),
-                "updatedAt": to_ms(r["updated_at"]),
-                "messages": [],
-            })
-        except Exception:
-            items.append({"id": r["id"], "title": r["title"], "createdAt": 0, "updatedAt": 0, "messages": []})
-    return ConversationListPayload(items=items)
+    store = get_conversation_store(cfg)
+    items = store.get_conversations(current_user.id)
+    # Serve Redis as the canonical UI list; do not resurrect deleted items from Postgres
+    return ConversationListPayload(items=items or [])
 
 
 @router.put("/chat/conversations", response_model=ConversationListPayload)
@@ -349,12 +322,12 @@ class MessagesResponse(BaseModel):
 @router.get("/chat/conversations/{conversation_id}", response_model=MessagesResponse)
 def get_conversation_messages(conversation_id: str, current_user: UserOut = Depends(get_current_user)):
     cfg = load_config()
-    pg = get_conv_pg_store(cfg)
-    rows = pg.get_messages(user_id=current_user.id, conversation_id=conversation_id)
+    cache = get_conversation_store(cfg)
+    raw = cache.get_messages(current_user.id, conversation_id)
     msgs: List[MessageModel] = []
-    for r in rows:
-        role = (r.get("role") or "assistant").lower()
-        content = r.get("content") or ""
+    for r in raw:
+        role = (str(r.get("role")) or "assistant").lower()
+        content = str(r.get("content") or "")
         if role in ("system", "user", "assistant") and content:
             msgs.append(MessageModel(role=role, content=content))
     return MessagesResponse(messages=msgs)
@@ -419,6 +392,7 @@ def delete_conversation(conversation_id: str, current_user: UserOut = Depends(ge
         raise HTTPException(status_code=404, detail="Conversation not found")
     try:
         store.delete_conversation_meta(current_user.id, conversation_id)
+        store.delete_messages(current_user.id, conversation_id)
     except Exception:
         pass
     return {"ok": True}
