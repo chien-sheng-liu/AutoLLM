@@ -1,4 +1,5 @@
 import { clearSession, getAccessToken, type AuthUser } from '@/lib/session';
+import type { Conversation } from '@/lib/conversations';
 
 export type Message = { role: 'system' | 'user' | 'assistant'; content: string };
 export type Citation = { name: string; page?: number | null };
@@ -159,6 +160,20 @@ export async function chatStream(
       }
     }
   }
+}
+
+export async function fetchConversations(): Promise<Conversation[]> {
+  const res = await apiFetch<{ items: Conversation[] }>(`/api/v1/chat/conversations`, { cache: 'no-store' });
+  return res.items || [];
+}
+
+export async function persistConversations(conversations: Conversation[]): Promise<Conversation[]> {
+  const res = await apiFetch<{ items: Conversation[] }>(`/api/v1/chat/conversations`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items: conversations }),
+  });
+  return res.items || [];
 }
 
 export async function sendFeedback(answerId: string, vote: 'up'|'down'): Promise<{ ok: boolean }>{

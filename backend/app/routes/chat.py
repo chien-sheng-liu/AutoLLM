@@ -1,19 +1,44 @@
-from typing import List, Generator
+from typing import List, Generator, Literal
 
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 import json
+from pydantic import BaseModel, Field
 from ..config import load_config
 from ..models.chat import ChatRequest, ChatResponse, Citation
 from ..services.embeddings import EmbeddingService
 from ..services.rag import retrieve, build_context_snippets, system_prompt_guidance
 from ..storage.vector_store import VectorStore
 from ..storage.chat_store import get_chat_store
+from ..storage.conversation_store import get_conversation_store
 from ..services.providers.factory import get_chat_provider
 from ..dependencies.auth import get_current_user
 from ..models.auth import UserOut
 from dataclasses import replace
 from ..storage.user_store import get_user_store
+
+
+class ConversationMessagePayload(BaseModel):
+    role: Literal["system", "user", "assistant"]
+    content: str = Field(..., min_length=1)
+
+
+class ConversationPayload(BaseModel):
+    id: str = Field(..., min_length=1, max_length=128)
+    title: str = Field(..., min_length=1, max_length=200)
+    messages: List[ConversationMessagePayload] = Field(default_factory=list)
+    created_at: int = Field(..., alias="createdAt")
+    updated_at: int = Field(..., alias="updatedAt")
+
+    class Config:
+        populate_by_name = True
+
+
+class ConversationListPayload(BaseModel):
+    items: List[ConversationPayload] = Field(default_factory=list)
+
+    class Config:
+        populate_by_name = True
 
 
 router = APIRouter(
@@ -216,3 +241,21 @@ def chat_stream(req: ChatRequest, current_user: UserOut = Depends(get_current_us
         yield f"data: {json.dumps(final, ensure_ascii=False)}\n\n".encode("utf-8")
 
     return StreamingResponse(iter_events(), media_type="text/event-stream")
+
+
+@router.get("/chat/conversations", response_model=ConversationListPayload)
+def list_conversations(current_user: UserOut = Depends(get_current_user)):
+    cfg = load_config()
+    store = get_conversation_store(cfg)
+    raw_items = store.get_conversations(current_user.id)
+    payload = ConversationListPayload(items=raw_items)
+    return payload
+
+
+@router.put("/chat/conversations", response_model=ConversationListPayload)
+def save_conversations(payload: ConversationListPayload, current_user: UserOut = Depends(get_current_user)):
+    cfg = load_config()
+    store = get_conversation_store(cfg)
+    serialized = payload.model_dump(by_alias=True)
+    store.save_conversations(current_user.id, serialized.get("items", []))
+    return payload
