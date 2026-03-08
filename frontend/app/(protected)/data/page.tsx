@@ -327,8 +327,8 @@ export default function DataPage() {
       <div className="grid gap-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold">可用資料</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">您可在聊天中引用以下文件。</p>
+            <h2 className="text-xl font-semibold">所有文件（僅檢視）</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400">您可以檢視所有文件並複製 ID，但不可變更。</p>
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             <span className="rounded-full border border-gray-200 px-3 py-1 dark:border-neutral-700">{loading ? '—' : docs.length} 份文件</span>

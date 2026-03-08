@@ -7,6 +7,7 @@ from pydantic import BaseModel, EmailStr
 from ..config import load_config, docs_dir
 from ..models.docs import UploadResponse, DocumentList, DocumentInfo
 from ..dependencies.auth import get_current_user, require_admin, require_manager
+from ..models.auth import UserOut
 from ..storage.vector_store import VectorStore
 from ..storage.vector_redis_store import RedisVectorStore
 from ..services.embeddings import EmbeddingService
@@ -155,22 +156,12 @@ async def upload_document(file: UploadFile = File(...), current_user=Depends(req
 
 
 @router.get("", response_model=DocumentList)
-def list_documents(current_user: UserOut = Depends(get_current_user)):
+def list_documents(_: UserOut = Depends(get_current_user)):
     cfg = load_config()
     store = VectorStore(cfg)
-    raw = store.get_documents()
-    # Role-based filtering: admin/manager see all; users see only permitted docs
-    auth = (getattr(current_user, 'auth', 'user') or 'user').lower()
-    if auth in ('admin', 'administrator', 'manager'):
-        items = [DocumentInfo(**d) for d in raw]
-        return DocumentList(items=items)
-    try:
-        ust = get_user_store(cfg)
-        allowed = set(ust.get_user_allowed_docs(current_user.id) or [])
-    except Exception:
-        allowed = set()
-    filtered = [d for d in raw if d.get('document_id') in allowed]
-    return DocumentList(items=[DocumentInfo(**d) for d in filtered])
+    # Show all documents to any authenticated user; modifications remain restricted elsewhere
+    items = [DocumentInfo(**d) for d in store.get_documents()]
+    return DocumentList(items=items)
 
 
 ## Removed content search endpoint per request
