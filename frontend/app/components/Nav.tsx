@@ -17,18 +17,10 @@ export default function Nav() {
   }, [pathname]);
 
   useEffect(() => {
-    // Best-effort: refresh profile to get latest auth
+    // Best-effort: refresh profile to get latest auth for this tab only
     fetchProfile().then((u) => {
-      try { window.localStorage.setItem('autollm_user', JSON.stringify(u)); } catch {}
       setUser(u);
     }).catch(() => {});
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === 'autollm_user' || e.key === 'autollm_token') {
-        setUser(getStoredUser());
-      }
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   if (pathname?.startsWith('/login') || pathname?.startsWith('/register')) {

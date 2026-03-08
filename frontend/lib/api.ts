@@ -13,6 +13,10 @@ export type Config = {
   top_k: number;
   fallback_chat_provider?: string | null;
   fallback_chat_model?: string | null;
+  // Provider keys status (GET only)
+  has_openai_key?: boolean;
+  has_google_key?: boolean;
+  has_anthropic_key?: boolean;
   // Simple mode fields
   ui_mode?: 'simple' | 'advanced' | string;
   preset?: 'qna' | 'summarize' | 'extract' | 'brainstorm' | 'compliance' | string;
@@ -66,7 +70,11 @@ export async function getConfig(): Promise<Config> {
   return apiFetch<Config>(`/api/v1/config`, { cache: 'no-store' });
 }
 
-export async function updateConfig(payload: Partial<Config> & Pick<Config, 'chat_model'|'embedding_model'|'chunk_size'|'chunk_overlap'|'top_k'>): Promise<Config> {
+export async function updateConfig(payload: Partial<Config> & Pick<Config, 'chat_model'|'embedding_model'|'chunk_size'|'chunk_overlap'|'top_k'> & {
+  openai_api_key?: string | null;
+  google_api_key?: string | null;
+  anthropic_api_key?: string | null;
+}): Promise<Config> {
   return apiFetch<Config>(`/api/v1/config`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },

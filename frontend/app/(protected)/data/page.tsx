@@ -161,7 +161,6 @@ export default function DataPage() {
     setAuthLoaded(true);
     fetchProfile()
       .then((profile) => {
-        try { window.localStorage.setItem('autollm_user', JSON.stringify(profile)); } catch {}
         setAuthRole(normalizeAuth(profile?.auth));
         setAuthLoaded(true);
       })
