@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 from ..config import load_config, save_config
 from ..dependencies.auth import get_current_user, require_admin
+from ..models.auth import UserOut
 
 
 router = APIRouter(
@@ -13,6 +14,10 @@ router = APIRouter(
 
 
 class ConfigPayload(BaseModel):
+    # Provider keys (admin set via settings page)
+    openai_api_key: str | None = None
+    google_api_key: str | None = None
+    anthropic_api_key: str | None = None
     chat_provider: str | None = None
     embedding_provider: str | None = None
     chat_model: str
@@ -38,9 +43,10 @@ class ConfigPayload(BaseModel):
 
 
 @router.get("")
-def get_config():
+def get_config(current_user: UserOut = Depends(get_current_user)):
     cfg = load_config()
-    return {
+    is_admin = (getattr(current_user, 'auth', 'user') or 'user').lower() in ('admin','administrator')
+    resp = {
         "chat_provider": cfg.chat_provider,
         "embedding_provider": cfg.embedding_provider,
         "chat_model": cfg.chat_model,
@@ -63,12 +69,26 @@ def get_config():
         "override_retrieval": cfg.override_retrieval,
         "override_generation": cfg.override_generation,
     }
+    # Provider keys exposure: only admin sees masked indicators; no raw keys in GET
+    resp.update({
+        "has_openai_key": bool(cfg.openai_api_key),
+        "has_google_key": bool(cfg.google_api_key),
+        "has_anthropic_key": bool(cfg.anthropic_api_key),
+    })
+    return resp
 
 
 @router.put("")
 def update_config(payload: ConfigPayload, _: str = Depends(require_admin)):
     cfg = load_config()
     # Update high-level fields first
+    # Provider keys (admin only). Empty string clears the key.
+    if payload.openai_api_key is not None:
+        cfg.openai_api_key = payload.openai_api_key.strip() or None
+    if payload.google_api_key is not None:
+        cfg.google_api_key = payload.google_api_key.strip() or None
+    if payload.anthropic_api_key is not None:
+        cfg.anthropic_api_key = payload.anthropic_api_key.strip() or None
     if payload.ui_mode:
         cfg.ui_mode = payload.ui_mode
     if payload.preset:
@@ -189,4 +209,7 @@ def update_config(payload: ConfigPayload, _: str = Depends(require_admin)):
         "show_sources": cfg.show_sources,
         "override_retrieval": cfg.override_retrieval,
         "override_generation": cfg.override_generation,
+        "has_openai_key": bool(cfg.openai_api_key),
+        "has_google_key": bool(cfg.google_api_key),
+        "has_anthropic_key": bool(cfg.anthropic_api_key),
     }

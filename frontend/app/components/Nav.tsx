@@ -17,18 +17,10 @@ export default function Nav() {
   }, [pathname]);
 
   useEffect(() => {
-    // Best-effort: refresh profile to get latest auth
+    // Best-effort: refresh profile to get latest auth for this tab only
     fetchProfile().then((u) => {
-      try { window.localStorage.setItem('autollm_user', JSON.stringify(u)); } catch {}
       setUser(u);
     }).catch(() => {});
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === 'autollm_user' || e.key === 'autollm_token') {
-        setUser(getStoredUser());
-      }
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   if (pathname?.startsWith('/login') || pathname?.startsWith('/register')) {
@@ -47,8 +39,9 @@ export default function Nav() {
     }
   }
 
-  const isAdmin = ((user?.auth || '') as string).toLowerCase();
-  const canAdmin = isAdmin === 'admin' || isAdmin === 'administrator';
+  const role = ((user?.auth || '') as string).toLowerCase();
+  const canAdmin = role === 'admin' || role === 'administrator';
+  const canManage = canAdmin || role === 'manager';
 
   return (
     <div className="sticky top-0 z-50 border-b border-gray-200/70 bg-white/70 backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/60">
@@ -60,7 +53,9 @@ export default function Nav() {
         <nav className="flex flex-1 items-center justify-center gap-2 text-sm">
           <Link className={`${buttonClasses({ variant: 'outline', size: 'sm' })} ${isActive("/") ? 'bg-gray-100 dark:bg-neutral-800' : ''}`} href="/">首頁</Link>
           <Link className={`${buttonClasses({ variant: 'outline', size: 'sm' })} ${isActive("/chat") ? 'bg-gray-100 dark:bg-neutral-800' : ''}`} href="/chat">聊天</Link>
-          <Link className={`${buttonClasses({ variant: 'outline', size: 'sm' })} ${isActive("/data") ? 'bg-gray-100 dark:bg-neutral-800' : ''}`} href="/data">資料</Link>
+          {canManage && (
+            <Link className={`${buttonClasses({ variant: 'outline', size: 'sm' })} ${isActive("/data") ? 'bg-gray-100 dark:bg-neutral-800' : ''}`} href="/data">資料</Link>
+          )}
           <Link className={`${buttonClasses({ variant: 'outline', size: 'sm' })} ${isActive("/settings") ? 'bg-gray-100 dark:bg-neutral-800' : ''}`} href="/settings">設定</Link>
           <Link className={`${buttonClasses({ variant: 'outline', size: 'sm' })} ${isActive("/guide") ? 'bg-gray-100 dark:bg-neutral-800' : ''}`} href="/guide">教學</Link>
           {canAdmin && (

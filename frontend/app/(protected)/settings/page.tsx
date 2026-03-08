@@ -7,6 +7,7 @@ import Button from "@/app/components/ui/Button";
 import Collapsible from "@/app/components/Collapsible";
 import Tooltip from "@/app/components/ui/Tooltip";
 import { fetchProfile } from "@/lib/api";
+import { getStoredUser } from "@/lib/session";
 import Segmented from "@/app/components/ui/Segmented";
 
 type Cfg = {
@@ -26,6 +27,10 @@ type Cfg = {
   // Fallback
   fallback_chat_provider?: string | null;
   fallback_chat_model?: string | null;
+  // Provider keys status
+  has_openai_key?: boolean;
+  has_google_key?: boolean;
+  has_anthropic_key?: boolean;
   // Simple mode fields
   ui_mode?: 'simple'|'advanced'|string;
   preset?: 'qna'|'summarize'|'extract'|'brainstorm'|'compliance'|string;
@@ -45,6 +50,10 @@ export default function SettingsPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showEmbedding, setShowEmbedding] = useState(false);
   const [tab, setTab] = useState<'simple'|'advanced'>('simple');
+  // Ephemeral API key inputs (not returned by GET); admin can set/clear them
+  const [openaiKey, setOpenaiKey] = useState<string>('');
+  const [googleKey, setGoogleKey] = useState<string>('');
+  const [anthropicKey, setAnthropicKey] = useState<string>('');
   const firstOr = <T,>(arr: T[], fallback: T) => (arr && arr.length ? arr[0] : fallback);
   const errs = (() => {
     if (!cfg) return { fatal: true } as any;
@@ -76,16 +85,11 @@ export default function SettingsPage() {
   useEffect(() => {
     // Optimistic local defaults for instant load
     try {
-      // role from session (client)
-      const raw = localStorage.getItem('autollm_user');
-      if (raw) {
-        try { const u = JSON.parse(raw); setAuth((u?.auth || 'user') as any); } catch {}
-      }
+      // role from session (per-tab)
+      const u0 = getStoredUser();
+      if (u0) setAuth((u0?.auth || 'user') as any);
       // Refresh from server to be accurate
-      fetchProfile().then((u)=>{
-        try { localStorage.setItem('autollm_user', JSON.stringify(u)); } catch {}
-        setAuth((u?.auth || 'user') as any);
-      }).catch(()=>{});
+      fetchProfile().then((u)=>{ setAuth((u?.auth || 'user') as any); }).catch(()=>{});
       const tabLS = localStorage.getItem('settings.tab') as 'simple'|'advanced'|null;
       const preset = localStorage.getItem('settings.simple.preset') as any;
       const creativity = localStorage.getItem('settings.simple.creativity') as any;
@@ -172,8 +176,16 @@ export default function SettingsPage() {
     if (!cfg) return;
     setBusy(true);
     try {
-      const saved = await updateConfig(cfg);
+      const payload: any = { ...cfg };
+      // Only send key fields if user entered something; empty string clears key
+      if (openaiKey !== '') payload.openai_api_key = openaiKey;
+      if (googleKey !== '') payload.google_api_key = googleKey;
+      if (anthropicKey !== '') payload.anthropic_api_key = anthropicKey;
+      const saved = await updateConfig(payload);
       setOrig(saved);
+      // After save, clear inputs; update has_* flags from server response
+      setOpenaiKey(''); setGoogleKey(''); setAnthropicKey('');
+      setCfg((prev)=> prev ? { ...prev, has_openai_key: saved.has_openai_key, has_google_key: saved.has_google_key, has_anthropic_key: saved.has_anthropic_key } : prev);
       alert('設定已更新');
     } catch (e: any) {
       alert(e?.message || '儲存失敗：無法儲存設定，請稍後再試');
@@ -332,6 +344,36 @@ export default function SettingsPage() {
       {/* Content */}
       <section className="col-span-12 md:col-span-9">
         <form onSubmit={onSave} className="grid gap-6">
+          {/* API Keys (Admin only) */}
+          <Card id="keys" className="p-4 md:p-5">
+            <div className="mb-3">
+              <div className="text-sm font-semibold">API 金鑰</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">僅管理員可設定。留空不變更；輸入空字串後儲存可清除。</div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-1.5">
+                <label className="text-sm">OpenAI API Key</label>
+                <div className="flex gap-2">
+                  <Input className="flex-1" type="password" placeholder={cfg?.has_openai_key ? '已設定（留空不變更）' : 'sk-...'} value={openaiKey} onChange={(e)=>setOpenaiKey(e.target.value)} />
+                  <Button type="button" variant="outline" size="sm" onClick={()=>setOpenaiKey(' ')}>清除</Button>
+                </div>
+              </div>
+              <div className="grid gap-1.5">
+                <label className="text-sm">Google API Key（Gemini）</label>
+                <div className="flex gap-2">
+                  <Input className="flex-1" type="password" placeholder={cfg?.has_google_key ? '已設定（留空不變更）' : 'AIza...'} value={googleKey} onChange={(e)=>setGoogleKey(e.target.value)} />
+                  <Button type="button" variant="outline" size="sm" onClick={()=>setGoogleKey(' ')}>清除</Button>
+                </div>
+              </div>
+              <div className="grid gap-1.5">
+                <label className="text-sm">Anthropic API Key</label>
+                <div className="flex gap-2">
+                  <Input className="flex-1" type="password" placeholder={cfg?.has_anthropic_key ? '已設定（留空不變更）' : 'api-key'} value={anthropicKey} onChange={(e)=>setAnthropicKey(e.target.value)} />
+                  <Button type="button" variant="outline" size="sm" onClick={()=>setAnthropicKey(' ')}>清除</Button>
+                </div>
+              </div>
+            </div>
+          </Card>
           {/* Mode */}
           <Card id="mode" className="p-4 md:p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">

@@ -138,9 +138,9 @@ def load_config() -> Settings:
                 postgres_user=defaults.postgres_user,
                 postgres_password=defaults.postgres_password,
                 postgres_db=defaults.postgres_db,
-                openai_api_key=defaults.openai_api_key,
-                google_api_key=defaults.google_api_key,
-                anthropic_api_key=defaults.anthropic_api_key,
+                openai_api_key=(data.get("openai_api_key") or defaults.openai_api_key),
+                google_api_key=(data.get("google_api_key") or defaults.google_api_key),
+                anthropic_api_key=(data.get("anthropic_api_key") or defaults.anthropic_api_key),
                 chat_provider=str(data.get("chat_provider", defaults.chat_provider)).lower(),
                 embedding_provider=str(data.get("embedding_provider", defaults.embedding_provider)).lower(),
                 chat_model=data.get("chat_model", defaults.chat_model),
@@ -184,6 +184,10 @@ def save_config(cfg: Settings) -> None:
     with open(config_path(cfg), "w", encoding="utf-8") as f:
         json.dump(
             {
+                # Provider keys (persisted so admin can manage from settings page)
+                "openai_api_key": cfg.openai_api_key,
+                "google_api_key": cfg.google_api_key,
+                "anthropic_api_key": cfg.anthropic_api_key,
                 "chat_provider": cfg.chat_provider,
                 "embedding_provider": cfg.embedding_provider,
                 "chat_model": cfg.chat_model,
