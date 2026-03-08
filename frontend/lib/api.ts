@@ -24,6 +24,7 @@ export type Config = {
 };
 export type DocumentItem = { document_id: string; name: string };
 export type DocumentsList = { items: DocumentItem[] };
+export type PermissionUser = { user_id: string; email: string; name?: string | null; auth?: string };
 export type ChatResponse = { answer: string; citations?: Citation[]; used_prompt?: string; answer_id: string };
 export type LoginResult = { access_token: string; token_type: string; user: AuthUser };
 
@@ -197,6 +198,51 @@ export async function registerAccount(payload: { email: string; password: string
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
+  });
+}
+
+// Admin APIs
+export async function adminListUsers(): Promise<AuthUser[]> {
+  return apiFetch<AuthUser[]>(`/api/v1/admin/users`);
+}
+
+export async function adminSetUserAuth(userId: string, auth: 'admin'|'manager'|'user'|'administrator'): Promise<{ ok: boolean }>{
+  return apiFetch<{ ok: boolean }>(`/api/v1/admin/users/${userId}/auth`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ auth }),
+  });
+}
+
+export async function adminGetUserPermissions(userId: string): Promise<{ document_ids: string[] }>{
+  return apiFetch<{ document_ids: string[] }>(`/api/v1/admin/users/${userId}/permissions`);
+}
+
+export async function adminSetUserPermissions(userId: string, documentIds: string[]): Promise<{ ok: boolean }>{
+  return apiFetch<{ ok: boolean }>(`/api/v1/admin/users/${userId}/permissions`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ document_ids: documentIds }),
+  });
+}
+
+export async function adminListAllDocuments(): Promise<DocumentsList> {
+  return apiFetch<DocumentsList>(`/api/v1/admin/documents`);
+}
+
+export async function listPermissionUsers(): Promise<PermissionUser[]> {
+  return apiFetch<PermissionUser[]>(`/api/v1/docs/permissions/users`);
+}
+
+export async function getDocumentPermissions(docId: string): Promise<{ user_ids: string[] }>{
+  return apiFetch<{ user_ids: string[] }>(`/api/v1/docs/${docId}/permissions`);
+}
+
+export async function setDocumentPermissions(docId: string, userIds: string[]): Promise<{ ok: boolean }>{
+  return apiFetch<{ ok: boolean }>(`/api/v1/docs/${docId}/permissions`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_ids: userIds }),
   });
 }
 

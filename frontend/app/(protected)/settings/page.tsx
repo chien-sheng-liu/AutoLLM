@@ -6,6 +6,7 @@ import Input from "@/app/components/ui/Input";
 import Button from "@/app/components/ui/Button";
 import Collapsible from "@/app/components/Collapsible";
 import Tooltip from "@/app/components/ui/Tooltip";
+import { fetchProfile } from "@/lib/api";
 import Segmented from "@/app/components/ui/Segmented";
 
 type Cfg = {
@@ -36,6 +37,7 @@ type Cfg = {
 };
 
 export default function SettingsPage() {
+  const [auth, setAuth] = useState<'admin'|'administrator'|'manager'|'user'|'unknown'>('unknown');
   const [cfg, setCfg] = useState<Cfg | null>(null);
   const [orig, setOrig] = useState<Cfg | null>(null);
   const [busy, setBusy] = useState(false);
@@ -74,6 +76,16 @@ export default function SettingsPage() {
   useEffect(() => {
     // Optimistic local defaults for instant load
     try {
+      // role from session (client)
+      const raw = localStorage.getItem('autollm_user');
+      if (raw) {
+        try { const u = JSON.parse(raw); setAuth((u?.auth || 'user') as any); } catch {}
+      }
+      // Refresh from server to be accurate
+      fetchProfile().then((u)=>{
+        try { localStorage.setItem('autollm_user', JSON.stringify(u)); } catch {}
+        setAuth((u?.auth || 'user') as any);
+      }).catch(()=>{});
       const tabLS = localStorage.getItem('settings.tab') as 'simple'|'advanced'|null;
       const preset = localStorage.getItem('settings.simple.preset') as any;
       const creativity = localStorage.getItem('settings.simple.creativity') as any;
@@ -274,6 +286,15 @@ export default function SettingsPage() {
   }
 
   if (!cfg) return <div className="text-gray-500">載入設定中…</div>;
+  const normalizedAuth = (auth || 'user').toLowerCase();
+  if (!(normalizedAuth === 'admin' || normalizedAuth === 'administrator')) {
+    return (
+      <div className="max-w-xl">
+        <h2 className="text-xl font-semibold">無權限</h2>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">此頁面僅限系統管理員使用。若需調整設定，請聯絡管理員。</p>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-12 gap-6">

@@ -1,20 +1,41 @@
 import os
 from typing import List
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, status
+from pydantic import BaseModel, EmailStr
 
 from ..config import load_config, docs_dir
 from ..models.docs import UploadResponse, DocumentList, DocumentInfo
-from ..dependencies.auth import get_current_user
+from ..dependencies.auth import get_current_user, require_admin, require_manager
 from ..storage.vector_store import VectorStore
 from ..services.embeddings import EmbeddingService
 from ..services.rag import chunk_text
+from ..storage.user_store import get_user_store
+
+
+class DocPermissionsPayload(BaseModel):
+    user_ids: list[str]
+
+
+class DocPermissionsResponse(BaseModel):
+    user_ids: list[str]
+
+
+class PermissionUserOut(BaseModel):
+    user_id: str
+    email: EmailStr
+    name: str | None = None
+    auth: str
 
 router = APIRouter(
     prefix="/api/v1/docs",
     tags=["docs"],
     dependencies=[Depends(get_current_user)],
 )
+
+
+def _is_admin_auth(auth_value: str | None) -> bool:
+    return (auth_value or "user").lower() in ("admin", "administrator")
 
 
 def _read_file_content(path: str) -> str:
@@ -52,7 +73,7 @@ def _read_file_content(path: str) -> str:
 
 
 @router.post("/upload", response_model=UploadResponse)
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(file: UploadFile = File(...), current_user=Depends(require_manager)):
     cfg = load_config()
     # Validate embedding provider/API key via service initialization
     docs_path = docs_dir(cfg)
@@ -104,11 +125,20 @@ async def upload_document(file: UploadFile = File(...)):
     vectors = embedder.embed_texts(texts)
     store.upsert_embeddings(chunk_ids, vectors)
 
+    # Grant uploader access (permissioned mode)
+    try:
+        from ..storage.user_store import get_user_store as _get_us
+        us = _get_us(cfg)
+        current = us.get_user_allowed_docs(current_user.id)
+        if doc_id not in current:
+            us.set_user_allowed_docs(current_user.id, [doc_id, *current])
+    except Exception:
+        pass
     return UploadResponse(document_id=doc_id, name=filename)
 
 
 @router.get("", response_model=DocumentList)
-def list_documents():
+def list_documents(_: str = Depends(require_manager)):
     cfg = load_config()
     store = VectorStore(cfg)
     items = [DocumentInfo(**d) for d in store.get_documents()]
@@ -119,7 +149,7 @@ def list_documents():
 
 
 @router.delete("/{document_id:uuid}")
-def delete_document(document_id: str):
+def delete_document(document_id: str, _: str = Depends(require_admin)):
     cfg = load_config()
     store = VectorStore(cfg)
     # Remove metadata/embeddings
@@ -132,4 +162,61 @@ def delete_document(document_id: str):
                 os.remove(os.path.join(dd, file))
             except FileNotFoundError:
                 pass
+    return {"ok": True}
+
+
+@router.get("/permissions/users", response_model=List[PermissionUserOut])
+def list_permission_users(_: str = Depends(require_manager)):
+    cfg = load_config()
+    store = get_user_store(cfg)
+    items = []
+    for u in store.list_users():
+        items.append(
+            PermissionUserOut(
+                user_id=u["id"],
+                email=u["email"],
+                name=u.get("name"),
+                auth=(u.get("auth") or "user"),
+            )
+        )
+    return items
+
+
+def _ensure_doc_exists(store: VectorStore, document_id: str):
+    if not store.document_exists(document_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+
+@router.get("/{document_id:uuid}/permissions", response_model=DocPermissionsResponse)
+def get_document_permissions(document_id: str, _: str = Depends(require_manager)):
+    cfg = load_config()
+    vstore = VectorStore(cfg)
+    _ensure_doc_exists(vstore, document_id)
+    ust = get_user_store(cfg)
+    raw_ids = ust.get_doc_allowed_users(document_id)
+    filtered: list[str] = []
+    for uid in raw_ids:
+        user = ust.get_by_id(uid)
+        if user and _is_admin_auth(user.get("auth")):
+            continue
+        filtered.append(uid)
+    return DocPermissionsResponse(user_ids=filtered)
+
+
+@router.put("/{document_id:uuid}/permissions")
+def set_document_permissions(document_id: str, payload: DocPermissionsPayload, _: str = Depends(require_manager)):
+    cfg = load_config()
+    vstore = VectorStore(cfg)
+    _ensure_doc_exists(vstore, document_id)
+    ust = get_user_store(cfg)
+    user_ids = payload.user_ids or []
+    filtered: list[str] = []
+    for uid in user_ids:
+        user = ust.get_by_id(uid)
+        if not user:
+            continue
+        if _is_admin_auth(user.get("auth")):
+            continue
+        filtered.append(uid)
+    ust.set_doc_allowed_users(document_id, filtered)
     return {"ok": True}

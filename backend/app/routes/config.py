@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from ..config import load_config, save_config
-from ..dependencies.auth import get_current_user
+from ..dependencies.auth import get_current_user, require_admin
 
 
 router = APIRouter(
@@ -66,7 +66,7 @@ def get_config():
 
 
 @router.put("")
-def update_config(payload: ConfigPayload):
+def update_config(payload: ConfigPayload, _: str = Depends(require_admin)):
     cfg = load_config()
     # Update high-level fields first
     if payload.ui_mode:

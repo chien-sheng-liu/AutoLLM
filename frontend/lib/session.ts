@@ -2,6 +2,8 @@ export type AuthUser = {
   id: string;
   email: string;
   name?: string | null;
+  role?: 'user' | 'admin'; // legacy
+  auth?: 'admin' | 'administrator' | 'manager' | 'user';
   created_at: string;
 };
 

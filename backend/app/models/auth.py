@@ -7,6 +7,8 @@ class UserOut(BaseModel):
     id: str
     email: EmailStr
     name: str | None = None
+    role: str = "user"  # legacy compatibility
+    auth: str = "user"   # 'administrator' | 'manager' | 'user'
     created_at: datetime
 
 

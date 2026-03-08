@@ -1,4 +1,4 @@
-from fastapi import Header, HTTPException, status
+from fastapi import Header, HTTPException, status, Depends
 
 from ..config import load_config
 from ..models.auth import UserOut
@@ -27,3 +27,17 @@ def get_current_user(authorization: str | None = Header(default=None, alias="Aut
     if not record:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return to_user_out(record)
+
+
+def require_admin(user: UserOut = Depends(get_current_user)) -> UserOut:
+    auth = (getattr(user, 'auth', 'user') or 'user').lower()
+    if auth not in ('admin', 'administrator'):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
+    return user
+
+
+def require_manager(user: UserOut = Depends(get_current_user)) -> UserOut:
+    auth = (getattr(user, 'auth', 'user') or 'user').lower()
+    if auth not in ('admin', 'administrator', 'manager'):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manager or admin only")
+    return user
