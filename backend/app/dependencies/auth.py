@@ -34,3 +34,10 @@ def require_admin(user: UserOut = Depends(get_current_user)) -> UserOut:
     if auth not in ('admin', 'administrator'):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
     return user
+
+
+def require_manager(user: UserOut = Depends(get_current_user)) -> UserOut:
+    auth = (getattr(user, 'auth', 'user') or 'user').lower()
+    if auth not in ('admin', 'administrator', 'manager'):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manager or admin only")
+    return user

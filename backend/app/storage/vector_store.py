@@ -93,6 +93,11 @@ class VectorStore:
             cur.execute("DELETE FROM documents WHERE id = %s", (document_id,))
             conn.commit()
 
+    def document_exists(self, document_id: str) -> bool:
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM documents WHERE id = %s LIMIT 1", (document_id,))
+            return cur.fetchone() is not None
+
     # Chunks & Embeddings
     def add_chunks(
         self,

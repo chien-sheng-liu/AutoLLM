@@ -46,7 +46,10 @@ def chat(req: ChatRequest, current_user: UserOut = Depends(get_current_user)):
     # Document permissions: if user has explicit permissions, restrict retrieval; otherwise allow all
     user_store = get_user_store(cfg)
     allow_ids = user_store.get_user_allowed_docs(current_user.id)
-    if not allow_ids:
+    auth = (getattr(current_user, 'auth', 'user') or 'user').lower()
+    if auth in ('admin', 'administrator'):
+        allow_ids = None
+    elif not allow_ids:
         allow_ids = None  # None => no restriction
     retrieved = retrieve(store, embedder, last_user, top_k=top_k, allow_document_ids=allow_ids)
     context = build_context_snippets(retrieved)
@@ -131,7 +134,10 @@ def chat_stream(req: ChatRequest, current_user: UserOut = Depends(get_current_us
 
     user_store = get_user_store(cfg)
     allow_ids = user_store.get_user_allowed_docs(current_user.id)
-    if not allow_ids:
+    auth = (getattr(current_user, 'auth', 'user') or 'user').lower()
+    if auth in ('admin', 'administrator'):
+        allow_ids = None
+    elif not allow_ids:
         allow_ids = None
     retrieved = retrieve(store, embedder, last_user, top_k=top_k, allow_document_ids=allow_ids)
     context = build_context_snippets(retrieved)

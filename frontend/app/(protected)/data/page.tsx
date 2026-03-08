@@ -1,8 +1,18 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getStoredUser } from "@/lib/session";
 import { fetchProfile } from "@/lib/api";
-import { listDocuments, deleteDocument, uploadDocumentWithProgress, type DocumentsList } from "@/lib/api";
+import {
+  listDocuments,
+  deleteDocument,
+  uploadDocumentWithProgress,
+  listPermissionUsers,
+  getDocumentPermissions,
+  setDocumentPermissions,
+  type DocumentsList,
+  type PermissionUser,
+} from "@/lib/api";
 import { showToast } from "@/app/components/Toaster";
 import Button, { buttonClasses } from "@/app/components/ui/Button";
 import Input from "@/app/components/ui/Input";
@@ -12,6 +22,7 @@ import Modal from "@/app/components/ui/Modal";
 type Doc = { document_id: string; name: string };
 
 export default function DataPage() {
+  const router = useRouter();
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false); // actions busy
@@ -26,12 +37,29 @@ export default function DataPage() {
   // UI state
   const [query, setQuery] = useState("");
   const [sortAsc, setSortAsc] = useState(true);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTargets, setConfirmTargets] = useState<string[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
-  // content quick search removed per request
+  const [authRole, setAuthRole] = useState<'admin'|'manager'|'user'>('user');
+  const [authLoaded, setAuthLoaded] = useState(false);
+  const [authVerified, setAuthVerified] = useState(false);
+  const [permissionUsers, setPermissionUsers] = useState<PermissionUser[]>([]);
+  const [permissionUsersLoading, setPermissionUsersLoading] = useState(false);
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+  const [docUserIds, setDocUserIds] = useState<string[]>([]);
+  const [permBusy, setPermBusy] = useState(false);
+  const [docPermLoading, setDocPermLoading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const nameSearchRef = useRef<HTMLInputElement>(null);
+
+  const normalizeAuth = (value?: string | null) => {
+    const v = (value || 'user').toLowerCase();
+    if (v === 'administrator' || v === 'admin') return 'admin' as const;
+    if (v === 'manager') return 'manager' as const;
+    return 'user' as const;
+  };
+
+  const canManage = authRole === 'admin' || authRole === 'manager';
+  const isAdmin = authRole === 'admin';
 
   function isAllowed(f: File) {
     const ext = f.name.toLowerCase();
@@ -54,6 +82,7 @@ export default function DataPage() {
     try {
       const res: DocumentsList = await listDocuments();
       setDocs(res.items || []);
+      setSelectedIds([]);
     } catch (e: any) {
       showToast(e?.message || "載入文件清單失敗", { kind: "error" });
     } finally {
@@ -62,17 +91,82 @@ export default function DataPage() {
   }
 
   useEffect(() => {
+    if (!canManage) return;
     refresh();
-  }, []);
+  }, [canManage]);
+
+  useEffect(() => {
+    if (!canManage) {
+      setPermissionUsers([]);
+      setPermissionUsersLoading(false);
+      return;
+    }
+    setPermissionUsersLoading(true);
+    listPermissionUsers()
+      .then((res) => setPermissionUsers(res))
+      .catch((e: any) => {
+        setPermissionUsers([]);
+        showToast(e?.message || '載入使用者失敗', { kind: 'error' });
+      })
+      .finally(() => setPermissionUsersLoading(false));
+  }, [canManage]);
+
+  useEffect(() => {
+    if (!canManage) {
+      setSelectedDocId(null);
+      setDocUserIds([]);
+      setDocPermLoading(false);
+      return;
+    }
+    if (docs.length === 0) {
+      setSelectedDocId(null);
+      setDocUserIds([]);
+      setDocPermLoading(false);
+      return;
+    }
+    if (!selectedDocId || !docs.some((d) => d.document_id === selectedDocId)) {
+      setSelectedDocId(docs[0].document_id);
+    }
+  }, [docs, selectedDocId, canManage]);
+
+  useEffect(() => {
+    if (!canManage || !selectedDocId) {
+      setDocUserIds([]);
+      setDocPermLoading(false);
+      return;
+    }
+    setDocPermLoading(true);
+    getDocumentPermissions(selectedDocId)
+      .then((res) => setDocUserIds(res.user_ids || []))
+      .catch(() => setDocUserIds([]))
+      .finally(() => setDocPermLoading(false));
+  }, [selectedDocId, canManage]);
+
+  useEffect(() => {
+    if (!authVerified) return;
+    if (canManage) return;
+    router.replace('/chat');
+  }, [authVerified, canManage, router]);
+  useEffect(() => {
+    setSelectedIds((prev) => prev.filter((id) => docs.some((d) => d.document_id === id)));
+  }, [docs]);
+
+  useEffect(() => {
+    if (permissionUsers.length === 0) return;
+    setDocUserIds((prev) => prev.filter((id) => permissionUsers.some((u) => u.user_id === id)));
+  }, [permissionUsers]);
   useEffect(() => {
     const u = getStoredUser();
-    const auth = (u?.auth || 'user').toLowerCase();
-    setIsAdmin(auth === 'admin' || auth === 'administrator');
-    fetchProfile().then((u)=>{
-      try { window.localStorage.setItem('autollm_user', JSON.stringify(u)); } catch {}
-      const auth = (u?.auth || 'user').toLowerCase();
-      setIsAdmin(auth === 'admin' || auth === 'administrator');
-    }).catch(()=>{});
+    setAuthRole(normalizeAuth(u?.auth));
+    setAuthLoaded(true);
+    fetchProfile()
+      .then((profile) => {
+        try { window.localStorage.setItem('autollm_user', JSON.stringify(profile)); } catch {}
+        setAuthRole(normalizeAuth(profile?.auth));
+        setAuthLoaded(true);
+      })
+      .catch(() => {})
+      .finally(() => setAuthVerified(true));
   }, []);
 
   // content quick search removed per request
@@ -108,15 +202,6 @@ export default function DataPage() {
     }
   }
 
-  function toggleSelectAll(checked: boolean) {
-    if (checked) setSelectedIds(filteredDocs.map((d) => d.document_id));
-    else setSelectedIds([]);
-  }
-
-  function toggleSelect(id: string, checked: boolean) {
-    setSelectedIds((prev) => (checked ? [...new Set([...prev, id])] : prev.filter((x) => x !== id)));
-  }
-
   function askDelete(ids: string[]) {
     setConfirmTargets(ids);
     setConfirmOpen(true);
@@ -133,7 +218,6 @@ export default function DataPage() {
         catch { fail++; }
       }
       await refresh();
-      setSelectedIds((prev) => prev.filter((x) => !ids.includes(x)));
       if (fail === 0) showToast(`刪除完成（${ok} 筆）`, { kind: "success" });
       else showToast(`部分刪除失敗：成功 ${ok}、失敗 ${fail}`, { kind: "info" });
     } catch (e: any) {
@@ -151,6 +235,78 @@ export default function DataPage() {
     return arr;
   }, [docs, query, sortAsc]);
 
+  function toggleSelect(id: string, checked: boolean) {
+    setSelectedIds((prev) => {
+      if (checked) return [...new Set([...prev, id])];
+      return prev.filter((x) => x !== id);
+    });
+  }
+
+  function toggleSelectAll(checked: boolean) {
+    if (!checked) {
+      setSelectedIds([]);
+      return;
+    }
+    setSelectedIds(filteredDocs.map((d) => d.document_id));
+  }
+
+  const selectedDoc = useMemo(() => {
+    return docs.find((d) => d.document_id === selectedDocId) || null;
+  }, [docs, selectedDocId]);
+
+  const sortedPermissionUsers = useMemo(() => {
+    return [...permissionUsers].sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email));
+  }, [permissionUsers]);
+
+  const allPermissionUserIds = useMemo(() => (
+    permissionUsers
+      .filter((u) => normalizeAuth(u.auth) !== 'admin')
+      .map((u) => u.user_id)
+  ), [permissionUsers]);
+
+  function toggleUserAccess(userId: string, checked: boolean) {
+    setDocUserIds((prev) => {
+      const known = allPermissionUserIds;
+      if (!known.includes(userId)) return prev;
+      if (prev.length === 0) {
+        if (checked) return prev;
+        return known.filter((id) => id !== userId);
+      }
+      if (checked) {
+        const next = Array.from(new Set([...prev, userId])).filter((id) => known.includes(id));
+        if (known.length > 0 && next.length >= known.length) {
+          return [];
+        }
+        return next;
+      }
+      return prev.filter((id) => id !== userId);
+    });
+  }
+
+  async function saveDocPermissions() {
+    if (!selectedDocId) {
+      showToast('請先選擇檔案', { kind: 'info' });
+      return;
+    }
+    setPermBusy(true);
+    try {
+      const normalized = docUserIds.length === 0
+        ? []
+        : docUserIds.filter((id) => allPermissionUserIds.includes(id));
+      await setDocumentPermissions(selectedDocId, normalized);
+      setDocUserIds(normalized.length ? normalized : []);
+      showToast('檔案權限已更新', { kind: 'success' });
+    } catch (e: any) {
+      showToast(e?.message || '更新檔案權限失敗', { kind: 'error' });
+    } finally {
+      setPermBusy(false);
+    }
+  }
+
+  function clearDocPermissions() {
+    setDocUserIds([]);
+  }
+
   // Keyboard shortcut to focus name/ID search
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -164,6 +320,20 @@ export default function DataPage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  if (!authLoaded) {
+    return <div className="text-sm text-gray-500">載入權限中…</div>;
+  }
+
+  if (!canManage) {
+    return (
+      <Card className="mx-auto max-w-xl p-6 text-center">
+        <h2 className="text-xl font-semibold">無權限</h2>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">此頁面僅限 Admin 或 Manager 管理資料與權限。</p>
+      </Card>
+
+    );
+  }
 
   return (
     <div className="grid gap-6">
@@ -300,6 +470,105 @@ export default function DataPage() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Document-level permissions */}
+      <Card className="p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold">檔案使用權限</div>
+            <p className="text-xs text-gray-600 dark:text-gray-400">指定哪些使用者可以使用特定資料於聊天。</p>
+          </div>
+          {selectedDoc && (
+            <div className="text-xs text-gray-500 dark:text-gray-400">目前選擇：{selectedDoc.name}</div>
+          )}
+        </div>
+
+        {docs.length === 0 ? (
+          <div className="mt-4 rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-500 dark:border-neutral-800 dark:text-gray-400">
+            尚未上傳任何資料，請先於上方新增檔案後再設定權限。
+          </div>
+        ) : (
+          <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,320px)_1fr]">
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-gray-600 dark:text-gray-400" htmlFor="doc-select">選擇檔案</label>
+                <select
+                  id="doc-select"
+                  className="mt-1 w-full rounded-2xl border border-gray-200 bg-white p-3 text-sm dark:border-neutral-800 dark:bg-neutral-900"
+                  value={selectedDocId || ''}
+                  onChange={(e) => setSelectedDocId(e.target.value || null)}
+                  disabled={docs.length === 0}
+                >
+                  {!selectedDocId && <option value="" disabled>請選擇檔案</option>}
+                  {docs.map((d) => (
+                    <option key={d.document_id} value={d.document_id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedDoc && (
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm dark:border-neutral-800 dark:bg-neutral-900/40">
+                  <div className="font-semibold">{selectedDoc.name}</div>
+                  <div className="mt-1 break-all text-xs text-gray-500">{selectedDoc.document_id}</div>
+                  <div className="mt-3 text-xs text-gray-600 dark:text-gray-400">
+                    {docUserIds.length === 0
+                      ? '目前所有登入者都可以使用此檔案。'
+                      : `僅 ${docUserIds.length} 位使用者可使用此檔案。`}
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-gray-300">
+                預設所有帳號皆可引用此檔案，取消勾選即可限制不得使用的帳號；若後續又全數勾回，系統會恢復為「允許所有人」。Admin 角色始終擁有所有檔案，無法取消。
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" variant="outline" onClick={clearDocPermissions} disabled={!selectedDocId || permBusy || docPermLoading}>允許所有人</Button>
+                <Button size="sm" onClick={saveDocPermissions} disabled={!selectedDocId || permBusy || docPermLoading}>{permBusy ? '儲存中…' : '儲存權限'}</Button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+              {permissionUsersLoading || docPermLoading ? (
+                <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">載入使用者中…</div>
+              ) : sortedPermissionUsers.length === 0 ? (
+                <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">目前僅有您一位使用者可用。</div>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  {sortedPermissionUsers.map((user) => {
+                    const authLabel = (user.auth || 'user').toLowerCase();
+                    const normalizedAuth = authLabel === 'administrator' ? 'admin' : authLabel;
+                    const isAdminUser = normalizedAuth === 'admin';
+                    const badgeClass = normalizedAuth === 'admin'
+                      ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-100'
+                      : normalizedAuth === 'manager'
+                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-100'
+                        : 'bg-gray-100 text-gray-600 dark:bg-neutral-700 dark:text-gray-200';
+                    const badgeLabel = normalizedAuth === 'admin' ? 'Admin' : normalizedAuth === 'manager' ? 'Manager' : 'User';
+                    return (
+                      <label key={user.user_id} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm dark:border-neutral-800 dark:bg-neutral-800/60">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={isAdminUser ? true : (docUserIds.length === 0 ? true : docUserIds.includes(user.user_id))}
+                          onChange={(e) => toggleUserAccess(user.user_id, e.target.checked)}
+                          disabled={permBusy || docPermLoading || isAdminUser}
+                          title={isAdminUser ? 'Admin 角色一律擁有所有檔案' : undefined}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-medium" title={user.name || user.email}>{user.name || user.email}</div>
+                          <div className="truncate text-xs text-gray-500" title={user.email}>{user.email}</div>
+                        </div>
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] ${badgeClass}`}>{badgeLabel}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </Card>

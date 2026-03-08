@@ -5,8 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from ..config import load_config
 from ..dependencies.auth import require_admin
 from ..models.auth import UserOut
+from ..services.users import to_user_out
 from ..storage.user_store import get_user_store
 from ..storage.vector_store import VectorStore
+
+
+def _is_admin_auth(value: str | None) -> bool:
+    return (value or "user").lower() in ("admin", "administrator")
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
@@ -15,10 +20,7 @@ router = APIRouter(prefix="/api/v1/admin", tags=["admin"], dependencies=[Depends
 def list_users(_: UserOut = Depends(require_admin)):
     cfg = load_config()
     store = get_user_store(cfg)
-    return [
-        UserOut(id=u["id"], email=u["email"], name=u.get("name"), role=u.get("role", "user"), created_at=u["created_at"])  # type: ignore
-        for u in store.list_users()
-    ]
+    return [to_user_out(u) for u in store.list_users()]
 
 
 @router.put("/users/{user_id}/auth")
@@ -40,8 +42,11 @@ def update_user_auth(user_id: str, payload: dict, _: UserOut = Depends(require_a
 def get_user_permissions(user_id: str, _: UserOut = Depends(require_admin)):
     cfg = load_config()
     store = get_user_store(cfg)
-    if not store.get_by_id(user_id):
+    user = store.get_by_id(user_id)
+    if not user:
         raise HTTPException(status_code=404, detail="user not found")
+    if _is_admin_auth(user.get("auth")):
+        return {"document_ids": []}
     doc_ids = store.get_user_allowed_docs(user_id)
     return {"document_ids": doc_ids}
 
@@ -50,8 +55,13 @@ def get_user_permissions(user_id: str, _: UserOut = Depends(require_admin)):
 def set_user_permissions(user_id: str, payload: dict, _: UserOut = Depends(require_admin)):
     cfg = load_config()
     store = get_user_store(cfg)
-    if not store.get_by_id(user_id):
+    user = store.get_by_id(user_id)
+    if not user:
         raise HTTPException(status_code=404, detail="user not found")
+    if _is_admin_auth(user.get("auth")):
+        # Admins always get every document; clear any explicit restrictions.
+        store.set_user_allowed_docs(user_id, [])
+        return {"ok": True}
     doc_ids = payload.get("document_ids", []) or []
     if not isinstance(doc_ids, list) or not all(isinstance(x, str) for x in doc_ids):
         raise HTTPException(status_code=422, detail="document_ids must be a list of strings")

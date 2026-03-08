@@ -171,6 +171,26 @@ class UserStore:
                 )
             conn.commit()
 
+    def get_doc_allowed_users(self, document_id: str) -> list[str]:
+        with self._connect() as conn, conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                "SELECT user_id::text AS uid FROM user_doc_perms WHERE document_id = %s",
+                (document_id,),
+            )
+            rows = cur.fetchall()
+        return [str(r["uid"]) for r in rows]
+
+    def set_doc_allowed_users(self, document_id: str, user_ids: list[str]) -> None:
+        unique_ids = list(dict.fromkeys(user_ids))
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM user_doc_perms WHERE document_id = %s", (document_id,))
+            for uid in unique_ids:
+                cur.execute(
+                    "INSERT INTO user_doc_perms (user_id, document_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                    (uid, document_id),
+                )
+            conn.commit()
+
 
 _store: UserStore | None = None
 _store_lock = threading.Lock()
