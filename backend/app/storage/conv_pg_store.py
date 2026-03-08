@@ -16,6 +16,7 @@ class ConversationRow(TypedDict):
     title: str
     created_at: str
     updated_at: str
+    series: int
 
 
 class MessageRow(TypedDict):
@@ -46,6 +47,11 @@ class ConversationPgStore:
 
     def _ensure_tables(self) -> None:
         with self._connect() as conn, conn.cursor() as cur:
+            # Ensure series sequence exists
+            try:
+                cur.execute("CREATE SEQUENCE IF NOT EXISTS conversation_series_seq")
+            except Exception:
+                pass
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS conversations (
@@ -53,10 +59,28 @@ class ConversationPgStore:
                     user_id UUID NOT NULL,
                     title TEXT NOT NULL,
                     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    series BIGINT UNIQUE DEFAULT nextval('conversation_series_seq')
                 )
                 """
             )
+            # Ensure series column exists + default + backfill for existing rows
+            try:
+                cur.execute("ALTER TABLE conversations ADD COLUMN IF NOT EXISTS series BIGINT")
+            except Exception:
+                pass
+            try:
+                cur.execute("ALTER TABLE conversations ALTER COLUMN series SET DEFAULT nextval('conversation_series_seq')")
+            except Exception:
+                pass
+            try:
+                cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_conversations_series ON conversations(series)")
+            except Exception:
+                pass
+            try:
+                cur.execute("UPDATE conversations SET series = nextval('conversation_series_seq') WHERE series IS NULL")
+            except Exception:
+                pass
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS conversation_messages (
@@ -106,12 +130,13 @@ class ConversationPgStore:
                 except Exception: pass
             if conversation_id:
                 cur.execute(
-                    "SELECT id::text AS id, user_id::text AS user_id, COALESCE(title,'') AS title, created_at::text, updated_at::text FROM conversations WHERE id=%s AND user_id=%s",
+                    "SELECT id::text AS id, user_id::text AS user_id, COALESCE(title,'') AS title, created_at::text, updated_at::text, series FROM conversations WHERE id=%s AND user_id=%s",
                     (conversation_id, user_id),
                 )
                 row = cur.fetchone()
                 if row:
                     return row  # type: ignore
+                conversation_id = None
             # create
             cid = conversation_id or str(uuid4())
             conv_title = (title or "新的對話").strip() or "新的對話"
@@ -120,7 +145,7 @@ class ConversationPgStore:
                 INSERT INTO conversations (id, user_id, title)
                 VALUES (%s, %s, %s)
                 ON CONFLICT (id) DO NOTHING
-                RETURNING id::text AS id, user_id::text AS user_id, title, created_at::text, updated_at::text
+                RETURNING id::text AS id, user_id::text AS user_id, title, created_at::text, updated_at::text, series
                 """,
                 (cid, user_id, conv_title),
             )
@@ -128,7 +153,7 @@ class ConversationPgStore:
             if not row:
                 # race: fetch existing
                 cur.execute(
-                    "SELECT id::text AS id, user_id::text AS user_id, COALESCE(title,'') AS title, created_at::text, updated_at::text FROM conversations WHERE id=%s AND user_id=%s",
+                    "SELECT id::text AS id, user_id::text AS user_id, COALESCE(title,'') AS title, created_at::text, updated_at::text, series FROM conversations WHERE id=%s AND user_id=%s",
                     (cid, user_id),
                 )
                 row = cur.fetchone()
@@ -211,7 +236,7 @@ class ConversationPgStore:
                 """
                 INSERT INTO conversations (id, user_id, title)
                 VALUES (%s, %s, %s)
-                RETURNING id::text AS id, user_id::text AS user_id, title, created_at::text, updated_at::text
+                RETURNING id::text AS id, user_id::text AS user_id, title, created_at::text, updated_at::text, series
                 """,
                 (cid, user_id, conv_title),
             )
@@ -224,8 +249,11 @@ class ConversationPgStore:
             try:
                 cur.execute("SET LOCAL app.user_id = %s", (user_id,))
             except Exception:
-                pass
-            cur.execute("UPDATE conversations SET title=%s, updated_at=NOW() WHERE id=%s AND user_id=%s RETURNING id::text AS id, user_id::text AS user_id, title, created_at::text, updated_at::text", (title, conversation_id, user_id))
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+            cur.execute("UPDATE conversations SET title=%s, updated_at=NOW() WHERE id=%s AND user_id=%s RETURNING id::text AS id, user_id::text AS user_id, title, created_at::text, updated_at::text, series", (title, conversation_id, user_id))
             row = cur.fetchone()
             conn.commit()
             return row  # type: ignore
@@ -235,7 +263,10 @@ class ConversationPgStore:
             try:
                 cur.execute("SET LOCAL app.user_id = %s", (user_id,))
             except Exception:
-                pass
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
             cur.execute("DELETE FROM conversations WHERE id=%s AND user_id=%s", (conversation_id, user_id))
             deleted = cur.rowcount > 0
             conn.commit()

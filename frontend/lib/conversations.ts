@@ -4,6 +4,7 @@ export type Conversation = {
   messages: { role: 'system' | 'user' | 'assistant'; content: string }[];
   createdAt: number;
   updatedAt: number;
+  series?: number;
 };
 
 export function createConversation(): Conversation {

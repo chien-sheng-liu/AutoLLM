@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import type { Message, Citation, ChatStreamEvent, Config } from "@/lib/api";
 import { chatStream, getConfig, sendFeedback, fetchConversations, fetchConversationMessages, createServerConversation, renameServerConversation, deleteServerConversation } from "@/lib/api";
 import ChatMessage from "@/app/components/ChatMessage";
@@ -33,49 +33,73 @@ export default function ChatPage() {
   const [containerH, setContainerH] = useState<number | null>(null);
   const [conversationsReady, setConversationsReady] = useState(false);
 
-  const persistConversationList = (_list: Conversation[]) => {};
-
-  const sortConversations = (list: Conversation[]) => {
+  const sortConversations = useCallback((list: Conversation[]) => {
     return [...list].sort((a, b) => b.updatedAt - a.updatedAt);
-  };
+  }, []);
+
+  const currentIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    currentIdRef.current = currentId;
+  }, [currentId]);
+
+  const loadVersionRef = useRef(0);
+
+  const loadConversations = useCallback(async (selectId?: string | null, options?: { keepCurrent?: boolean; skipMessages?: boolean; allowEmpty?: boolean }) => {
+    const { keepCurrent = false, skipMessages = false, allowEmpty = true } = options || {};
+    const version = loadVersionRef.current + 1;
+    loadVersionRef.current = version;
+    try {
+      let list = await fetchConversations();
+      if (!Array.isArray(list)) list = [];
+      if (list.length === 0) {
+        if (!allowEmpty) {
+          const created = await createServerConversation('新的對話');
+          await loadConversations(created.id, { keepCurrent: false, skipMessages });
+          return;
+        }
+        if (version !== loadVersionRef.current) return;
+        setConvs([]);
+        setCurrentId(null);
+        if (!skipMessages) setMessages([]);
+        return;
+      }
+      const sorted = sortConversations(list as Conversation[]);
+      if (version !== loadVersionRef.current) return;
+      setConvs(sorted);
+      let target = selectId ?? (keepCurrent ? currentIdRef.current : (sorted[0]?.id ?? null));
+      if (target && !sorted.some((c) => c.id === target)) {
+        target = sorted[0]?.id ?? null;
+      }
+      if (!target) {
+        if (version !== loadVersionRef.current) return;
+        setCurrentId(null);
+        if (!skipMessages) setMessages([]);
+      } else {
+        if (version !== loadVersionRef.current) return;
+        setCurrentId(target);
+        if (!skipMessages) {
+          try {
+            const msgs = await fetchConversationMessages(target);
+            if (version !== loadVersionRef.current) return;
+            setMessages(msgs);
+          } catch {
+            if (version !== loadVersionRef.current) return;
+            setMessages([]);
+          }
+        }
+      }
+    } catch {
+      if (version !== loadVersionRef.current) return;
+      setConvs([]);
+      if (!skipMessages) setMessages([]);
+    } finally {
+      if (version === loadVersionRef.current) setConversationsReady(true);
+    }
+  }, [sortConversations]);
 
   useEffect(() => {
-    let active = true;
-    const bootstrap = async () => {
-      try {
-        const remote = await fetchConversations();
-        if (!active) return;
-        let working = remote;
-        if (!working || working.length === 0) {
-          const created = await createServerConversation('新的對話');
-          working = [{ id: created.id, title: created.title, messages: [], createdAt: Date.now(), updatedAt: Date.now() } as any];
-        }
-        const sorted = sortConversations(working);
-        setConvs(sorted);
-        const firstId = sorted[0]?.id || null;
-        setCurrentId(firstId);
-        if (firstId) {
-          try { setMessages(await fetchConversationMessages(firstId)); } catch { setMessages([]); }
-        } else {
-          setMessages([]);
-        }
-      } catch {
-        if (!active) return;
-        const created = await createServerConversation('新的對話');
-        const conv = { id: created.id, title: created.title, messages: [], createdAt: Date.now(), updatedAt: Date.now() } as any;
-        const fallback = [conv];
-        setConvs(fallback);
-        setCurrentId(conv.id);
-        setMessages([]);
-      } finally {
-        if (active) setConversationsReady(true);
-      }
-    };
-    bootstrap();
-    return () => {
-      active = false;
-    };
-  }, []);
+    loadConversations();
+  }, [loadConversations]);
 
   useEffect(() => {
     // Restore last selection from localStorage first
@@ -130,7 +154,6 @@ export default function ChatPage() {
       const sorted = sortConversations(next);
       const cur = sorted.find((c) => c.id === currentId);
       if (cur) setMessages(cur.messages);
-      persistConversationList(sorted);
       return sorted;
     });
   }
@@ -139,10 +162,7 @@ export default function ChatPage() {
     if (!conversationsReady) return;
     try {
       const created = await createServerConversation('新的對話');
-      const nc = { id: created.id, title: created.title, messages: [], createdAt: Date.now(), updatedAt: Date.now() } as any;
-      setConvs((prev) => sortConversations([nc, ...prev]));
-      setCurrentId(nc.id);
-      setMessages([]);
+      await loadConversations(created.id);
       setLastCitations([]);
       setUsedPrompt(undefined);
     } catch {}
@@ -156,8 +176,12 @@ export default function ChatPage() {
     if (name === null) return;
     const title = name.trim();
     if (!title) return;
-    try { await renameServerConversation(cur.id, title); } catch {}
-    updateCurrent((c) => ({ ...c, title, updatedAt: Date.now() }));
+    try {
+      const fid = cur.id;
+      setConvs((prev) => prev.map((c) => c.id === fid ? { ...c, title } : c));
+      await renameServerConversation(fid, title);
+      await loadConversations(fid, { keepCurrent: true, skipMessages: true });
+    } catch {}
   }
 
   async function deleteChat() {
@@ -165,18 +189,21 @@ export default function ChatPage() {
     const cur = convs.find((c) => c.id === currentId);
     if (!cur) return;
     if (!confirm("確定要刪除此對話？")) return;
-    try { await deleteServerConversation(currentId); } catch {}
-    setConvs((prev) => {
-      const rest = prev.filter((c) => c.id !== currentId);
-      if (rest.length) {
-        setCurrentId(rest[0].id);
-        setMessages([]);
-        return rest;
-      }
-      return [];
-    });
-    setLastCitations([]);
-    setUsedPrompt(undefined);
+    const targetId = currentId;
+    setConvs((prev) => prev.filter((c) => c.id !== targetId));
+    if (currentIdRef.current === targetId) {
+      setCurrentId(null);
+      setMessages([]);
+    }
+    try {
+      await deleteServerConversation(targetId, typeof cur.series === 'number' ? cur.series : undefined);
+      await loadConversations(undefined, { keepCurrent: false });
+      setLastCitations([]);
+      setUsedPrompt(undefined);
+    } catch {
+      // If server delete failed, reload to sync
+      loadConversations(undefined, { keepCurrent: false }).catch(() => {});
+    }
   }
 
   async function onSend(e: React.FormEvent) {
@@ -185,6 +212,19 @@ export default function ChatPage() {
     const userMessage: Message = { role: "user", content: input.trim() };
     const newMsgs: Message[] = [...messages, userMessage];
     setMessages(newMsgs);
+    // Auto-name conversation on first user message (UI-side) and persist to server
+    const firstLine = userMessage.content.trim().split('\n')[0];
+    const autoTitle = firstLine.length > 40 ? firstLine.slice(0, 40) + '…' : firstLine;
+    if (currentId && autoTitle) {
+      const cur = convs.find((c) => c.id === currentId);
+      if (cur && (!cur.title || cur.title === '新的對話')) {
+        const fid = currentId;
+        setConvs((prev) => prev.map((c) => c.id === fid ? { ...c, title: autoTitle, updatedAt: Date.now() } as any : c));
+        renameServerConversation(fid, autoTitle)
+          .then(() => loadConversations(fid, { keepCurrent: true, skipMessages: true }))
+          .catch(() => {});
+      }
+    }
     updateCurrent((c) => ({
       ...c,
       title: c.messages.length === 0 ? titleFromMessages([userMessage]) : c.title,
@@ -211,6 +251,7 @@ export default function ChatPage() {
           setFeedbackSent(null);
           setStreamAnswer("");
           updateCurrent((c) => ({ ...c, messages: finalMsgs, updatedAt: Date.now() }));
+          loadConversations(currentId, { keepCurrent: true, skipMessages: true }).catch(() => {});
         }
       }, { signal: ctrl.signal, chat_model: model || cfg?.chat_model, chat_provider: provider || (cfg?.chat_provider as any), conversation_id: currentId || undefined });
     } catch (err: any) {
@@ -254,6 +295,7 @@ export default function ChatPage() {
           setFeedbackSent(null);
           setStreamAnswer("");
           updateCurrent((c) => ({ ...c, messages: finalMsgs, updatedAt: Date.now() }));
+          loadConversations(currentId, { keepCurrent: true, skipMessages: true }).catch(() => {});
         }
       }, { chat_model: model || cfg?.chat_model, chat_provider: provider || (cfg?.chat_provider as any), conversation_id: currentId || undefined, signal: ctrl.signal });
     } catch (err) {

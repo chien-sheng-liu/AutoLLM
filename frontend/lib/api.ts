@@ -181,8 +181,8 @@ export async function fetchConversationMessages(conversationId: string): Promise
   return res.messages || [];
 }
 
-export async function createServerConversation(title?: string): Promise<{ id: string; title: string }>{
-  return apiFetch<{ id: string; title: string }>(`/api/v1/chat/conversations`, {
+export async function createServerConversation(title?: string): Promise<{ id: string; title: string; series?: number }>{
+  return apiFetch<{ id: string; title: string; series?: number }>(`/api/v1/chat/conversations`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title }),
@@ -197,7 +197,11 @@ export async function renameServerConversation(id: string, title: string): Promi
   });
 }
 
-export async function deleteServerConversation(id: string): Promise<{ ok: boolean }>{
+export async function deleteServerConversation(id: string, series?: number): Promise<{ ok: boolean }>{
+  if (typeof series === 'number') {
+    const q = new URLSearchParams({ series: String(series) }).toString();
+    return apiFetch<{ ok: boolean }>(`/api/v1/chat/conversations/${id}?${q}`, { method: 'DELETE' });
+  }
   return apiFetch<{ ok: boolean }>(`/api/v1/chat/conversations/${id}`, { method: 'DELETE' });
 }
 
