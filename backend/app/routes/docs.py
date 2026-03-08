@@ -155,11 +155,22 @@ async def upload_document(file: UploadFile = File(...), current_user=Depends(req
 
 
 @router.get("", response_model=DocumentList)
-def list_documents(_: str = Depends(require_manager)):
+def list_documents(current_user: UserOut = Depends(get_current_user)):
     cfg = load_config()
     store = VectorStore(cfg)
-    items = [DocumentInfo(**d) for d in store.get_documents()]
-    return DocumentList(items=items)
+    raw = store.get_documents()
+    # Role-based filtering: admin/manager see all; users see only permitted docs
+    auth = (getattr(current_user, 'auth', 'user') or 'user').lower()
+    if auth in ('admin', 'administrator', 'manager'):
+        items = [DocumentInfo(**d) for d in raw]
+        return DocumentList(items=items)
+    try:
+        ust = get_user_store(cfg)
+        allowed = set(ust.get_user_allowed_docs(current_user.id) or [])
+    except Exception:
+        allowed = set()
+    filtered = [d for d in raw if d.get('document_id') in allowed]
+    return DocumentList(items=[DocumentInfo(**d) for d in filtered])
 
 
 ## Removed content search endpoint per request
