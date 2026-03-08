@@ -15,6 +15,7 @@ ALLOWED_ROLES = {"system", "user", "assistant"}
 
 class ConversationStore:
     def __init__(self, settings: Settings):
+        self._settings = settings
         self._client = self._build_client(settings)
         self._key_prefix = "chat:conversations"
 
@@ -86,6 +87,38 @@ class ConversationStore:
             )
         payload = {"user_id": user_id, "items": sanitized}
         self._client.set(self._key(user_id), json.dumps(payload))
+        # Write-through: ensure conversation rows exist in Postgres for this user
+        try:
+            from .conv_pg_store import get_conv_pg_store
+            pg = get_conv_pg_store(self._settings)
+            for cv in sanitized:
+                pg.get_or_create_conversation(user_id=user_id, conversation_id=cv.get("id"), title=cv.get("title"))
+        except Exception:
+            pass
+
+    def upsert_conversation_meta(self, user_id: str, conversation_id: str, title: str, created_at_ms: int | None = None, updated_at_ms: int | None = None) -> None:
+        items = self.get_conversations(user_id)
+        found = False
+        for it in items:
+            if str(it.get("id")) == conversation_id:
+                it["title"] = title
+                if updated_at_ms is not None:
+                    it["updatedAt"] = int(updated_at_ms)
+                found = True
+                break
+        if not found:
+            items.insert(0, {
+                "id": conversation_id,
+                "title": title,
+                "createdAt": int(created_at_ms or 0),
+                "updatedAt": int(updated_at_ms or created_at_ms or 0),
+                "messages": [],
+            })
+        self.save_conversations(user_id, items)
+
+    def delete_conversation_meta(self, user_id: str, conversation_id: str) -> None:
+        items = [it for it in self.get_conversations(user_id) if str(it.get("id")) != conversation_id]
+        self.save_conversations(user_id, items)
 
     def clear(self, user_id: str) -> None:
         self._client.delete(self._key(user_id))
