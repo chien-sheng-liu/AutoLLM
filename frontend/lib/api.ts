@@ -1,4 +1,5 @@
 import { clearSession, getAccessToken, type AuthUser } from '@/lib/session';
+import type { Conversation } from '@/lib/conversations';
 
 export type Message = { role: 'system' | 'user' | 'assistant'; content: string };
 export type Citation = { name: string; page?: number | null };
@@ -102,7 +103,7 @@ export async function uploadDocument(file: File): Promise<{ document_id: string;
 
 // content quick search API removed
 
-export async function chat(messages: Message[], options?: { top_k?: number; temperature?: number; chat_model?: string; chat_provider?: string }): Promise<ChatResponse> {
+export async function chat(messages: Message[], options?: { top_k?: number; temperature?: number; chat_model?: string; chat_provider?: string; conversation_id?: string }): Promise<ChatResponse> {
   return apiFetch<ChatResponse>(`/api/v1/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -118,7 +119,7 @@ export type ChatStreamEvent =
 export async function chatStream(
   messages: Message[],
   onEvent: (ev: ChatStreamEvent) => void,
-  options?: { top_k?: number; temperature?: number; chat_model?: string; chat_provider?: string; signal?: AbortSignal }
+  options?: { top_k?: number; temperature?: number; chat_model?: string; chat_provider?: string; conversation_id?: string; signal?: AbortSignal }
 ): Promise<void> {
   const ctrl = new AbortController();
   const signal = options?.signal || ctrl.signal;
@@ -159,6 +160,45 @@ export async function chatStream(
       }
     }
   }
+}
+
+export async function fetchConversations(): Promise<Conversation[]> {
+  const res = await apiFetch<{ items: Conversation[] }>(`/api/v1/chat/conversations`, { cache: 'no-store' });
+  return res.items || [];
+}
+
+export async function persistConversations(conversations: Conversation[]): Promise<Conversation[]> {
+  const res = await apiFetch<{ items: Conversation[] }>(`/api/v1/chat/conversations`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items: conversations }),
+  });
+  return res.items || [];
+}
+
+export async function fetchConversationMessages(conversationId: string): Promise<Message[]> {
+  const res = await apiFetch<{ messages: Message[] }>(`/api/v1/chat/conversations/${conversationId}`);
+  return res.messages || [];
+}
+
+export async function createServerConversation(title?: string): Promise<{ id: string; title: string }>{
+  return apiFetch<{ id: string; title: string }>(`/api/v1/chat/conversations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title }),
+  });
+}
+
+export async function renameServerConversation(id: string, title: string): Promise<{ ok: boolean }>{
+  return apiFetch<{ ok: boolean }>(`/api/v1/chat/conversations/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title }),
+  });
+}
+
+export async function deleteServerConversation(id: string): Promise<{ ok: boolean }>{
+  return apiFetch<{ ok: boolean }>(`/api/v1/chat/conversations/${id}`, { method: 'DELETE' });
 }
 
 export async function sendFeedback(answerId: string, vote: 'up'|'down'): Promise<{ ok: boolean }>{

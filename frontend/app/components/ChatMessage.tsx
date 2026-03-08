@@ -51,19 +51,19 @@ const markdownComponents = {
   },
   p({ children }: any) {
     return (
-      <p className="mb-2 whitespace-pre-wrap leading-6 break-words last:mb-0">
+      <p className="mb-1 whitespace-pre-line break-words leading-6 text-[14px] last:mb-0">
         {renderCitationAware(children)}
       </p>
     );
   },
   ul({ children }: any) {
-    return <ul className="mb-2 list-disc space-y-1 pl-6 last:mb-0">{renderCitationAware(children)}</ul>;
+    return <ul className="mb-1 list-disc space-y-0.5 pl-5 text-[14px] leading-6 last:mb-0">{renderCitationAware(children)}</ul>;
   },
   ol({ children }: any) {
-    return <ol className="mb-2 list-decimal space-y-1 pl-6 last:mb-0">{renderCitationAware(children)}</ol>;
+    return <ol className="mb-1 list-decimal space-y-0.5 pl-5 text-[14px] leading-6 last:mb-0">{renderCitationAware(children)}</ol>;
   },
   li({ children }: any) {
-    return <li className="whitespace-pre-wrap leading-6 break-words">{renderCitationAware(children)}</li>;
+    return <li className="break-words leading-6">{renderCitationAware(children)}</li>;
   },
   a({ href, children }: any) {
     return (
@@ -112,15 +112,14 @@ export default function ChatMessage({ role, content }: Props) {
   const isUser = role === "user";
   const isSystem = role === "system";
   const avatar = avatarMap[role] || avatarMap.assistant;
-  const bubbleBase = "relative rounded-3xl px-4 py-3 ring-1 shadow-sm transition-colors";
+  const bubbleBase = "relative inline-flex max-w-full rounded-3xl px-4 py-3 ring-1 shadow-sm transition-colors";
   const assistantBubble = `${bubbleBase} bg-white ring-gray-200/70 text-gray-900 hover:ring-gray-300 dark:bg-neutral-900 dark:ring-neutral-800 dark:text-gray-100 dark:hover:ring-neutral-700`;
   const userBubble = `${bubbleBase} bg-gradient-to-br from-indigo-600 to-indigo-500 text-white ring-indigo-500/30 hover:ring-indigo-400/50`;
+  const rowWidth = "max-w-[95vw] md:max-w-[960px]";
 
   return (
     <article className={`relative flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`relative flex w-full max-w-[740px] items-start gap-3 ${isUser ? "ml-auto flex-row-reverse" : "mr-auto flex-row"}`}
-      >
+      <div className={`relative flex w-full items-start gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
         <div
           className={`flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-full border text-base shadow ${
             isUser
@@ -131,47 +130,49 @@ export default function ChatMessage({ role, content }: Props) {
         >
           {avatar.emoji}
         </div>
-        <div className="group relative w-full">
-          {isSystem ? (
-            <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-[13px] text-gray-600 dark:border-neutral-700 dark:bg-neutral-900/60 dark:text-gray-300">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={markdownComponents as any}
-                className="space-y-1 text-[13px] leading-6 break-words"
-              >
-                {content}
-              </ReactMarkdown>
-            </div>
-          ) : (
-            <div className={`${isUser ? userBubble : assistantBubble}`}>
-              {/* Tail notch */}
-              <span
-                aria-hidden
-                className={`absolute top-4 h-3 w-3 rotate-45 ${
-                  isUser
-                    ? "-right-1 bg-indigo-500/90"
-                    : "-left-1 bg-white ring-1 ring-gray-200 dark:bg-neutral-900 dark:ring-neutral-800"
-                }`}
-              />
-              {/* Hover tools */}
-              <div className="pointer-events-none absolute -top-3 right-1 hidden gap-1 opacity-0 transition group-hover:pointer-events-auto group-hover:flex group-hover:opacity-100">
-                <button
-                  className="rounded-md border border-gray-200 bg-white px-2 py-0.5 text-[11px] text-gray-700 shadow hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200"
-                  onClick={() => navigator.clipboard.writeText(content).catch(() => {})}
-                  title="複製"
+        <div className="flex-1">
+          <div className={`group relative ${rowWidth} w-fit max-w-full ${isUser ? "ml-auto" : "mr-auto"}`}>
+            {isSystem ? (
+              <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-[13px] text-gray-600 dark:border-neutral-700 dark:bg-neutral-900/60 dark:text-gray-300">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={markdownComponents as any}
+                  className="space-y-1 text-[13px] leading-6 break-words"
                 >
-                  複製
-                </button>
+                  {content}
+                </ReactMarkdown>
               </div>
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={markdownComponents as any}
-                className="space-y-2 text-[14px] leading-6 break-words"
-              >
-                {content}
-              </ReactMarkdown>
-            </div>
-          )}
+            ) : (
+              <div className={`${isUser ? userBubble : assistantBubble}`}>
+                {/* Tail notch */}
+                <span
+                  aria-hidden
+                  className={`absolute top-4 h-3 w-3 rotate-45 ${
+                    isUser
+                      ? "-right-1 bg-indigo-500/90"
+                      : "-left-1 bg-white ring-1 ring-gray-200 dark:bg-neutral-900 dark:ring-neutral-800"
+                  }`}
+                />
+                {/* Hover tools */}
+                <div className="pointer-events-none absolute -top-3 right-1 hidden gap-1 opacity-0 transition group-hover:pointer-events-auto group-hover:flex group-hover:opacity-100">
+                  <button
+                    className="rounded-md border border-gray-200 bg-white px-2 py-0.5 text-[11px] text-gray-700 shadow hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200"
+                    onClick={() => navigator.clipboard.writeText(content).catch(() => {})}
+                    title="複製"
+                  >
+                    複製
+                  </button>
+                </div>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={markdownComponents as any}
+                  className="space-y-1 text-[14px] leading-6 break-words"
+                >
+                  {content}
+                </ReactMarkdown>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </article>
