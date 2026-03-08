@@ -37,6 +37,9 @@ class ConversationStore:
     def _msg_key(self, user_id: str, conv_id: str) -> str:
         return f"{self._key_prefix}:msg:{user_id}:{conv_id}"
 
+    def _series_key(self, user_id: str, series: int | str) -> str:
+        return f"{self._key_prefix}:series:{user_id}:{series}"
+
     def get_conversations(self, user_id: str) -> List[dict[str, Any]]:
         raw = self._client.get(self._key(user_id))
         if not raw:
@@ -79,6 +82,11 @@ class ConversationStore:
                     if not content:
                         continue
                     messages.append({"role": role, "content": content})
+            series_val = conv.get("series")
+            try:
+                series_val = int(series_val) if series_val is not None else None
+            except Exception:
+                series_val = None
             sanitized.append(
                 {
                     "id": conv_id,
@@ -86,6 +94,7 @@ class ConversationStore:
                     "messages": messages,
                     "createdAt": created_at,
                     "updatedAt": updated_at,
+                    **({"series": series_val} if series_val is not None else {}),
                 }
             )
         payload = {"user_id": user_id, "items": sanitized}
@@ -105,7 +114,7 @@ class ConversationStore:
         except Exception:
             pass
 
-    def upsert_conversation_meta(self, user_id: str, conversation_id: str, title: str, created_at_ms: int | None = None, updated_at_ms: int | None = None) -> None:
+    def upsert_conversation_meta(self, user_id: str, conversation_id: str, title: str, created_at_ms: int | None = None, updated_at_ms: int | None = None, series: int | None = None) -> None:
         items = self.get_conversations(user_id)
         found = False
         for it in items:
@@ -113,6 +122,8 @@ class ConversationStore:
                 it["title"] = title
                 if updated_at_ms is not None:
                     it["updatedAt"] = int(updated_at_ms)
+                if series is not None:
+                    it["series"] = int(series)
                 found = True
                 break
         if not found:
@@ -122,12 +133,46 @@ class ConversationStore:
                 "createdAt": int(created_at_ms or 0),
                 "updatedAt": int(updated_at_ms or created_at_ms or 0),
                 "messages": [],
+                **({"series": int(series)} if series is not None else {}),
             })
         self.save_conversations(user_id, items)
+        # Maintain reverse index: series -> conversation_id for quick deletion
+        try:
+            if series is not None:
+                self._client.set(self._series_key(user_id, series), conversation_id)
+                self._client.expire(self._series_key(user_id, series), 3 * 24 * 3600)
+        except Exception:
+            pass
 
     def delete_conversation_meta(self, user_id: str, conversation_id: str) -> None:
         items = [it for it in self.get_conversations(user_id) if str(it.get("id")) != conversation_id]
+        # also drop any series index pointing to this conversation
+        try:
+            for it in self.get_conversations(user_id):
+                if str(it.get("id")) == conversation_id:
+                    s = it.get("series")
+                    if s is not None:
+                        self._client.delete(self._series_key(user_id, s))
+                    break
+        except Exception:
+            pass
         self.save_conversations(user_id, items)
+
+    def get_conversation_id_by_series(self, user_id: str, series: int) -> str | None:
+        try:
+            cid = self._client.get(self._series_key(user_id, series))
+            if cid:
+                return str(cid)
+        except Exception:
+            pass
+        # fallback: scan items
+        for it in self.get_conversations(user_id):
+            try:
+                if int(it.get("series")) == int(series):
+                    return str(it.get("id"))
+            except Exception:
+                continue
+        return None
 
     # Per-conversation messages cached in Redis (3-day TTL)
     def append_message(self, user_id: str, conversation_id: str, role: str, content: str) -> None:

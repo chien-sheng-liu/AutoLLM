@@ -9,6 +9,7 @@ from ..models.chat import ChatRequest, ChatResponse, Citation, Message as Messag
 from ..services.embeddings import EmbeddingService
 from ..services.rag import retrieve, build_context_snippets, system_prompt_guidance
 from ..storage.vector_store import VectorStore
+from ..storage.vector_redis_store import RedisVectorStore
 from ..storage.chat_store import get_chat_store
 from ..storage.conv_pg_store import get_conv_pg_store
 from ..storage.conversation_store import get_conversation_store
@@ -31,6 +32,7 @@ class ConversationPayload(BaseModel):
     messages: List[ConversationMessagePayload] = Field(default_factory=list)
     created_at: int = Field(..., alias="createdAt")
     updated_at: int = Field(..., alias="updatedAt")
+    series: int | None = None
 
     class Config:
         populate_by_name = True
@@ -69,7 +71,8 @@ def chat(req: ChatRequest, current_user: UserOut = Depends(get_current_user)):
     # Provider will validate corresponding API key
 
     top_k = req.top_k or cfg.top_k
-    store = VectorStore(cfg)
+    # Retrieval must read from Redis; Postgres remains audit/log only
+    store = RedisVectorStore(cfg)
     embedder = EmbeddingService.from_config(cfg)
 
     # Use last user message for retrieval
@@ -145,11 +148,41 @@ def chat(req: ChatRequest, current_user: UserOut = Depends(get_current_user)):
     conv_store = get_conv_pg_store(cfg)
     conv = conv_store.get_or_create_conversation(user_id=current_user.id, conversation_id=req.conversation_id, title=title_from_first_user_message(req.messages))
     cache = get_conversation_store(cfg)
+    # Auto-name conversation from the first user message if title is default/empty
+    try:
+        suggested = title_from_first_user_message([m.dict() for m in req.messages]) if hasattr(req.messages[0], 'dict') else title_from_first_user_message([{"role": m.role, "content": m.content} for m in req.messages])
+    except Exception:
+        suggested = title_from_first_user_message([])
+    current_title = str(conv.get("title") or "")
+    if suggested and (not current_title or current_title.strip() == "新的對話"):
+        try:
+            renamed = conv_store.rename_conversation(user_id=current_user.id, conversation_id=conv["id"], title=suggested)
+            if renamed:
+                # refresh conv ref
+                conv = renamed  # type: ignore
+                # update Redis index title
+                from datetime import datetime
+                def to_ms(txt: str) -> int:
+                    from datetime import datetime as _dt
+                    dt = _dt.fromisoformat(txt.replace("Z", "+00:00"))
+                    return int(dt.timestamp() * 1000)
+                s = conv.get("series")
+                cache.upsert_conversation_meta(current_user.id, conv["id"], conv["title"], to_ms(conv["created_at"]), to_ms(conv["updated_at"]), series=int(s) if s is not None else None)
+        except Exception:
+            pass
     # append user and assistant messages to Postgres (audit) and Redis (cache)
     conv_store.append_message(user_id=current_user.id, conversation_id=conv["id"], role="user", content=last_user)
     cache.append_message(current_user.id, conv["id"], "user", last_user)
     conv_store.append_message(user_id=current_user.id, conversation_id=conv["id"], role="assistant", content=answer)
     cache.append_message(current_user.id, conv["id"], "assistant", answer)
+    # bump Redis index updatedAt
+    try:
+        from datetime import datetime as _dt
+        now_ms = int(_dt.utcnow().timestamp() * 1000)
+        s = conv.get("series")
+        cache.upsert_conversation_meta(current_user.id, conv["id"], conv.get("title") or "新的對話", None, now_ms, series=int(s) if s is not None else None)
+    except Exception:
+        pass
 
     # Log chat message and return answer_id (legacy table)
     store = get_chat_store(cfg)
@@ -174,7 +207,8 @@ def chat_stream(req: ChatRequest, current_user: UserOut = Depends(get_current_us
     # Provider will validate corresponding API key
 
     top_k = req.top_k or cfg.top_k
-    store = VectorStore(cfg)
+    # Retrieval must read from Redis; Postgres remains audit/log only
+    store = RedisVectorStore(cfg)
     embedder = EmbeddingService.from_config(cfg)
 
     if not req.messages:
@@ -212,6 +246,26 @@ def chat_stream(req: ChatRequest, current_user: UserOut = Depends(get_current_us
             conv_store = get_conv_pg_store(cfg)
             conv = conv_store.get_or_create_conversation(user_id=current_user.id, conversation_id=req.conversation_id, title=title_from_first_user_message(req.messages))
             cache = get_conversation_store(cfg)
+            # Auto-name from first user message if needed
+            try:
+                suggested = title_from_first_user_message([m.dict() for m in req.messages]) if hasattr(req.messages[0], 'dict') else title_from_first_user_message([{"role": m.role, "content": m.content} for m in req.messages])
+            except Exception:
+                suggested = title_from_first_user_message([])
+            current_title = str(conv.get("title") or "")
+            if suggested and (not current_title or current_title.strip() == "新的對話"):
+                try:
+                    renamed = conv_store.rename_conversation(user_id=current_user.id, conversation_id=conv["id"], title=suggested)
+                    if renamed:
+                        conv = renamed  # type: ignore
+                        from datetime import datetime
+                        def to_ms(txt: str) -> int:
+                            from datetime import datetime as _dt
+                            dt = _dt.fromisoformat(txt.replace("Z", "+00:00"))
+                            return int(dt.timestamp() * 1000)
+                        s = conv.get("series")
+                        cache.upsert_conversation_meta(current_user.id, conv["id"], conv["title"], to_ms(conv["created_at"]), to_ms(conv["updated_at"]), series=int(s) if s is not None else None)
+                except Exception:
+                    pass
             conv_store.append_message(user_id=current_user.id, conversation_id=conv["id"], role="user", content=last_user)
             cache.append_message(current_user.id, conv["id"], "user", last_user)
             try:
@@ -267,6 +321,14 @@ def chat_stream(req: ChatRequest, current_user: UserOut = Depends(get_current_us
         try:
             conv_store.append_message(user_id=current_user.id, conversation_id=conv["id"], role="assistant", content=acc)
             cache.append_message(current_user.id, conv["id"], "assistant", acc)
+        except Exception:
+            pass
+        # bump Redis index updatedAt
+        try:
+            from datetime import datetime as _dt
+            now_ms = int(_dt.utcnow().timestamp() * 1000)
+            s = conv.get("series")
+            cache.upsert_conversation_meta(current_user.id, conv["id"], conv.get("title") or "新的對話", None, now_ms, series=int(s) if s is not None else None)
         except Exception:
             pass
 
@@ -349,10 +411,11 @@ def create_conversation(payload: ConversationCreate, current_user: UserOut = Dep
         def to_ms(txt: str) -> int:
             dt = datetime.fromisoformat(txt.replace("Z", "+00:00"))
             return int(dt.timestamp() * 1000)
-        store.upsert_conversation_meta(current_user.id, row["id"], row["title"], to_ms(row["created_at"]), to_ms(row["updated_at"]))
+        s = row.get("series")
+        store.upsert_conversation_meta(current_user.id, row["id"], row["title"], to_ms(row["created_at"]), to_ms(row["updated_at"]), series=int(s) if s is not None else None)
     except Exception:
         pass
-    return {"id": row["id"], "title": row["title"]}
+    return {"id": row["id"], "title": row["title"], "series": int(row.get("series") or 0)}
 
 
 @router.put("/chat/conversations/{conversation_id}")
@@ -372,14 +435,15 @@ def rename_conversation(conversation_id: str, payload: ConversationUpdate, curre
         def to_ms(txt: str) -> int:
             dt = datetime.fromisoformat(txt.replace("Z", "+00:00"))
             return int(dt.timestamp() * 1000)
-        store.upsert_conversation_meta(current_user.id, row["id"], row["title"], to_ms(row["created_at"]), to_ms(row["updated_at"]))
+        s = row.get("series")
+        store.upsert_conversation_meta(current_user.id, row["id"], row["title"], to_ms(row["created_at"]), to_ms(row["updated_at"]), series=int(s) if s is not None else None)
     except Exception:
         pass
     return {"ok": True}
 
 
 @router.delete("/chat/conversations/{conversation_id}")
-def delete_conversation(conversation_id: str, current_user: UserOut = Depends(get_current_user)):
+def delete_conversation(conversation_id: str, current_user: UserOut = Depends(get_current_user), series: int | None = None):
     cfg = load_config()
     try:
         check_rate_limit(cfg, current_user.id, scope="conv", limit=30, window_seconds=60)
@@ -387,12 +451,40 @@ def delete_conversation(conversation_id: str, current_user: UserOut = Depends(ge
         raise
     pg = get_conv_pg_store(cfg)
     store = get_conversation_store(cfg)
+    # Allow deletion via series number if provided
+    if series is not None:
+        cid = store.get_conversation_id_by_series(current_user.id, int(series))
+        if cid:
+            conversation_id = cid
     ok = pg.delete_conversation(user_id=current_user.id, conversation_id=conversation_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Conversation not found")
     try:
         store.delete_conversation_meta(current_user.id, conversation_id)
         store.delete_messages(current_user.id, conversation_id)
+    except Exception:
+        pass
+    return {"ok": True}
+
+
+@router.delete("/chat/conversations/by-series/{series}")
+def delete_conversation_by_series(series: int, current_user: UserOut = Depends(get_current_user)):
+    cfg = load_config()
+    try:
+        check_rate_limit(cfg, current_user.id, scope="conv", limit=30, window_seconds=60)
+    except HTTPException:
+        raise
+    pg = get_conv_pg_store(cfg)
+    store = get_conversation_store(cfg)
+    cid = store.get_conversation_id_by_series(current_user.id, int(series))
+    if not cid:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    ok = pg.delete_conversation(user_id=current_user.id, conversation_id=cid)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    try:
+        store.delete_conversation_meta(current_user.id, cid)
+        store.delete_messages(current_user.id, cid)
     except Exception:
         pass
     return {"ok": True}
