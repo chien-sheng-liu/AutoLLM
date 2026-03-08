@@ -43,6 +43,12 @@ class Settings:
     jwt_secret_key: str = "change-me"
     jwt_algorithm: str = "HS256"
     jwt_access_token_minutes: int = 60
+    redis_url: str | None = None
+    redis_host: str = "redis"
+    redis_port: int = 6379
+    redis_username: str | None = None
+    redis_password: str | None = None
+    redis_db: int = 0
 
 
 def ensure_dirs(path: str) -> None:
@@ -61,6 +67,13 @@ def get_defaults() -> Settings:
         default_port = os.getenv("POSTGRES_PORT", "5432")
         # If we are talking to the docker-compose service, always use its internal 5432 port.
         postgres_port = 5432 if postgres_host == "postgres" else int(default_port)
+
+    redis_url = os.getenv("REDIS_URL") or None
+    redis_host = os.getenv("REDIS_HOST", "redis" if postgres_host == "postgres" else "localhost")
+    redis_port = int(os.getenv("REDIS_PORT", "6379"))
+    redis_username = os.getenv("REDIS_USERNAME") or None
+    redis_password = os.getenv("REDIS_PASSWORD") or None
+    redis_db = int(os.getenv("REDIS_DB", "0"))
 
     return Settings(
         data_dir=data_dir,
@@ -97,6 +110,12 @@ def get_defaults() -> Settings:
         jwt_secret_key=os.getenv("JWT_SECRET_KEY", "change-me"),
         jwt_algorithm=os.getenv("JWT_ALGORITHM", "HS256"),
         jwt_access_token_minutes=int(os.getenv("JWT_EXPIRES_MINUTES", "60")),
+        redis_url=redis_url,
+        redis_host=redis_host,
+        redis_port=redis_port,
+        redis_username=redis_username,
+        redis_password=redis_password,
+        redis_db=redis_db,
     )
 
 
@@ -147,6 +166,12 @@ def load_config() -> Settings:
                 jwt_secret_key=defaults.jwt_secret_key,
                 jwt_algorithm=defaults.jwt_algorithm,
                 jwt_access_token_minutes=defaults.jwt_access_token_minutes,
+                redis_url=defaults.redis_url,
+                redis_host=defaults.redis_host,
+                redis_port=defaults.redis_port,
+                redis_username=defaults.redis_username,
+                redis_password=defaults.redis_password,
+                redis_db=defaults.redis_db,
             )
         except Exception:
             # Fall back to defaults if parsing fails

@@ -13,6 +13,7 @@ class ChatRequest(BaseModel):
     temperature: Optional[float] = 0.2
     chat_model: Optional[str] = None
     chat_provider: Optional[str] = None
+    conversation_id: Optional[str] = None
 
 
 class Citation(BaseModel):

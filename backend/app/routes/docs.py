@@ -7,7 +7,9 @@ from pydantic import BaseModel, EmailStr
 from ..config import load_config, docs_dir
 from ..models.docs import UploadResponse, DocumentList, DocumentInfo
 from ..dependencies.auth import get_current_user, require_admin, require_manager
+from ..models.auth import UserOut
 from ..storage.vector_store import VectorStore
+from ..storage.vector_redis_store import RedisVectorStore
 from ..services.embeddings import EmbeddingService
 from ..services.rag import chunk_text
 from ..storage.user_store import get_user_store
@@ -78,11 +80,17 @@ async def upload_document(file: UploadFile = File(...), current_user=Depends(req
     # Validate embedding provider/API key via service initialization
     docs_path = docs_dir(cfg)
     store = VectorStore(cfg)
+    rstore = RedisVectorStore(cfg)
     embedder = EmbeddingService.from_config(cfg)
 
     # Persist file first
     filename = file.filename or "uploaded"
     doc_id = store.add_document(name=filename, source="upload")
+    # Mirror document metadata into Redis for retrieval
+    try:
+        rstore.set_document(doc_id, name=filename, source="upload")
+    except Exception:
+        pass
     ext = os.path.splitext(filename)[1] or ".txt"
     save_path = os.path.join(docs_path, f"{doc_id}{ext}")
     contents = await file.read()
@@ -122,8 +130,18 @@ async def upload_document(file: UploadFile = File(...), current_user=Depends(req
             metadatas.append({"ext": ext, "name": filename, "page": 1})
 
     chunk_ids = store.add_chunks(doc_id, texts, metadatas=metadatas)
+    # Mirror chunks to Redis with identical IDs
+    try:
+        rstore.add_chunks_with_ids(doc_id, chunk_ids, texts, metadatas=metadatas)
+    except Exception:
+        pass
     vectors = embedder.embed_texts(texts)
     store.upsert_embeddings(chunk_ids, vectors)
+    # Also write embeddings to Redis (chat retrieval reads from Redis)
+    try:
+        rstore.upsert_embeddings(chunk_ids, vectors)
+    except Exception:
+        pass
 
     # Grant uploader access (permissioned mode)
     try:
@@ -138,9 +156,10 @@ async def upload_document(file: UploadFile = File(...), current_user=Depends(req
 
 
 @router.get("", response_model=DocumentList)
-def list_documents(_: str = Depends(require_manager)):
+def list_documents(_: UserOut = Depends(get_current_user)):
     cfg = load_config()
     store = VectorStore(cfg)
+    # Show all documents to any authenticated user; modifications remain restricted elsewhere
     items = [DocumentInfo(**d) for d in store.get_documents()]
     return DocumentList(items=items)
 
@@ -152,8 +171,13 @@ def list_documents(_: str = Depends(require_manager)):
 def delete_document(document_id: str, _: str = Depends(require_admin)):
     cfg = load_config()
     store = VectorStore(cfg)
+    rstore = RedisVectorStore(cfg)
     # Remove metadata/embeddings
     store.delete_document(document_id)
+    try:
+        rstore.delete_document(document_id)
+    except Exception:
+        pass
     # Remove file if exists
     dd = docs_dir(cfg)
     for file in os.listdir(dd):

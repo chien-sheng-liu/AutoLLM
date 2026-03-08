@@ -91,9 +91,9 @@ export default function DataPage() {
   }
 
   useEffect(() => {
-    if (!canManage) return;
     refresh();
-  }, [canManage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!canManage) {
@@ -142,11 +142,7 @@ export default function DataPage() {
       .finally(() => setDocPermLoading(false));
   }, [selectedDocId, canManage]);
 
-  useEffect(() => {
-    if (!authVerified) return;
-    if (canManage) return;
-    router.replace('/chat');
-  }, [authVerified, canManage, router]);
+  // No redirect: normal users can view read-only list
   useEffect(() => {
     setSelectedIds((prev) => prev.filter((id) => docs.some((d) => d.document_id === id)));
   }, [docs]);
@@ -325,12 +321,48 @@ export default function DataPage() {
   }
 
   if (!canManage) {
+    // Read-only view for normal users: list accessible documents and allow copying IDs
     return (
-      <Card className="mx-auto max-w-xl p-6 text-center">
-        <h2 className="text-xl font-semibold">無權限</h2>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">此頁面僅限 Admin 或 Manager 管理資料與權限。</p>
-      </Card>
+      <div className="grid gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold">所有文件（僅檢視）</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400">您可以檢視所有文件並複製 ID，但不可變更。</p>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <span className="rounded-full border border-gray-200 px-3 py-1 dark:border-neutral-700">{loading ? '—' : docs.length} 份文件</span>
+            <button className="rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50 dark:border-neutral-800 dark:hover:bg-neutral-800" onClick={refresh}>重新整理</button>
+          </div>
+        </div>
 
+        <Card className="p-5">
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <div className="relative w-72"><Input ref={nameSearchRef} placeholder="搜尋名稱或 ID…（按 / 聚焦）" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
+            <Button variant="outline" onClick={() => setSortAsc((s) => !s)}>名稱 {sortAsc ? 'A→Z' : 'Z→A'}</Button>
+          </div>
+
+          <div className="hidden grid-cols-[1fr_320px_120px] gap-3 px-4 py-2 text-xs text-gray-500 md:grid dark:text-gray-400">
+            <div>名稱</div>
+            <div>ID</div>
+            <div>操作</div>
+          </div>
+          {filteredDocs.length === 0 ? (
+            <div className="p-6 text-sm text-gray-600 dark:text-gray-400">{docs.length === 0 ? '目前尚未被授權使用任何文件。' : '沒有符合的文件。'}</div>
+          ) : (
+            <div className="divide-y divide-gray-100 dark:divide-neutral-800">
+              {filteredDocs.map((d) => (
+                <div key={d.document_id} className="grid grid-cols-1 items-start gap-3 p-4 md:grid-cols-[1fr_320px_120px] md:items-center">
+                  <div className="truncate font-medium">{d.name}</div>
+                  <div className="break-all text-xs text-gray-500">{d.document_id}</div>
+                  <div>
+                    <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(d.document_id).then(() => showToast('已複製 ID', { kind: 'success' })).catch(() => showToast('複製失敗', { kind: 'error' }))}>複製 ID</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
     );
   }
 

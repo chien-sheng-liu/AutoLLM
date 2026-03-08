@@ -28,28 +28,36 @@ function writeAuthCookie(token: string | null) {
 
 export function getAccessToken(): string | null {
   if (!isBrowser()) return null;
-  try { return window.sessionStorage.getItem(TOKEN_KEY); } catch { return null; }
+  // Prefer per-tab sessionStorage to allow multiple accounts in different tabs
+  const st = window.sessionStorage.getItem(TOKEN_KEY);
+  if (st) return st;
+  return window.localStorage.getItem(TOKEN_KEY);
 }
 
 export function getStoredUser(): AuthUser | null {
   if (!isBrowser()) return null;
-  let raw: string | null = null;
-  try { raw = window.sessionStorage.getItem(USER_KEY); } catch {}
-  if (!raw) return null;
-  try { return JSON.parse(raw) as AuthUser; } catch { return null; }
+  const rawSession = window.sessionStorage.getItem(USER_KEY);
+  const rawLocal = rawSession || window.localStorage.getItem(USER_KEY);
+  if (!rawLocal) return null;
+  try { return JSON.parse(rawLocal) as AuthUser; } catch { return null; }
 }
 
 export function saveSession(token: string, user: AuthUser) {
   if (!isBrowser()) return;
-  try { window.sessionStorage.setItem(TOKEN_KEY, token); } catch {}
-  try { window.sessionStorage.setItem(USER_KEY, JSON.stringify(user)); } catch {}
+  // Store per-tab to allow parallel logins in different tabs
+  window.sessionStorage.setItem(TOKEN_KEY, token);
+  window.sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+  // Also mirror user (not token) to localStorage for minor UX (optional)
+  try { window.localStorage.setItem(USER_KEY, JSON.stringify(user)); } catch {}
   writeAuthCookie(token);
 }
 
 export function clearSession() {
   if (!isBrowser()) return;
-  try { window.sessionStorage.removeItem(TOKEN_KEY); } catch {}
-  try { window.sessionStorage.removeItem(USER_KEY); } catch {}
+  window.sessionStorage.removeItem(TOKEN_KEY);
+  window.sessionStorage.removeItem(USER_KEY);
+  // Do not remove other tabs' sessions in localStorage; remove only our mirror user
+  try { window.localStorage.removeItem(USER_KEY); } catch {}
   writeAuthCookie(null);
 }
 
