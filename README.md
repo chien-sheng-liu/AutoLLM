@@ -24,6 +24,7 @@ A clear, production‑ready Retrieval‑Augmented Generation (RAG) chatbot. Uplo
 - Frontend: Next.js (TypeScript, App Router)
 - Providers: OpenAI / Gemini / Claude (pluggable)
 - Vector store: PostgreSQL + pgvector (metadata and embeddings in DB)
+- Conversations/history: Redis (UI cache, 3‑day TTL) + Postgres (permanent audit/log)
 
 ## Features
 - End‑to‑end ingestion: upload → parse → chunk → embed → store
@@ -33,11 +34,15 @@ A clear, production‑ready Retrieval‑Augmented Generation (RAG) chatbot. Uplo
 - JWT auth + user store in PostgreSQL
 
 ## Architecture
-Front end (Next.js) → API (FastAPI) → PostgreSQL + pgvector
+Front end (Next.js) → API (FastAPI) → Redis (UI cache) + PostgreSQL (pgvector + audit)
 
 - Documents: original files
 - Chunks: chunked text + metadata (JSONB)
 - Embeddings: pgvector, searched via cosine distance using `<=>`
+- Conversations & History
+  - Per‑user isolation enforced server‑side (JWT)
+  - Redis (UI cache): conversations index and messages, 3‑day TTL
+  - Postgres (audit/log): conversations + conversation_messages (permanent)
 
 ## Quick Start (Docker + Make)
 1) Configure environment
@@ -45,7 +50,7 @@ Front end (Next.js) → API (FastAPI) → PostgreSQL + pgvector
 - Set at least one provider key (e.g., `OPENAI_API_KEY`)
 
 2) Start services
-- `make up` (frontend:3000, backend:8000, postgres)
+- `make up` (frontend:3000, backend:8000, postgres, redis)
 - `make logs` (tail logs)
 - `make down` / `make clean` (stop / remove volumes)
 
@@ -74,6 +79,9 @@ Backend (set keys for the providers you use)
 - `EMBEDDING_DIM` (pgvector dimension — must match the embedding model)
 - `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `JWT_EXPIRES_MINUTES`
 
+Redis (UI cache)
+- `REDIS_URL` (recommended) or `REDIS_HOST`, `REDIS_PORT` (default 6379), `REDIS_DB`
+
 Frontend
 - `NEXT_PUBLIC_API_BASE_URL` (e.g., http://localhost:8000)
 
@@ -96,10 +104,18 @@ Chat
 - POST `/api/v1/chat` (sync)
 - POST `/api/v1/chat/stream` (events: delta/done/error)
 
+Conversations (per‑user)
+- GET `/api/v1/chat/conversations` → list conversations (from Redis cache)
+- POST `/api/v1/chat/conversations` → create (writes Postgres + Redis)
+- PUT `/api/v1/chat/conversations/{id}` → rename
+- DELETE `/api/v1/chat/conversations/{id}` → delete (purges Redis + Postgres)
+- GET `/api/v1/chat/conversations/{id}` → messages (from Redis cache)
+- POST `/api/v1/chat/conversations/migrate` → optional, rehydrate legacy Redis blobs into Postgres audit rows
+
 ## UI Overview
 - Home: minimal, commercial hero with three primary CTAs (Chat / Data / Settings)
 - Data: drag‑and‑drop, multi‑file progress, name/ID filter, copy ID, batch delete (DB + index)
-- Chat: streaming answers, citations foldout, model suggestions
+- Chat: streaming answers, citations foldout, model suggestions; per‑tab login; history loaded from Redis (3‑day TTL) with Postgres as audit
 - Settings: Simple/Advanced modes; provider buttons; chat model via suggestions; provider health check
 
 ## Security
@@ -112,6 +128,17 @@ Chat
 - pgvector: ensure the extension is installed (`CREATE EXTENSION IF NOT EXISTS vector`)
 - Provider health: GET `/api/v1/providers/health`
 - PDF upload errors: rebuild backend to install `cryptography`, or upload an unencrypted file
+- Conversations not persisting: ensure Redis is up; backend writes to Redis (UI cache) and Postgres (audit)
+- Deleted conversations reappear: confirm DELETE 200 and that Redis index/messages were purged
+
+## Rate limits
+- Chat: 60 requests/min per user
+- Conversations: create/delete 30/min; rename 60/min per user
+- Migrate: 3 requests/hour per user
+
+## Data retention
+- Redis stores a 3‑day UI history for fast UX
+- Postgres stores the full audit trail (conversations + messages)
 
 ## License
 MIT (adjust as needed)
