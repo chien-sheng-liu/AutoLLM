@@ -408,7 +408,7 @@ export default function DataPage() {
         </div>
 
         <div
-          className={`rounded-xl border-2 border-dashed p-8 text-center text-sm transition ${dragOver ? 'border-indigo-400 bg-indigo-50/50 dark:border-indigo-800 dark:bg-indigo-950/20' : 'border-gray-200 dark:border-neutral-800'}`}
+          className={`rounded-xl border-2 border-dashed p-8 text-center text-sm transition backdrop-blur-md ${dragOver ? 'border-indigo-400 bg-white/40 dark:border-indigo-800 dark:bg-white/10' : 'border-white/20 bg-white/30 dark:border-white/10 dark:bg-white/5'}`}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={(e) => {
@@ -418,8 +418,8 @@ export default function DataPage() {
         >
           將檔案拖放到此處，或點擊「選擇檔案」挑選
           {uploading && (
-            <div className="mx-auto mt-4 h-2 w-full max-w-lg overflow-hidden rounded bg-gray-200 dark:bg-neutral-800">
-              <div className="h-full bg-indigo-600" style={{ width: `${overallProgress}%` }} />
+            <div className="mx-auto mt-4 h-2 w-full max-w-lg overflow-hidden rounded bg-white/30 dark:bg-white/10">
+              <div className="h-full bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600" style={{ width: `${overallProgress}%` }} />
             </div>
           )}
         </div>
@@ -427,7 +427,7 @@ export default function DataPage() {
         {selectedFiles.length > 0 && (
           <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {selectedFiles.map((f, i) => (
-              <div key={`${f.name}-${i}`} className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm dark:border-neutral-800 dark:bg-neutral-800">
+              <div key={`${f.name}-${i}`} className="flex items-center justify-between rounded-xl border border-white/30 bg-white/60 p-3 text-sm backdrop-blur-md dark:border-white/10 dark:bg-white/10">
                 <div className="min-w-0 truncate pr-3"><span className="truncate" title={f.name}>{f.name}</span></div>
                 <Button variant="outline" size="sm" disabled={uploading} onClick={() => setSelectedFiles((prev) => prev.filter((_, idx) => idx !== i))}>移除</Button>
               </div>
@@ -453,7 +453,7 @@ export default function DataPage() {
 
       {/* Documents list */}
       <Card className="overflow-hidden">
-        <div className="hidden grid-cols-[24px_1fr_320px_120px] items-center gap-3 border-b border-gray-200 px-4 py-3 text-xs text-gray-500 dark:border-neutral-800 md:grid">
+        <div className="hidden grid-cols-[24px_1fr_320px_120px] items-center gap-3 border-b border-white/20 px-4 py-3 text-xs text-gray-500 dark:border-white/10 md:grid">
           <div>
             <input
               aria-label="select all"
@@ -470,13 +470,13 @@ export default function DataPage() {
         {loading ? (
           <div className="grid gap-2 p-4">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-14 rounded-xl bg-gray-100 dark:bg-neutral-800" />
+              <div key={i} className="h-14 rounded-xl bg-white/30 dark:bg-white/10" />
             ))}
           </div>
         ) : filteredDocs.length === 0 ? (
           <div className="p-6 text-sm text-gray-600 dark:text-gray-400">{docs.length === 0 ? '尚未上傳任何文件，請先於上方進行上傳。' : '沒有符合的文件。'}</div>
         ) : (
-          <div className="divide-y divide-gray-200 dark:divide-neutral-800">
+          <div className="divide-y divide-white/20 dark:divide-white/10">
             {filteredDocs.map((d) => (
               <div key={d.document_id} className="grid grid-cols-1 items-start gap-3 p-4 md:grid-cols-[24px_1fr_320px_120px] md:items-center">
                 <div className="mt-0.5 md:mt-0">

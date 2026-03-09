@@ -12,7 +12,11 @@ class EmbeddingService:
 
     @classmethod
     def from_config(cls, cfg: Settings):
-        provider = get_embedding_provider(cfg)
+        try:
+            provider = get_embedding_provider(cfg)
+        except Exception as e:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=422, detail=str(e))
         return cls(provider, cfg.embedding_model)
 
     def embed_texts(self, texts: Iterable[str]) -> List[np.ndarray]:

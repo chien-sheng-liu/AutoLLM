@@ -42,16 +42,16 @@ export default function CodeBlock({ code, lang }: { code: string; lang?: string 
   return (
     <div className="relative">
       {(lang || '').length > 0 && (
-        <div className="pointer-events-none absolute left-2 top-2 rounded bg-gray-200/80 px-2 py-0.5 text-[11px] uppercase tracking-wide text-gray-700 dark:bg-neutral-700/60 dark:text-gray-200">
+        <div className="pointer-events-none absolute left-2 top-2 rounded bg-white/70 px-2 py-0.5 text-[11px] uppercase tracking-wide text-gray-700 backdrop-blur-md dark:bg-white/10 dark:text-gray-200">
           {lang}
         </div>
       )}
-      <pre className="overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-2 text-gray-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-gray-100">
+      <pre className="overflow-auto rounded-lg border border-white/30 bg-white/70 p-2 text-gray-800 backdrop-blur-md dark:border-white/10 dark:bg-white/5 dark:text-gray-100">
         <code ref={ref} />
       </pre>
       <button
         onClick={copy}
-        className="absolute right-2 top-2 rounded-md border border-gray-200 bg-white/80 px-2 py-0.5 text-xs text-gray-700 shadow hover:bg-white dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200"
+        className="absolute right-2 top-2 rounded-md border border-white/30 bg-white/70 px-2 py-0.5 text-xs text-gray-700 shadow hover:bg-white/80 backdrop-blur-md dark:border-white/10 dark:bg-white/5 dark:text-gray-200"
       >
         複製
       </button>

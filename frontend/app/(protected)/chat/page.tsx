@@ -212,6 +212,16 @@ export default function ChatPage() {
     const userMessage: Message = { role: "user", content: input.trim() };
     const newMsgs: Message[] = [...messages, userMessage];
     setMessages(newMsgs);
+    // Clear input immediately
+    setInput("");
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (el) {
+        el.value = "";
+        el.style.height = "auto";
+        handleInputHeightChange(el.offsetHeight || 48);
+      }
+    });
     // Auto-name conversation on first user message (UI-side) and persist to server
     const firstLine = userMessage.content.trim().split('\n')[0];
     const autoTitle = firstLine.length > 40 ? firstLine.slice(0, 40) + '…' : firstLine;
@@ -231,7 +241,6 @@ export default function ChatPage() {
       messages: newMsgs,
       updatedAt: Date.now(),
     }));
-    clearInput();
     const ctrl = new AbortController();
     setAbortCtrl(ctrl);
     setBusy(true);
@@ -586,25 +595,14 @@ export default function ChatPage() {
                 }}
               />
               {busy ? (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="whitespace-nowrap"
-                    style={{ height: inputHeight }}
-                    onClick={() => abortCtrl?.abort()}
-                  >
-                    停止
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="cursor-not-allowed whitespace-nowrap opacity-60"
-                    style={{ height: inputHeight }}
-                    disabled
-                  >
-                    傳送中…
-                  </Button>
-                </>
+                <Button
+                  type="submit"
+                  className="cursor-not-allowed whitespace-nowrap opacity-60"
+                  style={{ height: inputHeight }}
+                  disabled
+                >
+                  傳送中…
+                </Button>
               ) : (
                 <Button type="submit" style={{ height: inputHeight }} className="min-w-[72px] whitespace-nowrap" disabled={busy}>
                   送出
@@ -622,25 +620,23 @@ export default function ChatPage() {
 
 
   return (
-    <div className="relative isolate min-h-[calc(100vh-80px)] bg-gradient-to-b from-slate-50 via-white to-slate-100 dark:from-neutral-950 dark:via-neutral-950 dark:to-neutral-900">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.15),_transparent_55%)] dark:bg-[radial-gradient(circle_at_top,_rgba(79,70,229,0.25),_transparent_60%)]" />
-      <div
-        ref={rootRef}
-        className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-6 lg:flex-row"
-        style={{ height: containerH ? containerH + "px" : undefined }}
-      >
-        <aside className="order-2 rounded-3xl border border-white/50 bg-white/80 p-5 shadow-xl backdrop-blur dark:border-neutral-800/60 dark:bg-neutral-900/70 lg:order-1 lg:w-[320px]">
+    <div
+      ref={rootRef}
+      className="relative mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-6 px-2 py-6 md:px-6 lg:flex-row"
+      style={{ height: containerH ? containerH + "px" : undefined }}
+    >
+        <aside className="order-2 flex h-full flex-col overflow-hidden rounded-3xl border border-white/20 bg-white/5 p-5 shadow-soft backdrop-blur-lg lg:order-1 lg:w-[320px]">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500 dark:text-gray-400">History</p>
-              <h2 className="text-xl font-semibold text-slate-900 dark:text-gray-100">會話清單</h2>
+              <p className="text-[11px] uppercase tracking-[0.3em] text-slate-400">History</p>
+              <h2 className="text-xl font-semibold text-slate-100">會話清單</h2>
             </div>
             <Button variant="outline" size="sm" onClick={newChat} disabled={!conversationsReady}>新對話</Button>
           </div>
           <div className="space-y-2 overflow-auto pr-1">
             {convs.map((c) => {
               const active = c.id === currentId;
-              const baseClasses = 'group w-full rounded-2xl border px-3 py-3 text-left text-sm transition';
+              const baseClasses = 'group w-full rounded-2xl border px-3 py-3 text-left text-sm transition backdrop-blur-md';
               const variant = active
                 ? 'border-indigo-200 bg-white shadow dark:border-indigo-900/60 dark:bg-neutral-800'
                 : 'border-transparent bg-white/60 hover:border-indigo-100 hover:bg-white dark:bg-neutral-800/60 dark:hover:border-neutral-700';
@@ -675,8 +671,8 @@ export default function ChatPage() {
           )}
         </aside>
 
-        <section className="order-1 flex flex-1 flex-col rounded-3xl border border-white/40 bg-white/95 shadow-2xl backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-900/85 lg:order-2">
-          <header className="border-b border-white/60 px-5 py-4 dark:border-neutral-800/70">
+        <div className="order-1 flex flex-1 flex-col gap-4 lg:order-2">
+          <div className="rounded-3xl border border-white/15 bg-white/5 px-5 py-4 backdrop-blur-md">
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex-1">
                 <p className="text-[11px] uppercase tracking-[0.3em] text-indigo-500">Active conversation</p>
@@ -686,9 +682,9 @@ export default function ChatPage() {
                 <Button variant="outline" size="sm" onClick={() => setImmersive(true)}>沉浸模式</Button>
               </div>
             </div>
-          </header>
+          </div>
 
-          <div className="border-b border-white/60 px-5 py-3 text-xs text-slate-600 dark:border-neutral-800/70 dark:text-gray-400">
+          <div className="rounded-3xl border border-white/15 bg-white/5 px-5 py-3 text-xs text-slate-300 backdrop-blur-md">
             <div className="flex flex-wrap items-center gap-3">
               <div className="inline-flex overflow-hidden rounded-full border border-slate-200 bg-white p-0.5 dark:border-neutral-700 dark:bg-neutral-800">
                 {([
@@ -698,8 +694,8 @@ export default function ChatPage() {
                 ] as const).map((p) => {
                   const selected = provider === p.id;
                   const buttonClasses = selected
-                    ? 'rounded-full bg-indigo-600 text-white shadow dark:bg-indigo-500'
-                    : 'rounded-full text-slate-600 hover:bg-slate-100 dark:text-gray-300 dark:hover:bg-neutral-700';
+                    ? 'rounded-full bg-gradient-to-tr from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-glow'
+                    : 'rounded-full text-slate-100 hover:bg-white/20';
                   return (
                     <button
                       key={p.id}
@@ -717,8 +713,8 @@ export default function ChatPage() {
                   {chatSuggestions(provider).map((m) => {
                     const selected = model === m;
                     const pillClasses = selected
-                      ? 'border border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/60 dark:bg-indigo-950/30 dark:text-indigo-100'
-                      : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-300';
+                      ? 'border border-white/20 bg-gradient-to-tr from-indigo-600/90 to-fuchsia-600/90 text-white shadow-glow'
+                      : 'border border-white/15 bg-white/10 text-slate-100 hover:bg-white/20';
                     return (
                       <button
                         key={m}
@@ -734,10 +730,10 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden rounded-3xl border border-white/12 bg-white/5 backdrop-blur-md">
             <div ref={chatRef} className="flex h-full flex-col gap-4 overflow-y-auto px-4 pb-6 pt-6 sm:px-8">
               {messages.length === 0 && !streamAnswer && (
-                <div className="rounded-3xl border border-dashed border-slate-200 bg-white/70 px-5 py-8 text-center text-sm text-slate-500 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-gray-400">
+                <div className="rounded-3xl border border-dashed border-white/20 px-5 py-8 text-center text-sm text-slate-300">
                   對文件有任何問題，儘管問我！
                 </div>
               )}
@@ -764,7 +760,7 @@ export default function ChatPage() {
                       const el = chatRef.current;
                       if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
                     }}
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 shadow hover:bg-slate-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200"
+                    className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-slate-100"
                   >
                     回到底部
                   </button>
@@ -773,26 +769,22 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <div className="border-t border-white/60 px-4 py-4 text-xs text-slate-500 dark:border-neutral-800/70 dark:text-gray-400 sm:px-8">
+          <div className="rounded-3xl border border-white/15 bg-white/5 px-4 py-4 text-xs text-slate-300 backdrop-blur-md sm:px-8">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               {!busy && (
                 <>
-                  <button type="button" onClick={handleRegenerate} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200">
+                  <button type="button" onClick={handleRegenerate} className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-slate-100 hover:bg-white/20">
                     重新產生
                   </button>
-                  <button type="button" onClick={handleContinue} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200">
+                  <button type="button" onClick={handleContinue} className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-slate-100 hover:bg-white/20">
                     繼續
                   </button>
-                  <button type="button" onClick={handleCopyLast} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200">
+                  <button type="button" onClick={handleCopyLast} className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-slate-100 hover:bg-white/20">
                     複製
                   </button>
                 </>
               )}
-              {busy && (
-                <button type="button" onClick={() => abortCtrl?.abort()} className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-[11px] font-medium text-red-600 hover:bg-red-100 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200">
-                  停止
-                </button>
-              )}
+              {/* 移除停止按鈕（僅保留下方表單中的狀態提示） */}
             </div>
             <form onSubmit={onSend} className="flex items-end gap-3">
               <Textarea
@@ -812,9 +804,7 @@ export default function ChatPage() {
               />
               {busy ? (
                 <>
-                  <Button type="button" variant="outline" className="whitespace-nowrap" style={{ height: inputHeight }} onClick={() => abortCtrl?.abort()}>
-                    停止
-                  </Button>
+                  {/* 移除停止按鈕 */}
                   <Button type="submit" className="cursor-not-allowed whitespace-nowrap opacity-60" style={{ height: inputHeight }} disabled>
                     傳送中…
                   </Button>
@@ -826,8 +816,7 @@ export default function ChatPage() {
               )}
             </form>
           </div>
-        </section>
-      </div>
+        </div>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import json
 import numpy as np
 from urllib import request, parse
 
-from .base import ChatProvider, EmbeddingProvider
+from .base import ChatProvider, EmbeddingProvider, provider_error_from_exception
 
 
 def _http_post(url: str, payload: dict, headers: dict) -> dict:
@@ -34,12 +34,14 @@ class GeminiChatProvider(ChatProvider):
         if max_tokens is not None:
             gen["maxOutputTokens"] = int(max_tokens)
         payload = {"contents": contents, "generationConfig": gen}
-        data = _http_post(url, payload, headers={})
         try:
-            return data["candidates"][0]["content"]["parts"][0]["text"]
-        except Exception:
-            # Fallback to text from top-level
-            return data.get("output_text") or ""
+            data = _http_post(url, payload, headers={})
+            try:
+                return data["candidates"][0]["content"]["parts"][0]["text"]
+            except Exception:
+                return data.get("output_text") or ""
+        except Exception as e:
+            raise provider_error_from_exception("gemini", e)
 
 
 class GeminiEmbeddingProvider(EmbeddingProvider):
@@ -53,12 +55,15 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
         # Batch endpoint
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:batchEmbedText?key={parse.quote(self.api_key)}"
         payload = {"texts": arr}
-        data = _http_post(url, payload, headers={})
-        out: List[np.ndarray] = []
-        embeddings = data.get("embeddings") or data.get("embeddingsList") or []
-        for emb in embeddings:
-            vec = emb.get("values") or emb.get("value") or emb.get("embedding", {}).get("values")
-            if vec is None:
-                vec = []
-            out.append(np.array(vec, dtype=np.float32))
-        return out
+        try:
+            data = _http_post(url, payload, headers={})
+            out: List[np.ndarray] = []
+            embeddings = data.get("embeddings") or data.get("embeddingsList") or []
+            for emb in embeddings:
+                vec = emb.get("values") or emb.get("value") or emb.get("embedding", {}).get("values")
+                if vec is None:
+                    vec = []
+                out.append(np.array(vec, dtype=np.float32))
+            return out
+        except Exception as e:
+            raise provider_error_from_exception("gemini", e)

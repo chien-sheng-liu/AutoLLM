@@ -44,30 +44,30 @@ const markdownComponents = {
       return <CodeBlock code={code} lang={match?.[1]} />;
     }
     return (
-      <code className="rounded bg-gray-200 px-1 py-0.5 text-sm text-gray-900 dark:bg-neutral-700 dark:text-gray-100">
+      <code className="break-words rounded bg-gray-200 px-1 py-[1px] text-[13px] text-gray-900 dark:bg-neutral-700 dark:text-gray-100">
         {children}
       </code>
     );
   },
   p({ children }: any) {
     return (
-      <p className="mb-1 whitespace-pre-line break-words leading-6 text-[14px] last:mb-0">
+      <p className="m-0 whitespace-pre-wrap break-words leading-6 text-[14px]">
         {renderCitationAware(children)}
       </p>
     );
   },
   ul({ children }: any) {
-    return <ul className="mb-1 list-disc space-y-0.5 pl-5 text-[14px] leading-6 last:mb-0">{renderCitationAware(children)}</ul>;
+    return <ul className="my-0 list-disc space-y-0 pl-5 text-[14px] leading-6 whitespace-pre-wrap break-words">{renderCitationAware(children)}</ul>;
   },
   ol({ children }: any) {
-    return <ol className="mb-1 list-decimal space-y-0.5 pl-5 text-[14px] leading-6 last:mb-0">{renderCitationAware(children)}</ol>;
+    return <ol className="my-0 list-decimal space-y-0 pl-5 text-[14px] leading-6 whitespace-pre-wrap break-words">{renderCitationAware(children)}</ol>;
   },
   li({ children }: any) {
-    return <li className="break-words leading-6">{renderCitationAware(children)}</li>;
+    return <li className="m-0 break-words whitespace-pre-wrap leading-6 [&>p]:m-0">{renderCitationAware(children)}</li>;
   },
   a({ href, children }: any) {
     return (
-      <a href={href} target="_blank" rel="noreferrer" className="text-indigo-600 underline dark:text-indigo-300">
+      <a href={href} target="_blank" rel="noreferrer" className="break-words text-indigo-600 underline dark:text-indigo-300">
         {children}
       </a>
     );
@@ -112,10 +112,15 @@ export default function ChatMessage({ role, content }: Props) {
   const isUser = role === "user";
   const isSystem = role === "system";
   const avatar = avatarMap[role] || avatarMap.assistant;
-  const bubbleBase = "relative inline-flex max-w-full rounded-3xl px-4 py-3 ring-1 shadow-sm transition-colors";
-  const assistantBubble = `${bubbleBase} bg-white ring-gray-200/70 text-gray-900 hover:ring-gray-300 dark:bg-neutral-900 dark:ring-neutral-800 dark:text-gray-100 dark:hover:ring-neutral-700`;
-  const userBubble = `${bubbleBase} bg-gradient-to-br from-indigo-600 to-indigo-500 text-white ring-indigo-500/30 hover:ring-indigo-400/50`;
-  const rowWidth = "max-w-[95vw] md:max-w-[960px]";
+  // Bubble: readable width with character cap for better UX
+  const bubbleBase = "relative inline-block max-w-[calc(100vw-5rem)] md:max-w-[80ch] rounded-2xl px-4 py-2 ring-1 shadow-sm transition-colors break-words whitespace-pre-wrap hyphens-auto";
+  const assistantBubble = `${bubbleBase} bg-white/70 ring-white/40 backdrop-blur-md text-gray-900 hover:ring-white/60 dark:bg-white/5 dark:ring-white/10 dark:text-gray-100 dark:hover:ring-white/20`;
+  const userBubble = `${bubbleBase} bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 text-white ring-violet-500/30 hover:ring-violet-400/50 shadow-glow`;
+  const rowWidth = "max-w-[95vw]";
+  // Subtle min width so very short messages don’t look cramped
+  const len = (content || '').replace(/\s+/g, ' ').trim().length;
+  const assistantSizeClass = len < 16 ? 'min-w-[12ch]' : len < 48 ? 'min-w-[18ch]' : 'min-w-[24ch]';
+  const userSizeClass = len < 12 ? 'min-w-[8ch]' : len < 36 ? 'min-w-[14ch]' : 'min-w-[20ch]';
 
   return (
     <article className={`relative flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
@@ -133,7 +138,7 @@ export default function ChatMessage({ role, content }: Props) {
         <div className="flex-1">
           <div className={`group relative ${rowWidth} w-fit max-w-full ${isUser ? "ml-auto" : "mr-auto"}`}>
             {isSystem ? (
-              <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-[13px] text-gray-600 dark:border-neutral-700 dark:bg-neutral-900/60 dark:text-gray-300">
+              <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-[13px] text-gray-600 dark:border-neutral-700 dark:bg-neutral-900/60 dark:text-gray-300">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={markdownComponents as any}
@@ -143,14 +148,14 @@ export default function ChatMessage({ role, content }: Props) {
                 </ReactMarkdown>
               </div>
             ) : (
-              <div className={`${isUser ? userBubble : assistantBubble}`}>
+              <div className={`${isUser ? userBubble : assistantBubble} ${isUser ? userSizeClass : assistantSizeClass}`}>
                 {/* Tail notch */}
                 <span
                   aria-hidden
-                  className={`absolute top-4 h-3 w-3 rotate-45 ${
+                  className={`absolute top-3 h-2 w-2 rotate-45 ${
                     isUser
-                      ? "-right-1 bg-indigo-500/90"
-                      : "-left-1 bg-white ring-1 ring-gray-200 dark:bg-neutral-900 dark:ring-neutral-800"
+                      ? "-right-1.5 bg-violet-600"
+                      : "-left-1.5 bg-white/70 ring-1 ring-white/40 dark:bg-white/5 dark:ring-white/10"
                   }`}
                 />
                 {/* Hover tools */}

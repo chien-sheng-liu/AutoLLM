@@ -2,6 +2,7 @@ import os
 from typing import List
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, status
+from uuid import UUID
 from pydantic import BaseModel, EmailStr
 
 from ..config import load_config, docs_dir
@@ -168,20 +169,21 @@ def list_documents(_: UserOut = Depends(get_current_user)):
 
 
 @router.delete("/{document_id:uuid}")
-def delete_document(document_id: str, _: str = Depends(require_admin)):
+def delete_document(document_id: UUID, _: UserOut = Depends(require_admin)):
     cfg = load_config()
     store = VectorStore(cfg)
     rstore = RedisVectorStore(cfg)
     # Remove metadata/embeddings
-    store.delete_document(document_id)
+    store.delete_document(str(document_id))
     try:
         rstore.delete_document(document_id)
     except Exception:
         pass
     # Remove file if exists
     dd = docs_dir(cfg)
+    did = str(document_id)
     for file in os.listdir(dd):
-        if file.startswith(document_id + "."):
+        if file.startswith(did + "."):
             try:
                 os.remove(os.path.join(dd, file))
             except FileNotFoundError:
@@ -190,7 +192,7 @@ def delete_document(document_id: str, _: str = Depends(require_admin)):
 
 
 @router.get("/permissions/users", response_model=List[PermissionUserOut])
-def list_permission_users(_: str = Depends(require_manager)):
+def list_permission_users(_: UserOut = Depends(require_manager)):
     cfg = load_config()
     store = get_user_store(cfg)
     items = []
@@ -212,12 +214,12 @@ def _ensure_doc_exists(store: VectorStore, document_id: str):
 
 
 @router.get("/{document_id:uuid}/permissions", response_model=DocPermissionsResponse)
-def get_document_permissions(document_id: str, _: str = Depends(require_manager)):
+def get_document_permissions(document_id: UUID, _: UserOut = Depends(require_manager)):
     cfg = load_config()
     vstore = VectorStore(cfg)
-    _ensure_doc_exists(vstore, document_id)
+    _ensure_doc_exists(vstore, str(document_id))
     ust = get_user_store(cfg)
-    raw_ids = ust.get_doc_allowed_users(document_id)
+    raw_ids = ust.get_doc_allowed_users(str(document_id))
     filtered: list[str] = []
     for uid in raw_ids:
         user = ust.get_by_id(uid)
@@ -228,10 +230,10 @@ def get_document_permissions(document_id: str, _: str = Depends(require_manager)
 
 
 @router.put("/{document_id:uuid}/permissions")
-def set_document_permissions(document_id: str, payload: DocPermissionsPayload, _: str = Depends(require_manager)):
+def set_document_permissions(document_id: UUID, payload: DocPermissionsPayload, _: UserOut = Depends(require_manager)):
     cfg = load_config()
     vstore = VectorStore(cfg)
-    _ensure_doc_exists(vstore, document_id)
+    _ensure_doc_exists(vstore, str(document_id))
     ust = get_user_store(cfg)
     user_ids = payload.user_ids or []
     filtered: list[str] = []
@@ -242,5 +244,5 @@ def set_document_permissions(document_id: str, payload: DocPermissionsPayload, _
         if _is_admin_auth(user.get("auth")):
             continue
         filtered.append(uid)
-    ust.set_doc_allowed_users(document_id, filtered)
+    ust.set_doc_allowed_users(str(document_id), filtered)
     return {"ok": True}

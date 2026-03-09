@@ -13,10 +13,10 @@ export function buttonClasses({ variant = "primary", size = "md" as Size }: { va
     md: "h-11 px-4 text-sm",
   };
   const variants: Record<Variant, string> = {
-    primary: "bg-brand text-white shadow-soft hover:brightness-110",
+    primary: "bg-gradient-to-tr from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-glow hover:brightness-110 hover:-translate-y-[1px] active:translate-y-0",
     outline:
-      "border border-gray-200 bg-white hover:bg-gray-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800",
-    ghost: "hover:bg-gray-100 dark:hover:bg-neutral-800",
+      "border border-white/30 bg-white/60 backdrop-blur-md hover:bg-white/80 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10",
+    ghost: "hover:bg-white/50 dark:hover:bg-white/10",
     danger:
       "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-900/40",
   };

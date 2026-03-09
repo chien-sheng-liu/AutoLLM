@@ -18,14 +18,16 @@ class ConfigPayload(BaseModel):
     openai_api_key: str | None = None
     google_api_key: str | None = None
     anthropic_api_key: str | None = None
+    # JWT/Session
+    jwt_secret_key: str | None = None
     chat_provider: str | None = None
     embedding_provider: str | None = None
-    chat_model: str
-    embedding_model: str
+    chat_model: str | None = None
+    embedding_model: str | None = None
     temperature: float | None = None
-    chunk_size: int
-    chunk_overlap: int
-    top_k: int
+    chunk_size: int | None = None
+    chunk_overlap: int | None = None
+    top_k: int | None = None
     fallback_chat_provider: str | None = None
     fallback_chat_model: str | None = None
     max_tokens: int | None = None
@@ -74,6 +76,7 @@ def get_config(current_user: UserOut = Depends(get_current_user)):
         "has_openai_key": bool(cfg.openai_api_key),
         "has_google_key": bool(cfg.google_api_key),
         "has_anthropic_key": bool(cfg.anthropic_api_key),
+        "has_jwt_secret": bool(cfg.jwt_secret_key and cfg.jwt_secret_key != 'change-me'),
     })
     return resp
 
@@ -89,6 +92,9 @@ def update_config(payload: ConfigPayload, _: str = Depends(require_admin)):
         cfg.google_api_key = payload.google_api_key.strip() or None
     if payload.anthropic_api_key is not None:
         cfg.anthropic_api_key = payload.anthropic_api_key.strip() or None
+    # JWT secret (admin only). Empty string clears (not recommended).
+    if payload.jwt_secret_key is not None:
+        cfg.jwt_secret_key = payload.jwt_secret_key.strip() or ""
     if payload.ui_mode:
         cfg.ui_mode = payload.ui_mode
     if payload.preset:
@@ -107,13 +113,18 @@ def update_config(payload: ConfigPayload, _: str = Depends(require_admin)):
         cfg.chat_provider = payload.chat_provider.lower()
     if payload.embedding_provider:
         cfg.embedding_provider = payload.embedding_provider.lower()
-    cfg.chat_model = payload.chat_model
-    cfg.embedding_model = payload.embedding_model
+    if payload.chat_model is not None:
+        cfg.chat_model = payload.chat_model
+    if payload.embedding_model is not None:
+        cfg.embedding_model = payload.embedding_model
     if payload.temperature is not None:
         cfg.temperature = float(payload.temperature)
-    cfg.chunk_size = payload.chunk_size
-    cfg.chunk_overlap = payload.chunk_overlap
-    cfg.top_k = payload.top_k
+    if payload.chunk_size is not None:
+        cfg.chunk_size = payload.chunk_size
+    if payload.chunk_overlap is not None:
+        cfg.chunk_overlap = payload.chunk_overlap
+    if payload.top_k is not None:
+        cfg.top_k = payload.top_k
     cfg.max_tokens = payload.max_tokens
     cfg.top_p = payload.top_p
     cfg.presence_penalty = payload.presence_penalty
@@ -212,4 +223,5 @@ def update_config(payload: ConfigPayload, _: str = Depends(require_admin)):
         "has_openai_key": bool(cfg.openai_api_key),
         "has_google_key": bool(cfg.google_api_key),
         "has_anthropic_key": bool(cfg.anthropic_api_key),
+        "has_jwt_secret": bool(cfg.jwt_secret_key and cfg.jwt_secret_key != 'change-me'),
     }
