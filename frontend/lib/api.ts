@@ -18,6 +18,7 @@ export type Config = {
   has_openai_key?: boolean;
   has_google_key?: boolean;
   has_anthropic_key?: boolean;
+  has_jwt_secret?: boolean;
   // Simple mode fields
   ui_mode?: 'simple' | 'advanced' | string;
   preset?: 'qna' | 'summarize' | 'extract' | 'brainstorm' | 'compliance' | string;
@@ -75,6 +76,7 @@ export async function updateConfig(payload: Partial<Config> & Pick<Config, 'chat
   openai_api_key?: string | null;
   google_api_key?: string | null;
   anthropic_api_key?: string | null;
+  jwt_secret_key?: string | null;
 }): Promise<Config> {
   return apiFetch<Config>(`/api/v1/config`, {
     method: 'PUT',
@@ -90,6 +92,14 @@ export type ProvidersHealth = {
 
 export async function providerHealth(): Promise<ProvidersHealth> {
   return apiFetch<ProvidersHealth>(`/api/v1/providers/health`);
+}
+
+export async function changePassword(current_password: string, new_password: string): Promise<{ ok: boolean }>{
+  return apiFetch<{ ok: boolean }>(`/api/v1/auth/change-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ current_password, new_password }),
+  });
 }
 
 export async function listDocuments(): Promise<DocumentsList> {

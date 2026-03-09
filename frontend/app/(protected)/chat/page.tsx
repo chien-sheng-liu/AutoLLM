@@ -212,6 +212,16 @@ export default function ChatPage() {
     const userMessage: Message = { role: "user", content: input.trim() };
     const newMsgs: Message[] = [...messages, userMessage];
     setMessages(newMsgs);
+    // Clear input immediately
+    setInput("");
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (el) {
+        el.value = "";
+        el.style.height = "auto";
+        handleInputHeightChange(el.offsetHeight || 48);
+      }
+    });
     // Auto-name conversation on first user message (UI-side) and persist to server
     const firstLine = userMessage.content.trim().split('\n')[0];
     const autoTitle = firstLine.length > 40 ? firstLine.slice(0, 40) + '…' : firstLine;
@@ -231,7 +241,6 @@ export default function ChatPage() {
       messages: newMsgs,
       updatedAt: Date.now(),
     }));
-    clearInput();
     const ctrl = new AbortController();
     setAbortCtrl(ctrl);
     setBusy(true);
@@ -586,25 +595,14 @@ export default function ChatPage() {
                 }}
               />
               {busy ? (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="whitespace-nowrap"
-                    style={{ height: inputHeight }}
-                    onClick={() => abortCtrl?.abort()}
-                  >
-                    停止
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="cursor-not-allowed whitespace-nowrap opacity-60"
-                    style={{ height: inputHeight }}
-                    disabled
-                  >
-                    傳送中…
-                  </Button>
-                </>
+                <Button
+                  type="submit"
+                  className="cursor-not-allowed whitespace-nowrap opacity-60"
+                  style={{ height: inputHeight }}
+                  disabled
+                >
+                  傳送中…
+                </Button>
               ) : (
                 <Button type="submit" style={{ height: inputHeight }} className="min-w-[72px] whitespace-nowrap" disabled={busy}>
                   送出
@@ -788,11 +786,7 @@ export default function ChatPage() {
                   </button>
                 </>
               )}
-              {busy && (
-                <button type="button" onClick={() => abortCtrl?.abort()} className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-[11px] font-medium text-red-600 hover:bg-red-100 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200">
-                  停止
-                </button>
-              )}
+              {/* 移除停止按鈕（僅保留下方表單中的狀態提示） */}
             </div>
             <form onSubmit={onSend} className="flex items-end gap-3">
               <Textarea
@@ -812,9 +806,7 @@ export default function ChatPage() {
               />
               {busy ? (
                 <>
-                  <Button type="button" variant="outline" className="whitespace-nowrap" style={{ height: inputHeight }} onClick={() => abortCtrl?.abort()}>
-                    停止
-                  </Button>
+                  {/* 移除停止按鈕 */}
                   <Button type="submit" className="cursor-not-allowed whitespace-nowrap opacity-60" style={{ height: inputHeight }} disabled>
                     傳送中…
                   </Button>

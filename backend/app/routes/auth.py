@@ -10,8 +10,13 @@ from ..models.auth import (
     UserOut,
 )
 from ..services.auth import create_access_token, hash_password, verify_password
+from pydantic import BaseModel, Field
 from ..services.users import to_user_out
 from ..storage.user_store import get_user_store
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=6)
+    new_password: str = Field(min_length=6)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -52,3 +57,17 @@ def me(current_user: UserOut = Depends(get_current_user)):
 def logout() -> LogoutResponse:
     # Stateless JWT logout—client drops the token.
     return LogoutResponse()
+
+
+@router.post("/change-password")
+def change_password(payload: ChangePasswordRequest, current_user: UserOut = Depends(get_current_user)):
+    cfg = load_config()
+    store = get_user_store(cfg)
+    record = store.get_by_id(current_user.id)
+    if not record:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    if not verify_password(payload.current_password, record["hashed_password"]):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Current password is incorrect")
+    new_hashed = hash_password(payload.new_password)
+    store.update_password(current_user.id, new_hashed)
+    return {"ok": True}

@@ -93,9 +93,17 @@ def chat(req: ChatRequest, current_user: UserOut = Depends(get_current_user)):
     if auth in ('admin', 'administrator'):
         allow_ids = None
     elif not allow_ids:
-        # No explicit permissions set -> do not allow cross-user access
-        allow_ids = []
+        # No explicit permissions set -> allow all documents
+        allow_ids = None
     retrieved = retrieve(store, embedder, last_user, top_k=top_k, allow_document_ids=allow_ids)
+    # Fallback: if Redis has no data (e.g., legacy docs), query Postgres vector store
+    if not retrieved:
+        from ..storage.vector_store import VectorStore as PgVS
+        try:
+            pg_store = PgVS(cfg)
+            retrieved = retrieve(pg_store, embedder, last_user, top_k=top_k, allow_document_ids=allow_ids)
+        except Exception:
+            pass
     context = build_context_snippets(retrieved)
 
     # Build prompt
@@ -227,8 +235,15 @@ def chat_stream(req: ChatRequest, current_user: UserOut = Depends(get_current_us
     if auth in ('admin', 'administrator'):
         allow_ids = None
     elif not allow_ids:
-        allow_ids = []
+        allow_ids = None
     retrieved = retrieve(store, embedder, last_user, top_k=top_k, allow_document_ids=allow_ids)
+    if not retrieved:
+        from ..storage.vector_store import VectorStore as PgVS
+        try:
+            pg_store = PgVS(cfg)
+            retrieved = retrieve(pg_store, embedder, last_user, top_k=top_k, allow_document_ids=allow_ids)
+        except Exception:
+            pass
     context = build_context_snippets(retrieved)
 
     sys_prompt = system_prompt_guidance()

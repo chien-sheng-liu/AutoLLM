@@ -191,6 +191,12 @@ class UserStore:
                 )
             conn.commit()
 
+    # Password management
+    def update_password(self, user_id: str, new_hashed_password: str) -> None:
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("UPDATE users SET hashed_password = %s WHERE id = %s", (new_hashed_password, user_id))
+            conn.commit()
+
 
 _store: UserStore | None = None
 _store_lock = threading.Lock()

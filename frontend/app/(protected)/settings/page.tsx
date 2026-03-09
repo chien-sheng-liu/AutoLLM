@@ -31,6 +31,7 @@ type Cfg = {
   has_openai_key?: boolean;
   has_google_key?: boolean;
   has_anthropic_key?: boolean;
+  has_jwt_secret?: boolean;
   // Simple mode fields
   ui_mode?: 'simple'|'advanced'|string;
   preset?: 'qna'|'summarize'|'extract'|'brainstorm'|'compliance'|string;
@@ -47,13 +48,16 @@ export default function SettingsPage() {
   const [orig, setOrig] = useState<Cfg | null>(null);
   const [busy, setBusy] = useState(false);
   const [health, setHealth] = useState<{ chat?: string; embedding?: string }>({});
+  const [checkedAt, setCheckedAt] = useState<number | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showEmbedding, setShowEmbedding] = useState(false);
+  const [section, setSection] = useState<'models'|'generation'|'retrieval'|'keys'|'security'>('models');
   const [tab, setTab] = useState<'simple'|'advanced'>('simple');
   // Ephemeral API key inputs (not returned by GET); admin can set/clear them
   const [openaiKey, setOpenaiKey] = useState<string>('');
   const [googleKey, setGoogleKey] = useState<string>('');
   const [anthropicKey, setAnthropicKey] = useState<string>('');
+  const [keysBusy, setKeysBusy] = useState(false);
   const firstOr = <T,>(arr: T[], fallback: T) => (arr && arr.length ? arr[0] : fallback);
   const errs = (() => {
     if (!cfg) return { fatal: true } as any;
@@ -177,20 +181,46 @@ export default function SettingsPage() {
     setBusy(true);
     try {
       const payload: any = { ...cfg };
-      // Only send key fields if user entered something; empty string clears key
-      if (openaiKey !== '') payload.openai_api_key = openaiKey;
-      if (googleKey !== '') payload.google_api_key = googleKey;
-      if (anthropicKey !== '') payload.anthropic_api_key = anthropicKey;
+      // 僅保存一般設定；金鑰改由下方「確認更新金鑰」專用按鈕送出
       const saved = await updateConfig(payload);
       setOrig(saved);
       // After save, clear inputs; update has_* flags from server response
       setOpenaiKey(''); setGoogleKey(''); setAnthropicKey('');
-      setCfg((prev)=> prev ? { ...prev, has_openai_key: saved.has_openai_key, has_google_key: saved.has_google_key, has_anthropic_key: saved.has_anthropic_key } : prev);
+      setCfg((prev)=> prev ? { ...prev, has_openai_key: saved.has_openai_key, has_google_key: saved.has_google_key, has_anthropic_key: saved.has_anthropic_key, ...(saved as any) } : prev);
       alert('設定已更新');
     } catch (e: any) {
       alert(e?.message || '儲存失敗：無法儲存設定，請稍後再試');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function onSaveKeys(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    setKeysBusy(true);
+    try {
+      const payload: any = {};
+      if (openaiKey !== '') payload.openai_api_key = openaiKey;
+      if (googleKey !== '') payload.google_api_key = googleKey;
+      if (anthropicKey !== '') payload.anthropic_api_key = anthropicKey;
+      if (Object.keys(payload).length === 0) {
+        alert('請先輸入要更新的金鑰或清除後再送出');
+        return;
+      }
+      const saved = await updateConfig(payload as any);
+      setOrig((prev)=> prev ? { ...prev, ...saved } : saved);
+      // 清空輸入框，更新 has_* 指示
+      setOpenaiKey('');
+      setGoogleKey('');
+      setAnthropicKey('');
+      setCfg((prev)=> prev ? { ...prev, has_openai_key: saved.has_openai_key, has_google_key: saved.has_google_key, has_anthropic_key: saved.has_anthropic_key, has_jwt_secret: saved.has_jwt_secret } : prev);
+      // 立即快速測試
+      try { await onCheckProviders(); } catch {}
+      alert('金鑰已更新');
+    } catch (err: any) {
+      alert(err?.message || '更新金鑰失敗');
+    } finally {
+      setKeysBusy(false);
     }
   }
 
@@ -274,8 +304,10 @@ export default function SettingsPage() {
         chat: res.chat.ok ? `✅ ${res.chat.provider}` : `❌ ${res.chat.provider}: ${res.chat.error || res.chat.details || 'fail'}`,
         embedding: res.embedding.ok ? `✅ ${res.embedding.provider}` : `❌ ${res.embedding.provider}: ${res.embedding.error || res.embedding.details || 'fail'}`,
       });
+      setCheckedAt(Date.now());
     } catch (e: any) {
       setHealth({ chat: '❌ 檢查失敗', embedding: '❌ 檢查失敗' });
+      setCheckedAt(Date.now());
     }
   }
 
@@ -309,72 +341,94 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="grid grid-cols-12 gap-6">
-      {/* Sidebar */}
-      <aside className="col-span-12 md:col-span-3">
-        <div className="sticky top-6">
-          <div className="mb-4">
-            <h2 className="text-xl font-semibold">設定</h2>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">管理模型、檢索與回答風格。</p>
-          </div>
-          <Card className="p-3">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="text-xs text-gray-500">提供者健康</div>
-              <Button variant="outline" size="sm" type="button" onClick={onCheckProviders}>檢查</Button>
-            </div>
-            <div className="grid gap-1 text-xs">
-              <div className="flex items-center justify-between"><span>Chat</span><span>{health.chat || '—'}</span></div>
-              <div className="flex items-center justify-between"><span>Embedding</span><span>{health.embedding || '—'}</span></div>
-            </div>
-          </Card>
-          <nav className="mt-4 grid gap-1 text-sm">
-            <a href="#mode" className="rounded-lg px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-neutral-800">模式</a>
-            <a href="#models" className="rounded-lg px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-neutral-800">模型</a>
-            {tab === 'simple' && <a href="#simple" className="rounded-lg px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-neutral-800">簡易模式</a>}
-            {tab === 'advanced' && <a href="#generation" className="rounded-lg px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-neutral-800">生成參數</a>}
-            {tab === 'advanced' && <a href="#retrieval" className="rounded-lg px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-neutral-800">檢索參數</a>}
-          </nav>
-          <div className="mt-4 grid gap-2">
-            <Button variant="outline" size="sm" type="button" onClick={() => getConfig().then((c)=>{ setCfg(c); setOrig(c); }).catch(()=>{})}>重設為後端預設</Button>
-            <Button variant="outline" size="sm" type="button" onClick={handleResetToRecommended}>重設建議值</Button>
-          </div>
-        </div>
-      </aside>
+    <div className="mx-auto w-full max-w-7xl px-4 py-6">
+      <div className="mb-4">
+        <h1 className="text-2xl font-semibold">設定</h1>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">管理模型、檢索與回答風格。將設定套用到後端後，聊天與索引會依新設定運作。</p>
+      </div>
 
       {/* Content */}
-      <section className="col-span-12 md:col-span-9">
+      <section>
+        <div className="mb-3 flex justify-end">
+          <Segmented
+            name="設定分類"
+            options={[{id:'models',label:'模型'},{id:'generation',label:'生成'},{id:'retrieval',label:'檢索'},{id:'keys',label:'API 金鑰'},{id:'security',label:'安全'}]}
+            value={section as any}
+            onChange={(t)=> setSection(t as any)}
+          />
+        </div>
         <form onSubmit={onSave} className="grid gap-6">
           {/* API Keys (Admin only) */}
-          <Card id="keys" className="p-4 md:p-5">
+          {section === 'keys' && (
+          <Card id="keys" className="p-4 md:p-6">
             <div className="mb-3">
               <div className="text-sm font-semibold">API 金鑰</div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">僅管理員可設定。留空不變更；輸入空字串後儲存可清除。</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">僅管理員可設定。留空不變更；輸入空字串後儲存可清除。金鑰僅儲存於後端，不會在前端顯示。</div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="grid gap-1.5">
-                <label className="text-sm">OpenAI API Key</label>
+                <label className="text-sm inline-flex items-center gap-1">OpenAI API Key
+                  <Tooltip content="用於 OpenAI Chat 與 Embedding。格式多為 sk- 或 sk-proj- 開頭。">
+                    <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-gray-600 dark:text-gray-300">i</span>
+                  </Tooltip>
+                </label>
                 <div className="flex gap-2">
                   <Input className="flex-1" type="password" placeholder={cfg?.has_openai_key ? '已設定（留空不變更）' : 'sk-...'} value={openaiKey} onChange={(e)=>setOpenaiKey(e.target.value)} />
                   <Button type="button" variant="outline" size="sm" onClick={()=>setOpenaiKey(' ')}>清除</Button>
                 </div>
               </div>
               <div className="grid gap-1.5">
-                <label className="text-sm">Google API Key（Gemini）</label>
+                <label className="text-sm inline-flex items-center gap-1">Google API Key（Gemini）
+                  <Tooltip content="用於 Gemini Chat/Embedding（text-embedding-004）。可於 GCP Console 建立。">
+                    <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-gray-600 dark:text-gray-300">i</span>
+                  </Tooltip>
+                </label>
                 <div className="flex gap-2">
                   <Input className="flex-1" type="password" placeholder={cfg?.has_google_key ? '已設定（留空不變更）' : 'AIza...'} value={googleKey} onChange={(e)=>setGoogleKey(e.target.value)} />
                   <Button type="button" variant="outline" size="sm" onClick={()=>setGoogleKey(' ')}>清除</Button>
                 </div>
               </div>
               <div className="grid gap-1.5">
-                <label className="text-sm">Anthropic API Key</label>
+                <label className="text-sm inline-flex items-center gap-1">Anthropic API Key
+                  <Tooltip content="用於 Claude Chat（不支援 Embedding）。">
+                    <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-gray-600 dark:text-gray-300">i</span>
+                  </Tooltip>
+                </label>
                 <div className="flex gap-2">
                   <Input className="flex-1" type="password" placeholder={cfg?.has_anthropic_key ? '已設定（留空不變更）' : 'api-key'} value={anthropicKey} onChange={(e)=>setAnthropicKey(e.target.value)} />
                   <Button type="button" variant="outline" size="sm" onClick={()=>setAnthropicKey(' ')}>清除</Button>
                 </div>
               </div>
+              <div className="md:col-span-2 mt-2 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={onCheckProviders}>檢查金鑰</Button>
+                  {checkedAt ? (
+                    <>
+                      {(() => {
+                        const ok = (health.chat || '').startsWith('✅');
+                        const label = ok ? (health.chat || 'Chat 正常') : (health.chat || 'Chat 失敗');
+                        return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${ok ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>{label}</span>;
+                      })()}
+                      {(() => {
+                        const ok = (health.embedding || '').startsWith('✅');
+                        const label = ok ? (health.embedding || 'Embedding 正常') : (health.embedding || 'Embedding 失敗');
+                        return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${ok ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>{label}</span>;
+                      })()}
+                      <span className="text-xs text-gray-500">上次檢查：{new Date(checkedAt).toLocaleTimeString()}</span>
+                    </>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-neutral-800 dark:text-gray-300">尚未檢查</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button type="button" size="sm" onClick={onSaveKeys} disabled={keysBusy}>{keysBusy ? '更新中…' : '確認更新金鑰'}</Button>
+                </div>
+              </div>
             </div>
           </Card>
-          {/* Mode */}
+          )}
+          {/* Mode (Generation toggle) */}
+          {section === 'generation' && (
           <Card id="mode" className="p-4 md:p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -389,8 +443,10 @@ export default function SettingsPage() {
               />
             </div>
           </Card>
+          )}
 
           {/* Models */}
+          {section === 'models' && (
           <Card id="models" className="p-4 md:p-5">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-sm font-medium text-gray-800 dark:text-gray-100">模型提供者與型號</h3>
@@ -495,9 +551,10 @@ export default function SettingsPage() {
               </section>
             </div>
           </Card>
+          )}
 
           {/* Simple mode */}
-          {tab === 'simple' && (
+          {section === 'generation' && tab === 'simple' && (
             <Card id="simple" className="p-4 md:p-5">
               <div className="grid gap-4">
                 {/* Presets */}
@@ -578,7 +635,7 @@ export default function SettingsPage() {
           )}
 
           {/* Advanced: Generation */}
-          {tab === 'advanced' && (
+          {section === 'generation' && tab === 'advanced' && (
           <Card id="generation" className="p-4 md:p-5">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-medium text-gray-800 dark:text-gray-100">生成參數</h3>
@@ -659,7 +716,7 @@ export default function SettingsPage() {
           )}
 
           {/* Advanced: Retrieval */}
-          {tab === 'advanced' && (
+          {section === 'retrieval' && (
           <Card id="retrieval" className="p-4 md:p-5">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-medium text-gray-800 dark:text-gray-100">檢索參數</h3>
@@ -702,7 +759,7 @@ export default function SettingsPage() {
           )}
 
           {/* Error summary */}
-          {invalid && (
+          {(section === 'models' || section === 'generation' || section === 'retrieval') && invalid && (
             <Card className="p-3">
               <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200">
                 <div className="mb-1 font-medium">有幾個欄位需要修正：</div>
@@ -723,6 +780,7 @@ export default function SettingsPage() {
           )}
 
           {/* Save bar */}
+          {(section === 'models' || section === 'generation' || section === 'retrieval') && (
           <div className="sticky bottom-0 z-10 -mb-2 -mx-1 mt-2">
             <div className="pointer-events-none bg-gradient-to-t from-white to-transparent pb-2 pt-10 dark:from-neutral-900">
               <div className="pointer-events-auto flex items-center justify-end gap-2">
@@ -731,9 +789,12 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+          )}
         </form>
 
-        <div className="mt-4 text-sm text-gray-500">注意：調整 Chunk/Overlap 僅影響後續上傳文件；需重新上傳以重建索引。</div>
+        {section === 'retrieval' && (
+          <div className="mt-4 text-sm text-gray-500">注意：調整 Chunk/Overlap 僅影響後續上傳文件；需重新上傳以重建索引。</div>
+        )}
       </section>
     </div>
   );
