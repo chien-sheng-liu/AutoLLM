@@ -9,7 +9,7 @@ export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement> & 
 };
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea(
-  { className, autoGrow = true, maxHeight = 220, onHeightChange, ...props },
+  { className, autoGrow = true, maxHeight = 220, onHeightChange, style, ...props },
   ref
 ) {
   const innerRef = useRef<HTMLTextAreaElement | null>(null);
@@ -30,13 +30,13 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(function T
         else if (ref) (ref as any).current = node;
       }}
       className={cn(
-        "w-full max-h-52 resize-none overflow-auto rounded-xl border border-gray-200 bg-white px-3 py-3 outline-none focus:ring-2 focus:ring-indigo-400 dark:border-neutral-800 dark:bg-neutral-900",
+        "w-full resize-none overflow-auto rounded-xl border border-white/30 bg-white/70 px-3 py-3 outline-none focus:ring-2 focus:ring-indigo-400 backdrop-blur-md dark:border-white/10 dark:bg-white/5",
         className
       )}
+      style={{ ...(style || {}), maxHeight }}
       {...props}
     />
   );
 });
 
 export default Textarea;
-

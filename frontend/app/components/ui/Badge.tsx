@@ -1,16 +1,28 @@
+"use client";
 import React from "react";
 import { cn } from "@/app/components/ui/utils";
 
 export type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & {
-  variant?: "neutral" | "brand";
+  tone?: 'neutral'|'brand'|'success'|'warning'|'danger';
 };
 
-export default function Badge({ className, variant = "neutral", ...props }: BadgeProps) {
-  const base = "inline-flex items-center rounded-full border px-3 py-1 text-xs";
-  const styles =
-    variant === "brand"
-      ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/40 dark:bg-indigo-950/40 dark:text-indigo-200"
-      : "border-gray-200 text-gray-700 dark:border-neutral-700 dark:text-gray-300";
-  return <span className={cn(base, styles, className)} {...props} />;
+export default function Badge({ className, tone = 'brand', ...props }: BadgeProps) {
+  const tones: Record<string, string> = {
+    neutral: 'border-white/20 bg-white/10 text-white/90',
+    brand: 'border-violet-300/30 bg-violet-500/10 text-violet-200',
+    success: 'border-emerald-300/30 bg-emerald-500/10 text-emerald-200',
+    warning: 'border-amber-300/30 bg-amber-500/10 text-amber-200',
+    danger: 'border-rose-300/30 bg-rose-500/10 text-rose-200',
+  };
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-wide backdrop-blur-md',
+        tones[tone],
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 

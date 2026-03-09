@@ -51,19 +51,19 @@ const markdownComponents = {
   },
   p({ children }: any) {
     return (
-      <p className="mb-1 whitespace-pre-wrap break-words leading-6 text-[14px] last:mb-0">
+      <p className="m-0 whitespace-pre-wrap break-words leading-6 text-[14px]">
         {renderCitationAware(children)}
       </p>
     );
   },
   ul({ children }: any) {
-    return <ul className="my-1 list-disc space-y-0.5 pl-5 text-[14px] leading-6 last:mb-0 whitespace-pre-wrap break-words">{renderCitationAware(children)}</ul>;
+    return <ul className="my-0 list-disc space-y-0 pl-5 text-[14px] leading-6 whitespace-pre-wrap break-words">{renderCitationAware(children)}</ul>;
   },
   ol({ children }: any) {
-    return <ol className="my-1 list-decimal space-y-0.5 pl-5 text-[14px] leading-6 last:mb-0 whitespace-pre-wrap break-words">{renderCitationAware(children)}</ol>;
+    return <ol className="my-0 list-decimal space-y-0 pl-5 text-[14px] leading-6 whitespace-pre-wrap break-words">{renderCitationAware(children)}</ol>;
   },
   li({ children }: any) {
-    return <li className="break-words whitespace-pre-wrap leading-6">{renderCitationAware(children)}</li>;
+    return <li className="m-0 break-words whitespace-pre-wrap leading-6 [&>p]:m-0">{renderCitationAware(children)}</li>;
   },
   a({ href, children }: any) {
     return (
@@ -113,9 +113,9 @@ export default function ChatMessage({ role, content }: Props) {
   const isSystem = role === "system";
   const avatar = avatarMap[role] || avatarMap.assistant;
   // Bubble: readable width with character cap for better UX
-  const bubbleBase = "relative inline-block max-w-[calc(100vw-5rem)] md:max-w-[72ch] rounded-2xl px-4 py-2 ring-1 shadow-sm transition-colors break-words whitespace-pre-wrap hyphens-auto";
-  const assistantBubble = `${bubbleBase} bg-gray-50 ring-gray-200/70 text-gray-900 hover:ring-gray-300 dark:bg-neutral-900 dark:ring-neutral-800 dark:text-gray-100 dark:hover:ring-neutral-700`;
-  const userBubble = `${bubbleBase} bg-gradient-to-br from-indigo-600 to-indigo-500 text-white ring-indigo-500/30 hover:ring-indigo-400/50`;
+  const bubbleBase = "relative inline-block max-w-[calc(100vw-5rem)] md:max-w-[80ch] rounded-2xl px-4 py-2 ring-1 shadow-sm transition-colors break-words whitespace-pre-wrap hyphens-auto";
+  const assistantBubble = `${bubbleBase} bg-white/70 ring-white/40 backdrop-blur-md text-gray-900 hover:ring-white/60 dark:bg-white/5 dark:ring-white/10 dark:text-gray-100 dark:hover:ring-white/20`;
+  const userBubble = `${bubbleBase} bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 text-white ring-violet-500/30 hover:ring-violet-400/50 shadow-glow`;
   const rowWidth = "max-w-[95vw]";
   // Subtle min width so very short messages don’t look cramped
   const len = (content || '').replace(/\s+/g, ' ').trim().length;
@@ -154,8 +154,8 @@ export default function ChatMessage({ role, content }: Props) {
                   aria-hidden
                   className={`absolute top-3 h-2 w-2 rotate-45 ${
                     isUser
-                      ? "-right-1.5 bg-indigo-500/90"
-                      : "-left-1.5 bg-gray-50 ring-1 ring-gray-200 dark:bg-neutral-900 dark:ring-neutral-800"
+                      ? "-right-1.5 bg-violet-600"
+                      : "-left-1.5 bg-white/70 ring-1 ring-white/40 dark:bg-white/5 dark:ring-white/10"
                   }`}
                 />
                 {/* Hover tools */}

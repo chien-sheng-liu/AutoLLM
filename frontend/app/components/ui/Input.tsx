@@ -9,7 +9,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input({ cl
     <input
       ref={ref}
       className={cn(
-        "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 dark:border-neutral-800 dark:bg-neutral-900",
+        "w-full rounded-xl border border-white/30 bg-white/70 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400 backdrop-blur-md dark:border-white/10 dark:bg-white/5",
         className
       )}
       {...props}
@@ -18,4 +18,3 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input({ cl
 });
 
 export default Input;
-

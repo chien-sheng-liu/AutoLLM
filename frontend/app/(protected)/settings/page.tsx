@@ -456,7 +456,7 @@ export default function SettingsPage() {
               <section className="grid gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <label className="text-sm">Chat 提供者</label>
-                  <div className="inline-flex overflow-hidden rounded-lg border border-gray-200 bg-white p-0.5 dark:border-neutral-700 dark:bg-neutral-800" aria-label="Chat 提供者">
+                  <div className="inline-flex overflow-hidden rounded-lg border border-white/20 bg-white/40 p-0.5 backdrop-blur-md dark:border-white/10 dark:bg-white/10" aria-label="Chat 提供者">
                     {(['openai','gemini','anthropic'] as const).map((p) => (
                       <Tooltip key={p} content={p==='openai' ? 'OpenAI：例如 gpt-4o-mini / gpt-4o' : p==='gemini' ? 'Gemini：例如 gemini-1.5-flash / 2.0-flash' : 'Claude：例如 claude-3-5-sonnet'}>
                         <button
@@ -466,8 +466,8 @@ export default function SettingsPage() {
                           aria-pressed={cfg!.chat_provider === p || (!cfg!.chat_provider && p==='openai')}
                           className={`h-7 px-2.5 text-[12px] leading-none rounded-md transition-all duration-150 focus-visible:ring-2 focus-visible:ring-indigo-400 ${
                             (cfg!.chat_provider || 'openai') === p
-                              ? 'bg-indigo-600 text-white dark:bg-indigo-500'
-                              : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-neutral-700'
+                              ? 'bg-gradient-to-tr from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-glow'
+                              : 'text-gray-800 hover:bg-white/70 dark:text-gray-200 dark:hover:bg-white/10'
                           }`}
                           tabIndex={0}
                         >{p === 'anthropic' ? 'Claude' : p[0].toUpperCase() + p.slice(1)}</button>
@@ -477,22 +477,22 @@ export default function SettingsPage() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs text-gray-500">推薦型號</span>
-                  <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]" aria-label="Chat 常用模型">
-                    {chatSuggestions(cfg.chat_provider).map((m) => (
-                      <Tooltip key={m} content={`套用模型：${m}`}>
-                        <button
-                          key={m}
-                          type="button"
-                          onClick={() => setCfg({ ...cfg!, chat_model: m })}
-                          className={`h-7 whitespace-nowrap rounded-full border px-2.5 text-[12px] leading-none transition-all duration-150 focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-                            cfg!.chat_model === m ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-900/40 dark:bg-indigo-950/30 dark:text-indigo-100' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200'
-                          }`}
-                          tabIndex={0}
-                          aria-pressed={cfg!.chat_model === m}
-                        >{displayChatModel(m, cfg.chat_provider)}</button>
-                      </Tooltip>
-                    ))}
-                  </div>
+                    <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]" aria-label="Chat 常用模型">
+                      {chatSuggestions(cfg.chat_provider).map((m) => (
+                        <Tooltip key={m} content={`套用模型：${m}`}>
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setCfg({ ...cfg!, chat_model: m })}
+                            className={`h-7 whitespace-nowrap rounded-full border px-2.5 text-[12px] leading-none transition-all duration-150 focus-visible:ring-2 focus-visible:ring-indigo-400 ${
+                              cfg!.chat_model === m ? 'border-white/20 bg-gradient-to-tr from-indigo-600/90 to-fuchsia-600/90 text-white shadow-glow' : 'border-white/20 bg-white/40 text-gray-800 hover:bg-white/60 backdrop-blur-md dark:border-white/10 dark:bg-white/10 dark:text-gray-200'
+                            }`}
+                            tabIndex={0}
+                            aria-pressed={cfg!.chat_model === m}
+                          >{displayChatModel(m, cfg.chat_provider)}</button>
+                        </Tooltip>
+                      ))}
+                    </div>
                   {/* Chat model free-text removed per requirement */}
                 </div>
               </section>
@@ -506,7 +506,7 @@ export default function SettingsPage() {
                     {showEmbedding ? '隱藏' : '顯示'}
                   </button>
                 </div>
-                <div className="inline-flex overflow-hidden rounded-lg border border-gray-200 bg-white p-0.5 dark:border-neutral-700 dark:bg-neutral-800" aria-label="Embedding 提供者">
+                <div className="inline-flex overflow-hidden rounded-lg border border-white/20 bg-white/40 p-0.5 backdrop-blur-md dark:border-white/10 dark:bg-white/10" aria-label="Embedding 提供者">
                   {(['openai','gemini'] as const).map((p) => (
                     <Tooltip key={p} content={p==='openai' ? 'OpenAI 向量：text-embedding-3-small/large' : 'Gemini 向量：text-embedding-004'}>
                       <button
@@ -516,8 +516,8 @@ export default function SettingsPage() {
                         aria-pressed={cfg!.embedding_provider === p || (!cfg!.embedding_provider && p==='openai')}
                         className={`h-7 px-2.5 text-[12px] leading-none rounded-md transition-all duration-150 focus-visible:ring-2 focus-visible:ring-indigo-400 ${
                           (cfg!.embedding_provider || 'openai') === p
-                            ? 'bg-indigo-600 text-white dark:bg-indigo-500'
-                            : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-neutral-700'
+                            ? 'bg-gradient-to-tr from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-glow'
+                            : 'text-gray-800 hover:bg-white/70 dark:text-gray-200 dark:hover:bg-white/10'
                         }`}
                         tabIndex={0}
                       >{p[0].toUpperCase() + p.slice(1)}</button>
@@ -535,7 +535,7 @@ export default function SettingsPage() {
                             type="button"
                             onClick={() => setCfg({ ...cfg!, embedding_model: m })}
                             className={`h-7 whitespace-nowrap rounded-full border px-2.5 text-[12px] leading-none transition-all duration-150 focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-                              cfg!.embedding_model === m ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-900/40 dark:bg-indigo-950/30 dark:text-indigo-100' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200'
+                              cfg!.embedding_model === m ? 'border-white/20 bg-gradient-to-tr from-indigo-600/90 to-fuchsia-600/90 text-white shadow-glow' : 'border-white/20 bg-white/40 text-gray-800 hover:bg-white/60 backdrop-blur-md dark:border-white/10 dark:bg-white/10 dark:text-gray-200'
                             }`}
                             tabIndex={0}
                           >{m}</button>

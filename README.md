@@ -9,6 +9,7 @@ A clear, production‑ready Retrieval‑Augmented Generation (RAG) chatbot. Uplo
 - [Quick Start (Docker + Make)](#quick-start-docker--make)
 - [Development Setup](#development-setup)
 - [Configuration (Env Vars)](#configuration-env-vars)
+- [Production Guide](#production-guide)
 - [API Overview](#api-overview)
 - [UI Overview](#ui-overview)
 - [Security](#security)
@@ -84,6 +85,44 @@ Redis (UI cache)
 
 Frontend
 - `NEXT_PUBLIC_API_BASE_URL` (e.g., http://localhost:8000)
+
+## Production Guide
+
+Reverse proxy and TLS
+- Terminate TLS at a proxy (Nginx/Traefik/Cloud LB), forward to `frontend:3000` and `backend:8000`.
+
+CORS and environment
+- Backend: set `BACKEND_CORS_ORIGINS` to comma‑separated origins.
+- Frontend: set `NEXT_PUBLIC_API_BASE_URL` to the backend base URL.
+
+Gunicorn (backend)
+- Runs `gunicorn -k uvicorn.workers.UvicornWorker` by default.
+- Tunables: `GUNICORN_WORKERS` (default 2), `GUNICORN_TIMEOUT` (default 60).
+
+Health checks and startup order
+- docker‑compose includes health checks for backend (`/healthz`), postgres (`pg_isready`), and redis (`redis-cli ping`).
+- `backend` depends on healthy postgres/redis; `frontend` depends on healthy backend.
+
+Logging and request tracing
+- Request IDs: propagates/returns `X-Request-ID`; JSON payloads include `request_id`.
+- Access logs: method, path, status, duration, request ID (set via `LOG_LEVEL`).
+
+Error handling and providers
+- Unified error shape: `{ ok: false, error, request_id }` or JSON detail.
+- Provider errors: `{ error: "provider_error", provider, code, message }` (e.g., `unauthorized`, `rate_limited`, `timeout`).
+
+Security notes
+- Never commit secrets. Restrict CORS for production origins.
+- Avoid logging raw document/chat contents.
+
+Data retention
+- Redis: 3‑day TTL for recent chat UX.
+- Postgres: durable audit trail.
+
+Quick deploy
+1) Copy `.env.example` → `.env`, set keys and CORS.
+2) `docker compose build --no-cache && docker compose up -d`
+3) `docker compose ps` and `curl -sS http://localhost:8000/healthz`
 
 ## API Overview (v1)
 Auth

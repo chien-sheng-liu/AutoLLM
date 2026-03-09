@@ -3,7 +3,7 @@ from typing import List
 import json
 from urllib import request
 
-from .base import ChatProvider
+from .base import ChatProvider, provider_error_from_exception
 
 
 def _http_post(url: str, payload: dict, headers: dict) -> dict:
@@ -44,8 +44,11 @@ class AnthropicChatProvider(ChatProvider):
             "x-api-key": self.api_key,
             "anthropic-version": "2023-06-01",
         }
-        data = _http_post("https://api.anthropic.com/v1/messages", payload, headers)
         try:
-            return data["content"][0]["text"]
-        except Exception:
-            return data.get("output_text") or ""
+            data = _http_post("https://api.anthropic.com/v1/messages", payload, headers)
+            try:
+                return data["content"][0]["text"]
+            except Exception:
+                return data.get("output_text") or ""
+        except Exception as e:
+            raise provider_error_from_exception("anthropic", e)

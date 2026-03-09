@@ -4,7 +4,10 @@
 
 /* Base tweaks */
 html, body { height: 100%; }
-body { @apply bg-gray-50 text-gray-950 dark:bg-neutral-950 dark:text-gray-100; }
+body {
+  background-color: #03030b;
+  color: #f5f6ff;
+}
 * { @apply box-border; }
 a { @apply text-inherit no-underline; }
 pre { @apply whitespace-pre-wrap bg-neutral-900 text-neutral-100 p-3 rounded-xl border border-neutral-800 overflow-auto; }
@@ -17,3 +20,19 @@ pre { @apply whitespace-pre-wrap bg-neutral-900 text-neutral-100 p-3 rounded-xl 
 .typing-dots span { display: inline-block; width: 0.35rem; height: 0.35rem; border-radius: 9999px; background-color: currentColor; margin-right: 0.25rem; opacity: 0.25; animation: typing-blink 1.4s infinite both; }
 .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
 .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* High-tech background utilities */
+.bg-tech {
+  background-image:
+    radial-gradient(1600px 800px at 5% -10%, rgba(124,77,255,0.25), transparent 60%),
+    radial-gradient(1200px 700px at 85% -5%, rgba(0,194,255,0.18), transparent 55%),
+    linear-gradient(180deg, #03030b 0%, #040112 60%, #050316 100%);
+}
+
+.grid-overlay {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}

@@ -44,11 +44,11 @@ export default function Nav() {
   const canManage = canAdmin || role === 'manager';
 
   return (
-    <div className="sticky top-0 z-50 border-b border-gray-200/70 bg-white/70 backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/60">
+    <div className="sticky top-0 z-50 border-b border-white/20 bg-white/50 backdrop-blur-md dark:border-white/10 dark:bg-white/5">
       <div className="mx-auto flex max-w-screen-xl items-center justify-between gap-4 px-5 py-3">
-        <div className="flex items-center gap-2 font-semibold tracking-tight">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-600 shadow" aria-hidden />
-          <span>零程式碼 RAG 聊天機器人</span>
+        <div className="flex items-center gap-3 font-semibold tracking-tight">
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-tr from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-glow" aria-hidden>⚡</span>
+          <span className="bg-gradient-to-tr from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent">零程式碼 RAG 聊天機器人</span>
         </div>
         <nav className="flex flex-1 items-center justify-center gap-2 text-sm">
           <Link className={`${buttonClasses({ variant: 'outline', size: 'sm' })} ${isActive("/") ? 'bg-gray-100 dark:bg-neutral-800' : ''}`} href="/">首頁</Link>
@@ -62,7 +62,7 @@ export default function Nav() {
             <Link className={`${buttonClasses({ variant: 'outline', size: 'sm' })} ${isActive("/admin") ? 'bg-gray-100 dark:bg-neutral-800' : ''}`} href="/admin">管理</Link>
           )}
         </nav>
-        <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+        <div className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
           {user ? (
             <>
               <div className="hidden text-right sm:block">

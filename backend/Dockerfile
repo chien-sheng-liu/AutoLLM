@@ -14,4 +14,7 @@ COPY app /app/app
 ENV DATA_DIR=/app/data
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Production WSGI server (configurable via env). Use shell form so env vars expand.
+ENV GUNICORN_WORKERS=2
+ENV GUNICORN_TIMEOUT=60
+CMD ["/bin/sh", "-c", "gunicorn -k uvicorn.workers.UvicornWorker -w ${GUNICORN_WORKERS:-2} --timeout ${GUNICORN_TIMEOUT:-60} --bind 0.0.0.0:8000 app.main:app"]

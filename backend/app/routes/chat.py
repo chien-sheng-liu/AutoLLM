@@ -8,7 +8,6 @@ from ..config import load_config
 from ..models.chat import ChatRequest, ChatResponse, Citation, Message as MessageModel
 from ..services.embeddings import EmbeddingService
 from ..services.rag import retrieve, build_context_snippets, system_prompt_guidance
-from ..storage.vector_store import VectorStore
 from ..storage.vector_redis_store import RedisVectorStore
 from ..storage.chat_store import get_chat_store
 from ..storage.conv_pg_store import get_conv_pg_store
@@ -131,8 +130,8 @@ def chat(req: ChatRequest, current_user: UserOut = Depends(get_current_user)):
             presence_penalty=cfg.presence_penalty,
             frequency_penalty=cfg.frequency_penalty,
         )
-    except Exception:
-        # Fallback if configured
+    except ProviderError as e:
+        # Fallback if configured; otherwise surface standardized provider error
         fb_provider = cfg.fallback_chat_provider
         fb_model = cfg.fallback_chat_model
         if fb_provider and fb_model:
@@ -140,7 +139,9 @@ def chat(req: ChatRequest, current_user: UserOut = Depends(get_current_user)):
             fb = get_chat_provider(fb_cfg)
             answer = fb.complete(messages=messages_payload, model=fb_model, temperature=temperature)
         else:
-            raise
+            raise HTTPException(status_code=502, detail={"error": "provider_error", "provider": e.provider, "code": e.code, "message": str(e)})
+    except Exception:
+        raise HTTPException(status_code=500, detail="chat_failed")
 
     citations: List[Citation] = []
     for idx, (cr, _score) in enumerate(retrieved, start=1):
@@ -300,6 +301,10 @@ def chat_stream(req: ChatRequest, current_user: UserOut = Depends(get_current_us
                     acc += delta or ""
                     payload = {"type": "delta", "content": delta}
                     yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+            except ProviderError as e:
+                err = {"type": "error", "error": "provider_error", "provider": e.provider, "code": e.code, "message": str(e)}
+                yield f"data: {json.dumps(err, ensure_ascii=False)}\n\n".encode("utf-8")
+                return
             except Exception:
                 # Try fallback as non-stream complete
                 fb_provider = cfg.fallback_chat_provider
@@ -317,7 +322,9 @@ def chat_stream(req: ChatRequest, current_user: UserOut = Depends(get_current_us
                         temperature=temperature,
                     )
                 else:
-                    raise
+                    err = {"type": "error", "message": "chat_stream_failed"}
+                    yield f"data: {json.dumps(err, ensure_ascii=False)}\n\n".encode("utf-8")
+                    return
         except Exception as e:
             err = {"type": "error", "message": str(e)}
             yield f"data: {json.dumps(err, ensure_ascii=False)}\n\n".encode("utf-8")

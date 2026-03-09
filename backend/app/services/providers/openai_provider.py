@@ -3,7 +3,7 @@ from typing import Iterable, List, Generator
 import numpy as np
 from openai import OpenAI
 
-from .base import ChatProvider, EmbeddingProvider
+from .base import ChatProvider, EmbeddingProvider, provider_error_from_exception
 
 
 class OpenAIChatProvider(ChatProvider):
@@ -30,8 +30,11 @@ class OpenAIChatProvider(ChatProvider):
             kwargs["presence_penalty"] = float(presence_penalty)
         if frequency_penalty is not None:
             kwargs["frequency_penalty"] = float(frequency_penalty)
-        resp = self.client.chat.completions.create(**kwargs)
-        return resp.choices[0].message.content or ""
+        try:
+            resp = self.client.chat.completions.create(**kwargs)
+            return resp.choices[0].message.content or ""
+        except Exception as e:
+            raise provider_error_from_exception("openai", e)
 
     def stream(
         self,
@@ -53,11 +56,14 @@ class OpenAIChatProvider(ChatProvider):
             kwargs["presence_penalty"] = float(presence_penalty)
         if frequency_penalty is not None:
             kwargs["frequency_penalty"] = float(frequency_penalty)
-        stream = self.client.chat.completions.create(**kwargs)
-        for chunk in stream:
-            delta = chunk.choices[0].delta.content if chunk.choices and chunk.choices[0].delta else None
-            if delta:
-                yield delta
+        try:
+            stream = self.client.chat.completions.create(**kwargs)
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content if chunk.choices and chunk.choices[0].delta else None
+                if delta:
+                    yield delta
+        except Exception as e:
+            raise provider_error_from_exception("openai", e)
 
 
 class OpenAIEmbeddingProvider(EmbeddingProvider):
@@ -68,5 +74,8 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         batch = list(texts)
         if not batch:
             return []
-        resp = self.client.embeddings.create(model=model, input=batch)
-        return [np.array(item.embedding, dtype=np.float32) for item in resp.data]
+        try:
+            resp = self.client.embeddings.create(model=model, input=batch)
+            return [np.array(item.embedding, dtype=np.float32) for item in resp.data]
+        except Exception as e:
+            raise provider_error_from_exception("openai", e)
