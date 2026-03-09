@@ -18,6 +18,7 @@ import Button, { buttonClasses } from "@/app/components/ui/Button";
 import Input from "@/app/components/ui/Input";
 import Card from "@/app/components/ui/Card";
 import Modal from "@/app/components/ui/Modal";
+import { useLanguage } from "@/app/providers/LanguageProvider";
 
 type Doc = { document_id: string; name: string };
 
@@ -50,6 +51,7 @@ export default function DataPage() {
   const [docPermLoading, setDocPermLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const nameSearchRef = useRef<HTMLInputElement>(null);
+  const { t } = useLanguage();
 
   const normalizeAuth = (value?: string | null) => {
     const v = (value || 'user').toLowerCase();
@@ -71,9 +73,9 @@ export default function DataPage() {
     const valid = arr.filter(isAllowed);
     const rejected = arr.filter((f) => !isAllowed(f));
     if (rejected.length) {
-      showToast(`已忽略不支援的檔案：${rejected.map((f) => f.name).join(", ")}`, { kind: "info" });
+      showToast(t('data.unsupportedFiles', { names: rejected.map((f) => f.name).join(', ') }), { kind: "info" });
     }
-    const next = [...selectedFiles, ...valid].slice(0, 10); // 最多 10 個
+    const next = [...selectedFiles, ...valid].slice(0, 10); // limit to 10 files per batch
     setSelectedFiles(next);
   }
 
@@ -84,7 +86,7 @@ export default function DataPage() {
       setDocs(res.items || []);
       setSelectedIds([]);
     } catch (e: any) {
-      showToast(e?.message || "載入文件清單失敗", { kind: "error" });
+      showToast(e?.message || t('data.loadFail'), { kind: "error" });
     } finally {
       setLoading(false);
     }
@@ -106,7 +108,7 @@ export default function DataPage() {
       .then((res) => setPermissionUsers(res))
       .catch((e: any) => {
         setPermissionUsers([]);
-        showToast(e?.message || '載入使用者失敗', { kind: 'error' });
+        showToast(e?.message || t('data.permissionsLoadError'), { kind: 'error' });
       })
       .finally(() => setPermissionUsersLoading(false));
   }, [canManage]);
@@ -187,9 +189,9 @@ export default function DataPage() {
       }
       setSelectedFiles([]);
       await refresh();
-      showToast("上傳完成", { kind: "success" });
+      showToast(t('data.uploadDone'), { kind: "success" });
     } catch (e: any) {
-      showToast(e?.message || "上傳失敗", { kind: "error" });
+      showToast(e?.message || t('data.uploadFail'), { kind: "error" });
     } finally {
       setUploading(false);
       setCurrentIndex(0);
@@ -213,10 +215,10 @@ export default function DataPage() {
         catch { fail++; }
       }
       await refresh();
-      if (fail === 0) showToast(`刪除完成（${ok} 筆）`, { kind: "success" });
-      else showToast(`部分刪除失敗：成功 ${ok}、失敗 ${fail}`, { kind: "info" });
+      if (fail === 0) showToast(t('data.deleteComplete', { count: ok }), { kind: "success" });
+      else showToast(t('data.deletePartial', { ok, fail }), { kind: "info" });
     } catch (e: any) {
-      showToast(e?.message || "刪除失敗", { kind: "error" });
+      showToast(e?.message || t('data.deleteFail'), { kind: "error" });
     } finally {
       setBusy(false);
     }
@@ -280,7 +282,7 @@ export default function DataPage() {
 
   async function saveDocPermissions() {
     if (!selectedDocId) {
-      showToast('請先選擇檔案', { kind: 'info' });
+      showToast(t('data.selectFileFirst'), { kind: 'info' });
       return;
     }
     setPermBusy(true);
@@ -290,9 +292,9 @@ export default function DataPage() {
         : docUserIds.filter((id) => allPermissionUserIds.includes(id));
       await setDocumentPermissions(selectedDocId, normalized);
       setDocUserIds(normalized.length ? normalized : []);
-      showToast('檔案權限已更新', { kind: 'success' });
+      showToast(t('data.permissionsSavedToast'), { kind: 'success' });
     } catch (e: any) {
-      showToast(e?.message || '更新檔案權限失敗', { kind: 'error' });
+      showToast(e?.message || t('data.permissionsSaveError'), { kind: 'error' });
     } finally {
       setPermBusy(false);
     }
@@ -317,7 +319,7 @@ export default function DataPage() {
   }, []);
 
   if (!authLoaded) {
-    return <div className="text-sm text-gray-500">載入權限中…</div>;
+    return <div className="text-sm text-gray-500">{t('data.permissionsLoading')}</div>;
   }
 
   if (!canManage) {
@@ -326,28 +328,28 @@ export default function DataPage() {
       <div className="grid gap-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold">所有文件（僅檢視）</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">您可以檢視所有文件並複製 ID，但不可變更。</p>
+            <h2 className="text-xl font-semibold">{t('data.readonlyTitle')}</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400">{t('data.readonlySubtitle')}</p>
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-            <span className="rounded-full border border-gray-200 px-3 py-1 dark:border-neutral-700">{loading ? '—' : docs.length} 份文件</span>
-            <button className="rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50 dark:border-neutral-800 dark:hover:bg-neutral-800" onClick={refresh}>重新整理</button>
+            <span className="rounded-full border border-gray-200 px-3 py-1 dark:border-neutral-700">{loading ? '—' : t('data.recordsCount', { count: docs.length })}</span>
+            <button className="rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50 dark:border-neutral-800 dark:hover:bg-neutral-800" onClick={refresh}>{t('common.refresh')}</button>
           </div>
         </div>
 
         <Card className="p-5">
           <div className="mb-4 flex flex-wrap items-center gap-3">
-            <div className="relative w-72"><Input ref={nameSearchRef} placeholder="搜尋名稱或 ID…（按 / 聚焦）" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
-            <Button variant="outline" onClick={() => setSortAsc((s) => !s)}>名稱 {sortAsc ? 'A→Z' : 'Z→A'}</Button>
+            <div className="relative w-72"><Input ref={nameSearchRef} placeholder={t('data.searchNamePlaceholder')} value={query} onChange={(e) => setQuery(e.target.value)} /></div>
+            <Button variant="outline" onClick={() => setSortAsc((s) => !s)}>{t('common.name')} {sortAsc ? 'A→Z' : 'Z→A'}</Button>
           </div>
 
           <div className="hidden grid-cols-[1fr_320px_120px] gap-3 px-4 py-2 text-xs text-gray-500 md:grid dark:text-gray-400">
-            <div>名稱</div>
+            <div>{t('common.name')}</div>
             <div>ID</div>
-            <div>操作</div>
+            <div>{t('common.actions')}</div>
           </div>
           {filteredDocs.length === 0 ? (
-            <div className="p-6 text-sm text-gray-600 dark:text-gray-400">{docs.length === 0 ? '目前尚未被授權使用任何文件。' : '沒有符合的文件。'}</div>
+            <div className="p-6 text-sm text-gray-600 dark:text-gray-400">{docs.length === 0 ? t('data.noAuthorizedDocs') : t('data.noMatches')}</div>
           ) : (
             <div className="divide-y divide-gray-100 dark:divide-neutral-800">
               {filteredDocs.map((d) => (
@@ -355,7 +357,7 @@ export default function DataPage() {
                   <div className="truncate font-medium">{d.name}</div>
                   <div className="break-all text-xs text-gray-500">{d.document_id}</div>
                   <div>
-                    <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(d.document_id).then(() => showToast('已複製 ID', { kind: 'success' })).catch(() => showToast('複製失敗', { kind: 'error' }))}>複製 ID</Button>
+                    <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(d.document_id).then(() => showToast(t('data.copyIdSuccess'), { kind: 'success' })).catch(() => showToast(t('data.copyIdFail'), { kind: 'error' }))}>{t('data.copyId')}</Button>
                   </div>
                 </div>
               ))}
@@ -371,12 +373,12 @@ export default function DataPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold">資料管理</h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400">上傳、瀏覽、刪除文件。支援拖放上傳與批次刪除。</p>
+          <h2 className="text-xl font-semibold">{t('data.manageTitle')}</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400">{t('data.manageSubtitle')}</p>
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <span className="rounded-full border border-gray-200 px-3 py-1 dark:border-neutral-700">{loading ? '—' : docs.length} 份文件</span>
-          <button className="rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50 dark:border-neutral-800 dark:hover:bg-neutral-800" onClick={refresh} disabled={uploading || busy}>重新整理</button>
+          <span className="rounded-full border border-gray-200 px-3 py-1 dark:border-neutral-700">{loading ? '—' : t('data.recordsCount', { count: docs.length })}</span>
+          <button className="rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50 dark:border-neutral-800 dark:hover:bg-neutral-800" onClick={refresh} disabled={uploading || busy}>{t('common.refresh')}</button>
         </div>
       </div>
 
@@ -384,12 +386,12 @@ export default function DataPage() {
       <Card className="relative overflow-hidden p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold">上傳檔案</div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">支援 .txt 與 .pdf，單次最多 10 個</div>
+            <div className="text-sm font-semibold">{t('data.uploadCta')}</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">{t('data.uploadHintExtended')}</div>
           </div>
           <div className="flex gap-2">
             <label className={buttonClasses({ variant: 'outline', size: 'md' }) + ' cursor-pointer'}>
-              選擇檔案
+              {t('data.selectFiles')}
               <input
                 type="file"
                 accept=".txt,.pdf"
@@ -399,10 +401,10 @@ export default function DataPage() {
               />
             </label>
             <Button disabled={uploading || selectedFiles.length === 0} onClick={() => onUpload()}>
-              {uploading ? `上傳中… ${overallProgress}%` : `上傳 ${selectedFiles.length} 個`}
+              {uploading ? `${t('data.uploadBusy')} ${overallProgress}%` : t('data.uploadingCount', { count: selectedFiles.length })}
             </Button>
             {selectedFiles.length > 0 && !uploading && (
-              <Button variant="outline" onClick={() => setSelectedFiles([])}>清空</Button>
+              <Button variant="outline" onClick={() => setSelectedFiles([])}>{t('data.clearSelection')}</Button>
             )}
           </div>
         </div>
@@ -416,7 +418,7 @@ export default function DataPage() {
             if (e.dataTransfer.files) handlePick(e.dataTransfer.files);
           }}
         >
-          將檔案拖放到此處，或點擊「選擇檔案」挑選
+          {t('data.dragHint')}
           {uploading && (
             <div className="mx-auto mt-4 h-2 w-full max-w-lg overflow-hidden rounded bg-white/30 dark:bg-white/10">
               <div className="h-full bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600" style={{ width: `${overallProgress}%` }} />
@@ -429,7 +431,7 @@ export default function DataPage() {
             {selectedFiles.map((f, i) => (
               <div key={`${f.name}-${i}`} className="flex items-center justify-between rounded-xl border border-white/30 bg-white/60 p-3 text-sm backdrop-blur-md dark:border-white/10 dark:bg-white/10">
                 <div className="min-w-0 truncate pr-3"><span className="truncate" title={f.name}>{f.name}</span></div>
-                <Button variant="outline" size="sm" disabled={uploading} onClick={() => setSelectedFiles((prev) => prev.filter((_, idx) => idx !== i))}>移除</Button>
+                <Button variant="outline" size="sm" disabled={uploading} onClick={() => setSelectedFiles((prev) => prev.filter((_, idx) => idx !== i))}>{t('data.remove')}</Button>
               </div>
             ))}
           </div>
@@ -439,13 +441,13 @@ export default function DataPage() {
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <div className="relative w-72"><Input ref={nameSearchRef} placeholder="搜尋名稱或 ID…（按 / 聚焦）" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
-          <Button variant="outline" onClick={() => setSortAsc((s) => !s)}>名稱 {sortAsc ? "A→Z" : "Z→A"}</Button>
+          <div className="relative w-72"><Input ref={nameSearchRef} placeholder={t('data.searchNamePlaceholder')} value={query} onChange={(e) => setQuery(e.target.value)} /></div>
+          <Button variant="outline" onClick={() => setSortAsc((s) => !s)}>{t('common.name')} {sortAsc ? "A→Z" : "Z→A"}</Button>
         </div>
         <div className="flex items-center gap-2">
           {isAdmin && (
             <Button variant="danger" disabled={busy || selectedIds.length === 0} onClick={() => askDelete(selectedIds)}>
-              刪除已選（{selectedIds.length}）
+              {t('data.deleteSelected', { count: selectedIds.length })}
             </Button>
           )}
         </div>
@@ -462,9 +464,9 @@ export default function DataPage() {
               onChange={(e) => toggleSelectAll(e.target.checked)}
             />
           </div>
-          <div>名稱</div>
+          <div>{t('common.name')}</div>
           <div>ID</div>
-          <div className="text-right">動作</div>
+          <div className="text-right">{t('common.actions')}</div>
         </div>
 
         {loading ? (
@@ -474,7 +476,7 @@ export default function DataPage() {
             ))}
           </div>
         ) : filteredDocs.length === 0 ? (
-          <div className="p-6 text-sm text-gray-600 dark:text-gray-400">{docs.length === 0 ? '尚未上傳任何文件，請先於上方進行上傳。' : '沒有符合的文件。'}</div>
+          <div className="p-6 text-sm text-gray-600 dark:text-gray-400">{docs.length === 0 ? t('data.noDocumentsUploaded') : t('data.noMatches')}</div>
         ) : (
           <div className="divide-y divide-white/20 dark:divide-white/10">
             {filteredDocs.map((d) => (
@@ -494,9 +496,9 @@ export default function DataPage() {
                   {d.document_id}
                 </div>
                 <div className="flex items-center justify-end gap-2">
-                  <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(d.document_id).then(() => showToast('已複製 ID', { kind: 'success' })).catch(() => showToast('複製失敗', { kind: 'error' }))}>複製 ID</Button>
+                  <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(d.document_id).then(() => showToast(t('data.copyIdSuccess'), { kind: 'success' })).catch(() => showToast(t('data.copyIdFail'), { kind: 'error' }))}>{t('data.copyId')}</Button>
                   {isAdmin && (
-                    <Button variant="danger" size="sm" onClick={() => askDelete([d.document_id])} disabled={busy}>刪除</Button>
+                    <Button variant="danger" size="sm" onClick={() => askDelete([d.document_id])} disabled={busy}>{t('common.delete')}</Button>
                   )}
                 </div>
               </div>
@@ -509,11 +511,11 @@ export default function DataPage() {
       <Card className="p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold">檔案使用權限</div>
-            <p className="text-xs text-gray-600 dark:text-gray-400">指定哪些使用者可以使用特定資料於聊天。</p>
+            <div className="text-sm font-semibold">{t('data.permissionsTitle')}</div>
+            <p className="text-xs text-gray-600 dark:text-gray-400">{t('data.permissionsSubtitle')}</p>
           </div>
           {selectedDoc && (
-            <div className="text-xs text-gray-500 dark:text-gray-400">目前選擇：{selectedDoc.name}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">{t('data.permissionsCurrent', { name: selectedDoc.name })}</div>
           )}
         </div>
 

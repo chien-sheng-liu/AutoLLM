@@ -3,6 +3,7 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import CodeBlock from "@/app/components/CodeBlock";
+import { useLanguage } from "@/app/providers/LanguageProvider";
 
 type Props = {
   role: "user" | "assistant" | "system";
@@ -103,15 +104,16 @@ const markdownComponents = {
 };
 
 const avatarMap: Record<string, { label: string; emoji: string }> = {
-  user: { label: "你", emoji: "🧑‍💻" },
+  user: { label: "user", emoji: "🧑‍💻" },
   assistant: { label: "Autollm", emoji: "🤖" },
-  system: { label: "系統", emoji: "⚙️" },
+  system: { label: "system", emoji: "⚙️" },
 };
 
 export default function ChatMessage({ role, content }: Props) {
   const isUser = role === "user";
   const isSystem = role === "system";
   const avatar = avatarMap[role] || avatarMap.assistant;
+  const { t } = useLanguage();
   // Bubble: readable width with character cap for better UX
   const bubbleBase = "relative inline-block max-w-[calc(100vw-5rem)] md:max-w-[80ch] rounded-2xl px-4 py-2 ring-1 shadow-sm transition-colors break-words whitespace-pre-wrap hyphens-auto";
   const assistantBubble = `${bubbleBase} bg-white/70 ring-white/40 backdrop-blur-md text-gray-900 hover:ring-white/60 dark:bg-white/5 dark:ring-white/10 dark:text-gray-100 dark:hover:ring-white/20`;
@@ -163,9 +165,9 @@ export default function ChatMessage({ role, content }: Props) {
                   <button
                     className="rounded-md border border-gray-200 bg-white px-2 py-0.5 text-[11px] text-gray-700 shadow hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200"
                     onClick={() => navigator.clipboard.writeText(content).catch(() => {})}
-                    title="複製"
+                    title={t('chat.copy')}
                   >
-                    複製
+                    {t('chat.copy')}
                   </button>
                 </div>
                 <ReactMarkdown

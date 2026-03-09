@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { getConfig, listDocuments, type DocumentItem } from "@/lib/api";
 import { buttonClasses } from "@/app/components/ui/Button";
 import Stat from "@/app/components/ui/Stat";
+import { useLanguage } from "@/app/providers/LanguageProvider";
 
 type Overview = {
   docsCount: number;
@@ -17,6 +18,7 @@ type Overview = {
 export default function Page() {
   const [ov, setOv] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
+  const { t } = useLanguage();
 
   useEffect(() => {
     Promise.all([listDocuments(), getConfig()])
@@ -46,38 +48,38 @@ export default function Page() {
         <div className="relative grid items-center gap-10 lg:grid-cols-2">
           <div className="space-y-5">
             <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200/60 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 dark:border-indigo-900/40 dark:bg-indigo-950/40 dark:text-indigo-200">
-              <span className="h-1.5 w-1.5 rounded-full bg-indigo-600" /> 現代化 RAG 工作流
+              <span className="h-1.5 w-1.5 rounded-full bg-indigo-600" /> {t('home.dashBadge')}
             </div>
             <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl lg:text-5xl">
-              零程式碼 RAG 聊天機器人
+              {t('home.dashHeadline')}
             </h1>
             <p className="max-w-[60ch] text-base text-gray-600 dark:text-gray-400 sm:text-lg">
-              上傳資料、調整檢索參數、並以可追溯引用的答案與 AI 對話。專為非技術使用者打造，快速上手、立即見效。
+              {t('home.dashDescription')}
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
               <a className={`${buttonClasses({ variant: 'primary', size: 'md' })}`} href="/chat">
-                開始聊天
+                {t('home.dashStart')}
               </a>
               <a className={`${buttonClasses({ variant: 'outline', size: 'md' })}`} href="/data">
-                上傳資料
+                {t('home.dashUpload')}
               </a>
               <a className={`${buttonClasses({ variant: 'outline', size: 'md' })}`} href="/settings">
-                調整設定
+                {t('home.dashSettings')}
               </a>
             </div>
           </div>
 
           {/* Visual stats (Stat grid) */}
           <div className="relative">
-            <div className="mb-3 text-sm font-medium text-gray-500">快速概覽</div>
+            <div className="mb-3 text-sm font-medium text-gray-500">{t('home.quickLook')}</div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Stat label="文件數量" value={loading ? <span className={`inline-block h-7 w-16 rounded ${shimmer}`} /> : (ov?.docsCount ?? 0)} />
-              <Stat label="Top K" value={loading ? <span className={`inline-block h-7 w-12 rounded ${shimmer}`} /> : (ov?.top_k ?? '—')} />
-              <Stat label="Chunk Size" value={loading ? <span className={`inline-block h-7 w-20 rounded ${shimmer}`} /> : (ov?.chunk_size ?? '—')} />
-              <Stat label="模型" value={loading ? <span className={`inline-block h-5 w-40 rounded ${shimmer}`} /> : (
+              <Stat label={t('home.stats.docsLabel')} value={loading ? <span className={`inline-block h-7 w-16 rounded ${shimmer}`} /> : (ov?.docsCount ?? 0)} />
+              <Stat label={t('home.stats.topKLabel')} value={loading ? <span className={`inline-block h-7 w-12 rounded ${shimmer}`} /> : (ov?.top_k ?? '—')} />
+              <Stat label={t('home.stats.chunkLabel')} value={loading ? <span className={`inline-block h-7 w-20 rounded ${shimmer}`} /> : (ov?.chunk_size ?? '—')} />
+              <Stat label={t('home.stats.modelLabel')} value={loading ? <span className={`inline-block h-5 w-40 rounded ${shimmer}`} /> : (
                 <div className="text-sm">
-                  <div>Chat：{ov?.chat_model}</div>
-                  <div>Emb：{ov?.embedding_model}</div>
+                  <div>Chat: {ov?.chat_model}</div>
+                  <div>Emb: {ov?.embedding_model}</div>
                 </div>
               )} />
             </div>
@@ -87,18 +89,18 @@ export default function Page() {
 
       {/* Quick stats */}
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="文件數量" value={loading ? "—" : ov?.docsCount ?? 0} hint="已上傳並可供檢索的文件數" />
-        <Stat label="RAG：Chunk" value={loading ? "—" : ov?.chunk_size ?? "—"} hint="chunk size / overlap" />
-        <Stat label="RAG：Overlap" value={loading ? "—" : ov?.chunk_overlap ?? "—"} />
-        <Stat label="Top K" value={loading ? "—" : ov?.top_k ?? "—"} />
+        <Stat label={t('home.stats.docsLabel')} value={loading ? "—" : ov?.docsCount ?? 0} hint={t('home.stats.docsHint')} />
+        <Stat label={t('home.stats.quickChunk')} value={loading ? "—" : ov?.chunk_size ?? "—"} hint={t('home.stats.chunkHint')} />
+        <Stat label={t('home.stats.quickOverlap')} value={loading ? "—" : ov?.chunk_overlap ?? "—"} hint={t('home.stats.overlapHint')} />
+        <Stat label={t('home.stats.topKLabel')} value={loading ? "—" : ov?.top_k ?? "—"} />
       </section>
 
 
       {/* Recent documents */}
       <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-soft dark:border-neutral-800 dark:bg-neutral-900">
         <div className="mb-4 flex items-center justify-between">
-          <div className="font-semibold">最近文件</div>
-          <a className="text-sm text-indigo-600 hover:underline" href="/data">查看全部</a>
+          <div className="font-semibold">{t('home.recentsTitle')}</div>
+          <a className="text-sm text-indigo-600 hover:underline" href="/data">{t('home.recentsViewAll')}</a>
         </div>
         {loading ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -112,26 +114,26 @@ export default function Page() {
               <div key={d.document_id} className="flex items-center justify-between rounded-xl border border-gray-200 p-4 text-sm dark:border-neutral-800">
                 <div className="truncate pr-3">
                   <div className="truncate font-medium" title={d.name}>{d.name}</div>
-                  <div className="text-xs text-gray-500">ID：{d.document_id}</div>
+                  <div className="text-xs text-gray-500">{t('common.idLabel')}: {d.document_id}</div>
                 </div>
-                <a href="/chat" className={`${buttonClasses({ variant: 'outline', size: 'sm' })}`}>聊天</a>
+                <a href="/chat" className={`${buttonClasses({ variant: 'outline', size: 'sm' })}`}>{t('nav.chat')}</a>
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-sm text-gray-600 dark:text-gray-400">尚未上傳任何文件，前往「資料」頁開始上傳吧！</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">{t('home.noDocs')}</div>
         )}
       </section>
 
       {/* Final CTA kept minimal for actions */}
       <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-gray-200 bg-white p-6 shadow-soft dark:border-neutral-800 dark:bg-neutral-900">
         <div className="max-w-[70ch]">
-          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">快速操作</div>
-          <p className="text-sm text-gray-600 dark:text-gray-400">上傳資料或直接開始對話。</p>
+          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('home.shortcutsTitle')}</div>
+          <p className="text-sm text-gray-600 dark:text-gray-400">{t('home.shortcutsSubtitle')}</p>
         </div>
         <div className="flex gap-3">
-          <a className={`${buttonClasses({ variant: 'primary', size: 'md' })}`} href="/data">上傳資料</a>
-          <a className={`${buttonClasses({ variant: 'outline', size: 'md' })}`} href="/chat">立即聊天</a>
+          <a className={`${buttonClasses({ variant: 'primary', size: 'md' })}`} href="/data">{t('home.shortcutsUpload')}</a>
+          <a className={`${buttonClasses({ variant: 'outline', size: 'md' })}`} href="/chat">{t('home.shortcutsChat')}</a>
         </div>
       </section>
     </div>

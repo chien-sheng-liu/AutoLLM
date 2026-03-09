@@ -9,6 +9,7 @@ import jsonLang from "highlight.js/lib/languages/json";
 import markdown from "highlight.js/lib/languages/markdown";
 import "highlight.js/styles/github.css";
 import { showToast } from "@/app/components/Toaster";
+import { useLanguage } from "@/app/providers/LanguageProvider";
 
 hljs.registerLanguage('javascript', javascript);
 hljs.registerLanguage('typescript', typescript);
@@ -19,6 +20,7 @@ hljs.registerLanguage('markdown', markdown);
 
 export default function CodeBlock({ code, lang }: { code: string; lang?: string }) {
   const ref = useRef<HTMLElement>(null);
+  const { t } = useLanguage();
   useEffect(() => {
     if (ref.current) {
       try {
@@ -35,8 +37,8 @@ export default function CodeBlock({ code, lang }: { code: string; lang?: string 
 
   function copy() {
     navigator.clipboard.writeText(code).then(() => {
-      showToast('已複製到剪貼簿', { kind: 'success' });
-    }).catch(() => showToast('複製失敗', { kind: 'error' }));
+      showToast(t('common.copied'), { kind: 'success' });
+    }).catch(() => showToast(t('common.copyFailed'), { kind: 'error' }));
   }
 
   return (
@@ -53,7 +55,7 @@ export default function CodeBlock({ code, lang }: { code: string; lang?: string 
         onClick={copy}
         className="absolute right-2 top-2 rounded-md border border-white/30 bg-white/70 px-2 py-0.5 text-xs text-gray-700 shadow hover:bg-white/80 backdrop-blur-md dark:border-white/10 dark:bg-white/5 dark:text-gray-200"
       >
-        複製
+        {t('code.copy')}
       </button>
     </div>
   );

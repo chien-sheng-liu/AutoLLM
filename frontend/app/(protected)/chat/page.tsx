@@ -6,6 +6,7 @@ import ChatMessage from "@/app/components/ChatMessage";
 import Button from "@/app/components/ui/Button";
 import Textarea from "@/app/components/ui/Textarea";
 import { createConversation, titleFromMessages, type Conversation } from "@/lib/conversations";
+import { useLanguage } from "@/app/providers/LanguageProvider";
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -32,6 +33,18 @@ export default function ChatPage() {
   const rootRef = useRef<HTMLDivElement>(null);
   const [containerH, setContainerH] = useState<number | null>(null);
   const [conversationsReady, setConversationsReady] = useState(false);
+  const { t, language, autoDetectFromInput } = useLanguage();
+  const fallbackTitle = t('chat.newConversation');
+  const isDefaultTitle = (title?: string | null) => {
+    const normalized = (title || '').trim();
+    return !normalized || normalized === fallbackTitle || normalized === '新的對話' || normalized === 'New conversation';
+  };
+  const displayTitle = (title?: string | null) => (isDefaultTitle(title) ? fallbackTitle : (title || fallbackTitle));
+  const providerOptions = [
+    { id: 'openai', label: 'OpenAI', hint: t('chat.providerHints.openai') },
+    { id: 'gemini', label: 'Gemini', hint: t('chat.providerHints.gemini') },
+    { id: 'anthropic', label: 'Claude', hint: t('chat.providerHints.anthropic') },
+  ] as const;
 
   const sortConversations = useCallback((list: Conversation[]) => {
     return [...list].sort((a, b) => b.updatedAt - a.updatedAt);
@@ -53,7 +66,7 @@ export default function ChatPage() {
       if (!Array.isArray(list)) list = [];
       if (list.length === 0) {
         if (!allowEmpty) {
-          const created = await createServerConversation('新的對話');
+          const created = await createServerConversation(fallbackTitle);
           await loadConversations(created.id, { keepCurrent: false, skipMessages });
           return;
         }
@@ -161,7 +174,7 @@ export default function ChatPage() {
   async function newChat() {
     if (!conversationsReady) return;
     try {
-      const created = await createServerConversation('新的對話');
+      const created = await createServerConversation(fallbackTitle);
       await loadConversations(created.id);
       setLastCitations([]);
       setUsedPrompt(undefined);
@@ -172,7 +185,7 @@ export default function ChatPage() {
     if (!conversationsReady) return;
     const cur = convs.find((c) => c.id === currentId);
     if (!cur) return;
-    const name = prompt("重新命名對話", cur.title || "");
+    const name = prompt(t('chat.renamePrompt'), cur.title || "");
     if (name === null) return;
     const title = name.trim();
     if (!title) return;
@@ -188,7 +201,7 @@ export default function ChatPage() {
     if (!conversationsReady || !currentId) return;
     const cur = convs.find((c) => c.id === currentId);
     if (!cur) return;
-    if (!confirm("確定要刪除此對話？")) return;
+    if (!confirm(t('chat.deleteConversationConfirm'))) return;
     const targetId = currentId;
     setConvs((prev) => prev.filter((c) => c.id !== targetId));
     if (currentIdRef.current === targetId) {
@@ -212,6 +225,7 @@ export default function ChatPage() {
     const userMessage: Message = { role: "user", content: input.trim() };
     const newMsgs: Message[] = [...messages, userMessage];
     setMessages(newMsgs);
+    autoDetectFromInput(userMessage.content);
     // Clear input immediately
     setInput("");
     requestAnimationFrame(() => {
@@ -227,7 +241,7 @@ export default function ChatPage() {
     const autoTitle = firstLine.length > 40 ? firstLine.slice(0, 40) + '…' : firstLine;
     if (currentId && autoTitle) {
       const cur = convs.find((c) => c.id === currentId);
-      if (cur && (!cur.title || cur.title === '新的對話')) {
+      if (cur && isDefaultTitle(cur.title)) {
         const fid = currentId;
         setConvs((prev) => prev.map((c) => c.id === fid ? { ...c, title: autoTitle, updatedAt: Date.now() } as any : c));
         renameServerConversation(fid, autoTitle)
@@ -262,7 +276,7 @@ export default function ChatPage() {
           updateCurrent((c) => ({ ...c, messages: finalMsgs, updatedAt: Date.now() }));
           loadConversations(currentId, { keepCurrent: true, skipMessages: true }).catch(() => {});
         }
-      }, { signal: ctrl.signal, chat_model: model || cfg?.chat_model, chat_provider: provider || (cfg?.chat_provider as any), conversation_id: currentId || undefined });
+      }, { signal: ctrl.signal, chat_model: model || cfg?.chat_model, chat_provider: provider || (cfg?.chat_provider as any), conversation_id: currentId || undefined, language });
     } catch (err: any) {
       if (ctrl.signal.aborted) {
         const partial = streamAnswer;
@@ -275,7 +289,8 @@ export default function ChatPage() {
           updateCurrent((c) => ({ ...c, messages: finalMsgs, updatedAt: Date.now() }));
         }
       } else {
-        setMessages([...newMsgs, { role: "assistant", content: `錯誤：${err?.message || err}` }]);
+        const msg = (err as any)?.message || err;
+        setMessages([...newMsgs, { role: "assistant", content: t('chat.streamingError', { message: String(msg) }) }]);
       }
     } finally {
       setBusy(false);
@@ -306,10 +321,11 @@ export default function ChatPage() {
           updateCurrent((c) => ({ ...c, messages: finalMsgs, updatedAt: Date.now() }));
           loadConversations(currentId, { keepCurrent: true, skipMessages: true }).catch(() => {});
         }
-      }, { chat_model: model || cfg?.chat_model, chat_provider: provider || (cfg?.chat_provider as any), conversation_id: currentId || undefined, signal: ctrl.signal });
+      }, { chat_model: model || cfg?.chat_model, chat_provider: provider || (cfg?.chat_provider as any), conversation_id: currentId || undefined, signal: ctrl.signal, language });
     } catch (err) {
       if (!ctrl.signal.aborted) {
-        setMessages([...withMessages, { role: "assistant", content: `錯誤：${(err as any)?.message || err}` }]);
+        const msg = (err as any)?.message || err;
+        setMessages([...withMessages, { role: "assistant", content: t('chat.streamingError', { message: String(msg) }) }]);
       }
     } finally {
       setBusy(false);
@@ -332,7 +348,7 @@ export default function ChatPage() {
 
   function handleContinue() {
     if (busy) return;
-    const next = [...messages, { role: 'user', content: '請繼續。' } as Message];
+    const next = [...messages, { role: 'user', content: t('chat.typingContinue') } as Message];
     setMessages(next);
     startStream(next);
   }
@@ -417,7 +433,7 @@ export default function ChatPage() {
 
   // Keep citations collapsed by default; user can expand manually
 
-  // 自動調整輸入框高度
+  // Auto adjust input height
   const viewportH = typeof window !== "undefined" ? window.innerHeight : 900;
   const maxInputHeight = Math.max(120, Math.min(260, ((containerH ?? viewportH) * 0.3)));
   const handleInputHeightChange = (h: number) => setInputHeight(h);
@@ -437,11 +453,11 @@ export default function ChatPage() {
     if (cfg && cfg.show_sources === false) return null;
     if (!lastCitations.length) return null;
     return (
-      <section className="mt-5 rounded-2xl border border-indigo-100 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-indigo-900/40 dark:bg-neutral-900/70">
+      <section className="mt-3 rounded-2xl border border-indigo-100 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-indigo-900/40 dark:bg-neutral-900/70">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-wide text-indigo-500">Citations</p>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">追溯來源</h3>
+            <p className="text-xs uppercase tracking-wide text-indigo-500">{t('chat.citationsTitle')}</p>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('chat.citationsSubtitle')}</h3>
           </div>
             <div className="flex flex-wrap items-center gap-2 text-xs">
               {usedPrompt && (
@@ -450,7 +466,7 @@ export default function ChatPage() {
                   className="rounded-full border border-indigo-200 px-3 py-1 font-medium text-indigo-600 hover:bg-indigo-50 dark:border-indigo-900/40 dark:text-indigo-200 dark:hover:bg-indigo-950/40"
                   onClick={() => setShowPrompt((v) => !v)}
                 >
-                  {showPrompt ? "隱藏提示詞" : "顯示提示詞"}
+                  {showPrompt ? t('chat.hidePrompt') : t('chat.showPrompt')}
                 </button>
               )}
               <button
@@ -458,11 +474,11 @@ export default function ChatPage() {
                 className="rounded-full border border-gray-200 px-3 py-1 font-medium text-gray-700 hover:bg-gray-50 dark:border-neutral-700 dark:text-gray-200 dark:hover:bg-neutral-800"
                 onClick={() => setRefsOpen((o) => !o)}
               >
-                {refsOpen ? "收合引用" : "展開引用"}
+                {refsOpen ? t('chat.hideSources') : t('chat.showSources')}
               </button>
             {lastAnswerId && (
               <div className="ml-2 flex items-center gap-1">
-                <span className="text-gray-500">這個回答是否有幫助？</span>
+                <span className="text-gray-500">{t('chat.feedbackPrompt')}</span>
                 <button
                   type="button"
                   disabled={!!feedbackSent}
@@ -471,7 +487,7 @@ export default function ChatPage() {
                     try { await sendFeedback(lastAnswerId, 'up'); setFeedbackSent('up'); } catch (_) {}
                   }}
                   className={`rounded-full border px-2 py-0.5 ${feedbackSent === 'up' ? 'border-green-300 bg-green-50 text-green-700 dark:border-green-900/40 dark:bg-green-950/30 dark:text-green-200' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200'}`}
-                >贊成</button>
+                >{t('chat.feedbackUp')}</button>
                 <button
                   type="button"
                   disabled={!!feedbackSent}
@@ -480,7 +496,7 @@ export default function ChatPage() {
                     try { await sendFeedback(lastAnswerId, 'down'); setFeedbackSent('down'); } catch (_) {}
                   }}
                   className={`rounded-full border px-2 py-0.5 ${feedbackSent === 'down' ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200'}`}
-                >不贊成</button>
+                >{t('chat.feedbackDown')}</button>
               </div>
             )}
           </div>
@@ -500,9 +516,9 @@ export default function ChatPage() {
                       </span>
                       {c.name}
                     </div>
-                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{typeof c.page === 'number' ? `第 ${c.page} 頁` : '頁碼不詳'}</p>
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{typeof c.page === 'number' ? t('chat.pageLabel', { page: c.page }) : t('chat.pageUnknown')}</p>
                   </div>
-                  <span className="text-xs text-gray-500">來源</span>
+                  <span className="text-xs text-gray-500">{t('chat.sourceLabel')}</span>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-500"></div>
               </article>
@@ -511,7 +527,7 @@ export default function ChatPage() {
         )}
         {showPrompt && usedPrompt && (
           <div className="mt-4 rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/70 p-3 text-[13px] text-indigo-900 dark:border-indigo-900/50 dark:bg-indigo-950/40 dark:text-indigo-100">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-indigo-500">System Prompt</div>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-indigo-500">{t('chat.systemPromptLabel')}</div>
             <pre className="whitespace-pre-wrap">{usedPrompt}</pre>
           </div>
         )}
@@ -523,7 +539,7 @@ export default function ChatPage() {
     return (
       <div className="fixed inset-0 z-[60] flex flex-col bg-white dark:bg-neutral-900">
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2 text-sm dark:border-neutral-800">
-          <div className="font-semibold">沉浸式聊天</div>
+          <div className="font-semibold">{t('chat.immersiveTitle')}</div>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -534,15 +550,15 @@ export default function ChatPage() {
                 updateCurrent((c) => ({ ...c, messages: [], updatedAt: Date.now() }));
               }}
               disabled={busy}
-            >清除訊息</Button>
-            <Button variant="outline" onClick={() => setImmersive(false)}>退出全螢幕</Button>
+            >{t('chat.clearMessages')}</Button>
+            <Button variant="outline" onClick={() => setImmersive(false)}>{t('chat.exitImmersive')}</Button>
           </div>
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
           <div ref={chatRef} className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
             {messages.length === 0 && !streamAnswer && (
-              <div className="text-gray-500">對文件有任何問題，儘管問我！</div>
+              <div className="text-gray-500">{t('chat.emptyState')}</div>
             )}
             <div className="grid gap-4">
               {messages.map((m, i) => (
@@ -570,7 +586,7 @@ export default function ChatPage() {
                     }}
                     className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 shadow hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200 dark:hover:bg-neutral-700"
                   >
-                    回到底部
+                    {t('chat.scrollToBottom')}
                   </button>
                 </div>
               )}
@@ -585,7 +601,7 @@ export default function ChatPage() {
                 rows={1}
                 maxHeight={maxInputHeight}
                 onHeightChange={handleInputHeightChange}
-                placeholder="輸入訊息，按 Enter 送出（Shift+Enter 換行）"
+                placeholder={t('chat.inputPlaceholder')}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -601,11 +617,11 @@ export default function ChatPage() {
                   style={{ height: inputHeight }}
                   disabled
                 >
-                  傳送中…
+                  {t('chat.sending')}
                 </Button>
               ) : (
                 <Button type="submit" style={{ height: inputHeight }} className="min-w-[72px] whitespace-nowrap" disabled={busy}>
-                  送出
+                  {t('chat.send')}
                 </Button>
               )}
             </form>
@@ -622,21 +638,21 @@ export default function ChatPage() {
   return (
     <div
       ref={rootRef}
-      className="relative mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-6 px-2 py-6 md:px-6 lg:flex-row"
+      className="relative mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-5 px-2 py-4 md:px-6 lg:flex-row"
       style={{ height: containerH ? containerH + "px" : undefined }}
     >
-        <aside className="order-2 flex h-full flex-col overflow-hidden rounded-3xl border border-white/20 bg-white/5 p-5 shadow-soft backdrop-blur-lg lg:order-1 lg:w-[320px]">
-          <div className="mb-4 flex items-center justify-between gap-3">
+        <aside className="order-2 flex h-full flex-col overflow-hidden rounded-3xl border border-white/12 bg-white/5 p-4 shadow-soft backdrop-blur-lg lg:order-1 lg:w-[260px]">
+          <div className="mb-3 flex items-center justify-between gap-2">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.3em] text-slate-400">History</p>
-              <h2 className="text-xl font-semibold text-slate-100">會話清單</h2>
+              <p className="text-[10px] uppercase tracking-[0.35em] text-slate-400">{t('chat.historyBadge')}</p>
+              <h2 className="text-lg font-semibold text-slate-100">{t('chat.conversationListTitle')}</h2>
             </div>
-            <Button variant="outline" size="sm" onClick={newChat} disabled={!conversationsReady}>新對話</Button>
+            <Button variant="outline" size="sm" onClick={newChat} disabled={!conversationsReady}>{t('chat.createConversation')}</Button>
           </div>
           <div className="space-y-2 overflow-auto pr-1">
             {convs.map((c) => {
               const active = c.id === currentId;
-              const baseClasses = 'group w-full rounded-2xl border px-3 py-3 text-left text-sm transition backdrop-blur-md';
+              const baseClasses = 'group w-full rounded-2xl border px-3 py-2.5 text-left text-sm transition backdrop-blur-md';
               const variant = active
                 ? 'border-indigo-200 bg-white shadow dark:border-indigo-900/60 dark:bg-neutral-800'
                 : 'border-transparent bg-white/60 hover:border-indigo-100 hover:bg-white dark:bg-neutral-800/60 dark:hover:border-neutral-700';
@@ -650,8 +666,8 @@ export default function ChatPage() {
                   className={`${baseClasses} ${variant}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className="truncate font-medium text-slate-900 dark:text-gray-100">{c.title || '新的對話'}</div>
-                    {active && <span className="text-[11px] uppercase tracking-wide text-indigo-500">最新</span>}
+                    <div className="truncate font-medium text-slate-900 dark:text-gray-100">{displayTitle(c.title)}</div>
+                    {active && <span className="text-[11px] uppercase tracking-wide text-indigo-500">{t('chat.latestBadge')}</span>}
                   </div>
                   <div className="mt-1 truncate text-xs text-slate-500 dark:text-gray-400">{new Date(c.updatedAt).toLocaleString()}</div>
                 </button>
@@ -659,39 +675,35 @@ export default function ChatPage() {
             })}
             {!convs.length && (
               <div className="rounded-2xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500 dark:border-neutral-800 dark:text-gray-400">
-                尚未建立對話。
+                {t('chat.noConversations')}
               </div>
             )}
           </div>
           {currentId && (
-            <div className="mt-6 grid gap-2">
-              <Button variant="outline" size="sm" onClick={renameChat} disabled={!conversationsReady}>重新命名</Button>
-              <Button variant="danger" size="sm" onClick={deleteChat} disabled={!conversationsReady}>刪除</Button>
+            <div className="mt-5 grid gap-2">
+              <Button variant="outline" size="sm" onClick={renameChat} disabled={!conversationsReady}>{t('chat.menuRename')}</Button>
+              <Button variant="danger" size="sm" onClick={deleteChat} disabled={!conversationsReady}>{t('chat.menuDelete')}</Button>
             </div>
           )}
         </aside>
 
-        <div className="order-1 flex flex-1 flex-col gap-4 lg:order-2">
-          <div className="rounded-3xl border border-white/15 bg-white/5 px-5 py-4 backdrop-blur-md">
+        <div className="order-1 flex min-h-0 flex-1 flex-col gap-4 lg:order-2">
+          <div className="rounded-2xl border border-white/12 bg-white/5 px-4 py-3 backdrop-blur">
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex-1">
-                <p className="text-[11px] uppercase tracking-[0.3em] text-indigo-500">Active conversation</p>
-                <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">{convs.find((c) => c.id === currentId)?.title || '新的對話'}</h1>
+                <p className="text-[10px] uppercase tracking-[0.35em] text-indigo-400">{t('chat.activeLabel')}</p>
+                <h1 className="text-lg font-semibold text-slate-100">{displayTitle(convs.find((c) => c.id === currentId)?.title)}</h1>
               </div>
               <div className="flex flex-wrap items-center gap-2 text-xs">
-                <Button variant="outline" size="sm" onClick={() => setImmersive(true)}>沉浸模式</Button>
+                <Button variant="outline" size="sm" onClick={() => setImmersive(true)}>{t('chat.immersiveMode')}</Button>
               </div>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-white/15 bg-white/5 px-5 py-3 text-xs text-slate-300 backdrop-blur-md">
+          <div className="rounded-2xl border border-white/12 bg-white/5 px-4 py-2 text-xs text-slate-300 backdrop-blur">
             <div className="flex flex-wrap items-center gap-3">
               <div className="inline-flex overflow-hidden rounded-full border border-slate-200 bg-white p-0.5 dark:border-neutral-700 dark:bg-neutral-800">
-                {([
-                  { id: 'openai', label: 'OpenAI', hint: '通用/高品質' },
-                  { id: 'gemini', label: 'Gemini', hint: '推理/長上下文' },
-                  { id: 'anthropic', label: 'Claude', hint: '語言/安全' },
-                ] as const).map((p) => {
+                {providerOptions.map((p) => {
                   const selected = provider === p.id;
                   const buttonClasses = selected
                     ? 'rounded-full bg-gradient-to-tr from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-glow'
@@ -730,11 +742,11 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-hidden rounded-3xl border border-white/12 bg-white/5 backdrop-blur-md">
-            <div ref={chatRef} className="flex h-full flex-col gap-4 overflow-y-auto px-4 pb-6 pt-6 sm:px-8">
+          <div className="flex min-h-0 flex-1 flex-col rounded-3xl border border-white/12 bg-white/5 backdrop-blur-md">
+            <div ref={chatRef} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4 pt-5 sm:px-6">
               {messages.length === 0 && !streamAnswer && (
-                <div className="rounded-3xl border border-dashed border-white/20 px-5 py-8 text-center text-sm text-slate-300">
-                  對文件有任何問題，儘管問我！
+                <div className="rounded-3xl border border-dashed border-white/15 px-5 py-8 text-center text-sm text-slate-300">
+                  {t('chat.emptyState')}
                 </div>
               )}
               {messages.map((m, i) => (
@@ -743,9 +755,9 @@ export default function ChatPage() {
               {streamAnswer && <ChatMessage role="assistant" content={streamAnswer} />}
               {busy && !streamAnswer && (
                 <div className="flex w-full justify-start">
-                  <div className="flex max-w-[95vw] items-start gap-4 md:max-w-[960px]">
-                    <div className="flex h-10 w-10 shrink-0 select-none items-center justify-center rounded-full border border-violet-200 bg-violet-50 text-xl text-violet-700 shadow dark:border-violet-900/40 dark:bg-violet-950/40 dark:text-violet-200">🤖</div>
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-[15px] leading-relaxed text-slate-700 shadow-sm dark:border-neutral-800 dark:bg-neutral-800 dark:text-gray-100">
+                  <div className="flex max-w-[95vw] items-start gap-4 md:max-w-[1000px]">
+                    <div className="flex h-9 w-9 shrink-0 select-none items-center justify-center rounded-full border border-violet-200 bg-violet-50 text-lg text-violet-700 shadow dark:border-violet-900/40 dark:bg-violet-950/40 dark:text-violet-200">🤖</div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-[14px] leading-relaxed text-slate-700 shadow-sm dark:border-neutral-800 dark:bg-neutral-800 dark:text-gray-100">
                       <div className="typing-dots text-gray-500 dark:text-gray-300"><span></span><span></span><span></span></div>
                     </div>
                   </div>
@@ -762,59 +774,55 @@ export default function ChatPage() {
                     }}
                     className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-slate-100"
                   >
-                    回到底部
+                    {t('chat.scrollToBottom')}
                   </button>
                 </div>
               )}
             </div>
-          </div>
 
-          <div className="rounded-3xl border border-white/15 bg-white/5 px-4 py-4 text-xs text-slate-300 backdrop-blur-md sm:px-8">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              {!busy && (
-                <>
-                  <button type="button" onClick={handleRegenerate} className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-slate-100 hover:bg-white/20">
-                    重新產生
-                  </button>
-                  <button type="button" onClick={handleContinue} className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-slate-100 hover:bg-white/20">
-                    繼續
-                  </button>
-                  <button type="button" onClick={handleCopyLast} className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-slate-100 hover:bg-white/20">
-                    複製
-                  </button>
-                </>
-              )}
-              {/* 移除停止按鈕（僅保留下方表單中的狀態提示） */}
-            </div>
-            <form onSubmit={onSend} className="flex items-end gap-3">
-              <Textarea
-                ref={inputRef}
-                value={input}
-                rows={1}
-                maxHeight={maxInputHeight}
-                onHeightChange={handleInputHeightChange}
-                placeholder="輸入訊息，Enter 送出（Shift+Enter 換行）"
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    if (!busy && input.trim()) onSend(e);
-                  }
-                }}
-              />
-              {busy ? (
-                <>
-                  {/* 移除停止按鈕 */}
+            <div className="border-t border-white/10 px-4 py-3 text-xs text-slate-300 sm:px-6">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                {!busy && (
+                  <>
+                    <button type="button" onClick={handleRegenerate} className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-slate-100 hover:bg-white/20">
+                      {t('chat.regenerate')}
+                    </button>
+                    <button type="button" onClick={handleContinue} className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-slate-100 hover:bg-white/20">
+                      {t('chat.continue')}
+                    </button>
+                    <button type="button" onClick={handleCopyLast} className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-slate-100 hover:bg-white/20">
+                      {t('chat.copy')}
+                    </button>
+                  </>
+                )}
+              </div>
+              <form onSubmit={onSend} className="flex items-end gap-3">
+                <Textarea
+                  ref={inputRef}
+                  value={input}
+                  rows={1}
+                  maxHeight={maxInputHeight}
+                  onHeightChange={handleInputHeightChange}
+                  placeholder={t('chat.inputPlaceholder')}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (!busy && input.trim()) onSend(e);
+                    }
+                  }}
+                />
+                {busy ? (
                   <Button type="submit" className="cursor-not-allowed whitespace-nowrap opacity-60" style={{ height: inputHeight }} disabled>
-                    傳送中…
+                    {t('chat.sending')}
                   </Button>
-                </>
-              ) : (
-                <Button type="submit" style={{ height: inputHeight }} className="min-w-[72px] whitespace-nowrap" disabled={busy}>
-                  送出
-                </Button>
-              )}
-            </form>
+                ) : (
+                  <Button type="submit" style={{ height: inputHeight }} className="min-w-[72px] whitespace-nowrap" disabled={busy}>
+                    {t('chat.send')}
+                  </Button>
+                )}
+              </form>
+            </div>
           </div>
         </div>
     </div>
