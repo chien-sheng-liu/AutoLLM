@@ -22,12 +22,14 @@ export default function Nav() {
 
   useEffect(() => {
     // Best-effort: refresh profile to get latest auth for this tab only
-    fetchProfile().then((u) => {
-      setUser(u);
-    }).catch(() => {});
+    fetchProfile()
+      .then((u) => {
+        setUser(u);
+      })
+      .catch(() => {});
   }, []);
 
-  if (pathname?.startsWith('/login') || pathname?.startsWith('/register')) {
+  if (pathname?.startsWith("/login") || pathname?.startsWith("/register")) {
     return null;
   }
 
@@ -35,33 +37,35 @@ export default function Nav() {
     try {
       await apiLogout();
     } catch (err) {
-      console.warn('logout failed', err);
+      console.warn("logout failed", err);
     } finally {
       clearSession();
       setUser(null);
-      router.replace('/login');
+      router.replace("/login");
     }
   }
 
-  const role = ((user?.auth || '') as string).toLowerCase();
-  const canAdmin = role === 'admin' || role === 'administrator';
-  const canManage = canAdmin || role === 'manager';
-  const avatarLabel = (user?.name || user?.email || 'A').slice(0, 1).toUpperCase();
+  const role = ((user?.auth || "") as string).toLowerCase();
+  const canAdmin = role === "admin" || role === "administrator";
+  const canManage = canAdmin || role === "manager";
+  const avatarLabel = (user?.name || user?.email || "A")
+    .slice(0, 1)
+    .toUpperCase();
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false);
       }
     }
-    if (menuOpen) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    if (menuOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
   const navLinks = [
-    { href: '/', label: t('nav.home'), show: true },
-    { href: '/chat', label: t('nav.chat'), show: true },
-    { href: '/data', label: t('nav.data'), show: canManage },
-    { href: '/settings', label: t('nav.settings'), show: true },
+    { href: "/dashboard", label: t("nav.home"), show: true },
+    { href: "/chat", label: t("nav.chat"), show: true },
+    { href: "/data", label: t("nav.data"), show: canManage },
+    { href: "/settings", label: t("nav.settings"), show: true },
   ].filter((item) => item.show);
 
   return (
@@ -75,8 +79,12 @@ export default function Nav() {
             ⚡
           </span>
           <div className="text-sm">
-            <div className="font-semibold tracking-tight text-[var(--text-primary)]">{t('nav.brand')}</div>
-            <div className="text-[11px] uppercase tracking-[0.3em] text-[var(--text-muted)]">AI Copilot</div>
+            <div className="font-semibold tracking-tight text-[var(--text-primary)]">
+              {t("nav.brand")}
+            </div>
+            <div className="text-[11px] uppercase tracking-[0.3em] text-[var(--text-muted)]">
+              AI Copilot
+            </div>
           </div>
         </div>
 
@@ -89,8 +97,8 @@ export default function Nav() {
                 href={link.href}
                 className={`rounded-2xl px-4 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-200)] ${
                   active
-                    ? 'bg-[var(--brand-50)] text-[var(--brand-primary)] shadow-surface'
-                    : 'text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]'
+                    ? "bg-[var(--brand-50)] text-[var(--brand-primary)] shadow-surface"
+                    : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
                 }`}
               >
                 {link.label}
@@ -115,7 +123,9 @@ export default function Nav() {
                   <div className="text-[12px] font-semibold leading-tight text-[var(--text-primary)]">
                     {user.name || user.email}
                   </div>
-                  <div className="text-[10px] text-[var(--text-muted)]">{t('nav.signedIn')}</div>
+                  <div className="text-[10px] text-[var(--text-muted)]">
+                    {t("nav.signedIn")}
+                  </div>
                 </span>
                 <span className="text-[var(--text-muted)]" aria-hidden>
                   ▾
@@ -128,7 +138,7 @@ export default function Nav() {
                     className="block rounded-xl px-3 py-2 transition hover:bg-[var(--surface-muted)]"
                     onClick={() => setMenuOpen(false)}
                   >
-                    {t('nav.guide')}
+                    {t("nav.guide")}
                   </Link>
                   {canAdmin && (
                     <Link
@@ -136,7 +146,7 @@ export default function Nav() {
                       className="block rounded-xl px-3 py-2 transition hover:bg-[var(--surface-muted)]"
                       onClick={() => setMenuOpen(false)}
                     >
-                      {t('nav.admin')}
+                      {t("nav.admin")}
                     </Link>
                   )}
                   <button
@@ -147,7 +157,7 @@ export default function Nav() {
                     }}
                     className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-[var(--danger)] transition hover:bg-[var(--danger-soft)]"
                   >
-                    {t('nav.logout')}
+                    {t("nav.logout")}
                     <span aria-hidden>↗</span>
                   </button>
                 </div>
@@ -158,7 +168,7 @@ export default function Nav() {
               href="/login"
               className="rounded-2xl border border-[var(--border-strong)] bg-[var(--surface-muted)] px-3 py-1.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-panel)] hover:text-[var(--text-primary)]"
             >
-              {t('nav.login')}
+              {t("nav.login")}
             </Link>
           )}
         </div>

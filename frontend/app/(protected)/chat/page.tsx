@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { flushSync } from "react-dom";
 import type { Message, Citation, ChatStreamEvent, Config } from "@/lib/api";
 import {
   chatStream,
@@ -42,6 +41,9 @@ export default function ChatPage() {
   const [abortCtrl, setAbortCtrl] = useState<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [inputHeight, setInputHeight] = useState<number>(48);
+  // Incrementing this key forces the Textarea to remount with a fresh DOM node,
+  // guaranteeing the text is cleared regardless of React batching behaviour.
+  const [inputKey, setInputKey] = useState(0);
   const [cfg, setCfg] = useState<Config | null>(null);
   const [model, setModel] = useState<string>("");
   const [provider, setProvider] = useState<
@@ -214,13 +216,14 @@ export default function ChatPage() {
 
   function updateCurrent(updater: (c: Conversation) => Conversation) {
     if (!currentId) return;
+    // NOTE: Do NOT call setMessages inside this setConvs updater.
+    // Calling setState inside another setState's updater is a React anti-pattern
+    // that causes unpredictable batching in React 18 and interferes with
+    // flushSync. Callers are responsible for syncing messages separately.
     setConvs((prev) => {
       if (!prev.length) return prev;
       const next = prev.map((c) => (c.id === currentId ? updater(c) : c));
-      const sorted = sortConversations(next);
-      const cur = sorted.find((c) => c.id === currentId);
-      if (cur) setMessages(cur.messages);
-      return sorted;
+      return sortConversations(next);
     });
   }
 
@@ -282,15 +285,11 @@ export default function ChatPage() {
     const newMsgs: Message[] = [...messages, userMessage];
     setMessages(newMsgs);
     autoDetectFromInput(userMessage.content);
-    // flushSync forces React to commit setInput("") synchronously before the
-    // async streaming begins, preventing React 18 automatic batching from
-    // deferring the update and leaving stale text in the controlled textarea.
-    flushSync(() => setInput(""));
-    const el = inputRef.current;
-    if (el) {
-      el.style.height = "auto";
-      handleInputHeightChange(el.offsetHeight || 48);
-    }
+    // Increment inputKey to remount the Textarea with a fresh DOM node — the
+    // only approach that reliably clears the textarea independent of React 18
+    // batching or the controlled-component reconciliation order.
+    setInput("");
+    setInputKey((k) => k + 1);
     // Auto-name conversation on first user message (UI-side) and persist to server
     const firstLine = userMessage.content.trim().split("\n")[0];
     const autoTitle =
@@ -563,14 +562,15 @@ export default function ChatPage() {
     120,
     Math.min(260, (containerH ?? viewportH) * 0.3),
   );
-  const handleInputHeightChange = (h: number) => setInputHeight(h);
+  // useCallback gives a stable reference so Textarea's useEffect does not
+  // re-fire on every parent render (onHeightChange is in its deps array).
+  const handleInputHeightChange = useCallback(
+    (h: number) => setInputHeight(h),
+    [],
+  );
   const clearInput = () => {
-    flushSync(() => setInput(""));
-    const el = inputRef.current;
-    if (el) {
-      el.style.height = "auto";
-      handleInputHeightChange(el.offsetHeight || 48);
-    }
+    setInput("");
+    setInputKey((k) => k + 1);
   };
 
   const renderCitationsSection = () => {
@@ -760,6 +760,7 @@ export default function ChatPage() {
           <div className="shrink-0 border-t border-[var(--border-subtle)] bg-[var(--surface)] p-4 md:p-5">
             <form onSubmit={onSend} className="flex items-end gap-3">
               <Textarea
+                key={inputKey}
                 ref={inputRef}
                 value={input}
                 rows={1}
@@ -1039,6 +1040,7 @@ export default function ChatPage() {
           </div>
           <form onSubmit={onSend} className="flex items-end gap-3">
             <Textarea
+              key={inputKey}
               ref={inputRef}
               value={input}
               rows={1}
