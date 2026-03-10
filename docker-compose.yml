@@ -47,6 +47,7 @@ services:
       - "${POSTGRES_PORT:-5050}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-autollm} -d ${POSTGRES_DB:-autollm}"]
