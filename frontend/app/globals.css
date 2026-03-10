@@ -132,6 +132,25 @@ pre {
   animation-delay: 0.4s;
 }
 
+/* Streaming cursor (blinking block) */
+@keyframes cursor-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.streaming-cursor {
+  display: inline-block;
+  margin-left: 1px;
+  color: var(--brand-primary);
+  animation: cursor-blink 0.75s step-end infinite;
+  user-select: none;
+}
+
 /* High-tech background utilities */
 .bg-tech {
   background-image: var(--gradient-app);
