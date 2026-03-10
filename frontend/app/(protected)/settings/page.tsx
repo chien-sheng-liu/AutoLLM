@@ -329,13 +329,13 @@ export default function SettingsPage() {
     });
   }
 
-  if (!cfg) return <div className="text-gray-500">載入設定中…</div>;
+  if (!cfg) return <div className="text-[var(--text-muted)]">載入設定中…</div>;
   const normalizedAuth = (auth || 'user').toLowerCase();
   if (!(normalizedAuth === 'admin' || normalizedAuth === 'administrator')) {
     return (
       <div className="max-w-xl">
         <h2 className="text-xl font-semibold">無權限</h2>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">此頁面僅限系統管理員使用。若需調整設定，請聯絡管理員。</p>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">此頁面僅限系統管理員使用。若需調整設定，請聯絡管理員。</p>
       </div>
     );
   }
@@ -344,7 +344,7 @@ export default function SettingsPage() {
     <div className="mx-auto w-full max-w-7xl px-4 py-6">
       <div className="mb-4">
         <h1 className="text-2xl font-semibold">設定</h1>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">管理模型、檢索與回答風格。將設定套用到後端後，聊天與索引會依新設定運作。</p>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">管理模型、檢索與回答風格。將設定套用到後端後，聊天與索引會依新設定運作。</p>
       </div>
 
       {/* Content */}
@@ -363,13 +363,13 @@ export default function SettingsPage() {
           <Card id="keys" className="p-4 md:p-6">
             <div className="mb-3">
               <div className="text-sm font-semibold">API 金鑰</div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">僅管理員可設定。留空不變更；輸入空字串後儲存可清除。金鑰僅儲存於後端，不會在前端顯示。</div>
+              <div className="text-xs text-[var(--text-secondary)]">僅管理員可設定。留空不變更；輸入空字串後儲存可清除。金鑰僅儲存於後端，不會在前端顯示。</div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="grid gap-1.5">
                 <label className="text-sm inline-flex items-center gap-1">OpenAI API Key
                   <Tooltip content="用於 OpenAI Chat 與 Embedding。格式多為 sk- 或 sk-proj- 開頭。">
-                    <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-gray-600 dark:text-gray-300">i</span>
+                    <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">i</span>
                   </Tooltip>
                 </label>
                 <div className="flex gap-2">
@@ -380,7 +380,7 @@ export default function SettingsPage() {
               <div className="grid gap-1.5">
                 <label className="text-sm inline-flex items-center gap-1">Google API Key（Gemini）
                   <Tooltip content="用於 Gemini Chat/Embedding（text-embedding-004）。可於 GCP Console 建立。">
-                    <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-gray-600 dark:text-gray-300">i</span>
+                    <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">i</span>
                   </Tooltip>
                 </label>
                 <div className="flex gap-2">
@@ -391,7 +391,7 @@ export default function SettingsPage() {
               <div className="grid gap-1.5">
                 <label className="text-sm inline-flex items-center gap-1">Anthropic API Key
                   <Tooltip content="用於 Claude Chat（不支援 Embedding）。">
-                    <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-gray-600 dark:text-gray-300">i</span>
+                    <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">i</span>
                   </Tooltip>
                 </label>
                 <div className="flex gap-2">
@@ -407,17 +407,17 @@ export default function SettingsPage() {
                       {(() => {
                         const ok = (health.chat || '').startsWith('✅');
                         const label = ok ? (health.chat || 'Chat 正常') : (health.chat || 'Chat 失敗');
-                        return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${ok ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>{label}</span>;
+                        return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${ok ? 'bg-[var(--success-soft)] text-[var(--success)]' : 'bg-[var(--danger-soft)] text-[var(--danger)]'}`}>{label}</span>;
                       })()}
                       {(() => {
                         const ok = (health.embedding || '').startsWith('✅');
                         const label = ok ? (health.embedding || 'Embedding 正常') : (health.embedding || 'Embedding 失敗');
-                        return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${ok ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>{label}</span>;
+                        return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${ok ? 'bg-[var(--success-soft)] text-[var(--success)]' : 'bg-[var(--danger-soft)] text-[var(--danger)]'}`}>{label}</span>;
                       })()}
-                      <span className="text-xs text-gray-500">上次檢查：{new Date(checkedAt).toLocaleTimeString()}</span>
+                      <span className="text-xs text-[var(--text-muted)]">上次檢查：{new Date(checkedAt).toLocaleTimeString()}</span>
                     </>
                   ) : (
-                    <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-neutral-800 dark:text-gray-300">尚未檢查</span>
+                    <span className="inline-flex items-center rounded-full bg-[var(--surface-muted)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)] ">尚未檢查</span>
                   )}
                 </div>
                 <div className="flex items-center gap-3">
@@ -433,7 +433,7 @@ export default function SettingsPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="text-sm font-semibold">設定模式</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">簡易提供快速選項；進階可手動微調。</div>
+                <div className="text-xs text-[var(--text-secondary)]">簡易提供快速選項；進階可手動微調。</div>
               </div>
               <Segmented
                 name="設定模式"
@@ -449,14 +449,14 @@ export default function SettingsPage() {
           {section === 'models' && (
           <Card id="models" className="p-4 md:p-5">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-medium text-gray-800 dark:text-gray-100">模型提供者與型號</h3>
+              <h3 className="text-sm font-medium text-[var(--text-primary)] ">模型提供者與型號</h3>
             </div>
             <div className="grid gap-6">
               {/* Chat provider & model */}
               <section className="grid gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <label className="text-sm">Chat 提供者</label>
-                  <div className="inline-flex overflow-hidden rounded-lg border border-white/20 bg-white/40 p-0.5 backdrop-blur-md dark:border-white/10 dark:bg-white/10" aria-label="Chat 提供者">
+                  <div className="inline-flex overflow-hidden rounded-lg border border-[var(--border-light)] bg-[var(--surface-muted)] p-0.5 backdrop-blur-md  " aria-label="Chat 提供者">
                     {(['openai','gemini','anthropic'] as const).map((p) => (
                       <Tooltip key={p} content={p==='openai' ? 'OpenAI：例如 gpt-4o-mini / gpt-4o' : p==='gemini' ? 'Gemini：例如 gemini-1.5-flash / 2.0-flash' : 'Claude：例如 claude-3-5-sonnet'}>
                         <button
@@ -467,7 +467,7 @@ export default function SettingsPage() {
                           className={`h-7 px-2.5 text-[12px] leading-none rounded-md transition-all duration-150 focus-visible:ring-2 focus-visible:ring-indigo-400 ${
                             (cfg!.chat_provider || 'openai') === p
                               ? 'bg-gradient-to-tr from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-glow'
-                              : 'text-gray-800 hover:bg-white/70 dark:text-gray-200 dark:hover:bg-white/10'
+                              : 'text-[var(--text-primary)] hover:bg-[var(--surface)]  '
                           }`}
                           tabIndex={0}
                         >{p === 'anthropic' ? 'Claude' : p[0].toUpperCase() + p.slice(1)}</button>
@@ -476,7 +476,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-gray-500">推薦型號</span>
+                  <span className="text-xs text-[var(--text-muted)]">推薦型號</span>
                     <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]" aria-label="Chat 常用模型">
                       {chatSuggestions(cfg.chat_provider).map((m) => (
                         <Tooltip key={m} content={`套用模型：${m}`}>
@@ -485,7 +485,7 @@ export default function SettingsPage() {
                             type="button"
                             onClick={() => setCfg({ ...cfg!, chat_model: m })}
                             className={`h-7 whitespace-nowrap rounded-full border px-2.5 text-[12px] leading-none transition-all duration-150 focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-                              cfg!.chat_model === m ? 'border-white/20 bg-gradient-to-tr from-indigo-600/90 to-fuchsia-600/90 text-white shadow-glow' : 'border-white/20 bg-white/40 text-gray-800 hover:bg-white/60 backdrop-blur-md dark:border-white/10 dark:bg-white/10 dark:text-gray-200'
+                              cfg!.chat_model === m ? 'border-[var(--soft-brand-border)] bg-[var(--brand-primary)] text-white shadow-brand' : 'border-[var(--border-light)] bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:bg-[var(--surface)]   '
                             }`}
                             tabIndex={0}
                             aria-pressed={cfg!.chat_model === m}
@@ -500,13 +500,13 @@ export default function SettingsPage() {
               {/* Embedding provider & model */}
               <section className="grid gap-2">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-medium text-gray-800 dark:text-gray-100">嵌入模型（Embedding）</h4>
-                  <button type="button" className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline dark:text-indigo-400" onClick={() => setShowEmbedding(v => !v)}>
+                  <h4 className="text-sm font-medium text-[var(--text-primary)] ">嵌入模型（Embedding）</h4>
+                  <button type="button" className="inline-flex items-center gap-1 text-xs text-[var(--brand-primary)] hover:underline " onClick={() => setShowEmbedding(v => !v)}>
                     <span className={`transition-transform duration-150 ${showEmbedding ? 'rotate-180' : 'rotate-0'}`}>⌄</span>
                     {showEmbedding ? '隱藏' : '顯示'}
                   </button>
                 </div>
-                <div className="inline-flex overflow-hidden rounded-lg border border-white/20 bg-white/40 p-0.5 backdrop-blur-md dark:border-white/10 dark:bg-white/10" aria-label="Embedding 提供者">
+                <div className="inline-flex overflow-hidden rounded-lg border border-[var(--border-light)] bg-[var(--surface-muted)] p-0.5 backdrop-blur-md  " aria-label="Embedding 提供者">
                   {(['openai','gemini'] as const).map((p) => (
                     <Tooltip key={p} content={p==='openai' ? 'OpenAI 向量：text-embedding-3-small/large' : 'Gemini 向量：text-embedding-004'}>
                       <button
@@ -517,7 +517,7 @@ export default function SettingsPage() {
                         className={`h-7 px-2.5 text-[12px] leading-none rounded-md transition-all duration-150 focus-visible:ring-2 focus-visible:ring-indigo-400 ${
                           (cfg!.embedding_provider || 'openai') === p
                             ? 'bg-gradient-to-tr from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-glow'
-                            : 'text-gray-800 hover:bg-white/70 dark:text-gray-200 dark:hover:bg-white/10'
+                            : 'text-[var(--text-primary)] hover:bg-[var(--surface)]  '
                         }`}
                         tabIndex={0}
                       >{p[0].toUpperCase() + p.slice(1)}</button>
@@ -526,7 +526,7 @@ export default function SettingsPage() {
                 </div>
                 <Collapsible open={showEmbedding}>
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-gray-500">推薦型號</span>
+                    <span className="text-xs text-[var(--text-muted)]">推薦型號</span>
                     <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]" aria-label="Embedding 常用模型">
                       {embeddingSuggestions(cfg.embedding_provider).map((m) => (
                         <Tooltip key={m} content={`套用向量模型：${m}`}>
@@ -535,7 +535,7 @@ export default function SettingsPage() {
                             type="button"
                             onClick={() => setCfg({ ...cfg!, embedding_model: m })}
                             className={`h-7 whitespace-nowrap rounded-full border px-2.5 text-[12px] leading-none transition-all duration-150 focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-                              cfg!.embedding_model === m ? 'border-white/20 bg-gradient-to-tr from-indigo-600/90 to-fuchsia-600/90 text-white shadow-glow' : 'border-white/20 bg-white/40 text-gray-800 hover:bg-white/60 backdrop-blur-md dark:border-white/10 dark:bg-white/10 dark:text-gray-200'
+                              cfg!.embedding_model === m ? 'border-[var(--soft-brand-border)] bg-[var(--brand-primary)] text-white shadow-brand' : 'border-[var(--border-light)] bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:bg-[var(--surface)]   '
                             }`}
                             tabIndex={0}
                           >{m}</button>
@@ -559,7 +559,7 @@ export default function SettingsPage() {
               <div className="grid gap-4">
                 {/* Presets */}
                 <div className="grid gap-3">
-                  <div className="text-sm font-medium text-gray-800 dark:text-gray-100">使用情境</div>
+                  <div className="text-sm font-medium text-[var(--text-primary)] ">使用情境</div>
                   <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                     {[
                       {id:'qna',title:'Q&A with Sources',desc:'問答並附來源',icon:'📚'},
@@ -573,7 +573,7 @@ export default function SettingsPage() {
                         type="button"
                         onClick={() => { setCfg({ ...cfg, preset: p.id as any }); try{ localStorage.setItem('settings.simple.preset', p.id);}catch{}}}
                         className={`relative flex h-full flex-col justify-between rounded-2xl border p-4 text-left transition-all duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-                          cfg.preset===p.id ? 'border-indigo-300 bg-indigo-50 shadow-sm ring-1 ring-indigo-200 dark:border-indigo-900/40 dark:bg-indigo-950/20' : 'border-gray-200 bg-white hover:-translate-y-0.5 hover:shadow-md hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800'
+                          cfg.preset===p.id ? 'border-indigo-300 bg-[var(--soft-brand-background)] shadow-sm ring-1 ring-[var(--soft-brand-border)]  ' : 'border-[var(--border-light)] bg-[var(--surface)] hover:-translate-y-0.5 hover:shadow-md hover:bg-[var(--surface-muted)] '
                         }`}
                         tabIndex={0}
                         aria-pressed={cfg.preset===p.id}
@@ -582,7 +582,7 @@ export default function SettingsPage() {
                           <span className="text-lg leading-none">{p.icon}</span>
                           <span className="text-sm font-semibold">{p.title}</span>
                         </div>
-                        <div className="text-xs text-gray-500">{p.desc}</div>
+                        <div className="text-xs text-[var(--text-muted)]">{p.desc}</div>
                         {cfg.preset===p.id && (
                           <span className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[11px] text-white shadow-sm">✓</span>
                         )}
@@ -595,7 +595,7 @@ export default function SettingsPage() {
                   <div className="grid gap-1.5">
                     <label className="text-sm inline-flex items-center gap-1">Creativity
                       <Tooltip content="控制模型的發散程度。精準更穩定、創意更活潑。">
-                        <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-gray-600 dark:text-gray-300">i</span>
+                        <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">i</span>
                       </Tooltip>
                     </label>
                     <Segmented
@@ -608,7 +608,7 @@ export default function SettingsPage() {
                   <div className="grid gap-1.5">
                     <label className="text-sm inline-flex items-center gap-1">回答長度
                       <Tooltip content="短：重點扼要；中：適中；長：詳盡。">
-                        <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-gray-600 dark:text-gray-300">i</span>
+                        <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">i</span>
                       </Tooltip>
                     </label>
                     <Segmented
@@ -621,7 +621,7 @@ export default function SettingsPage() {
                   <div className="grid gap-1.5">
                     <label className="text-sm inline-flex items-center gap-1">顯示來源（Citations）
                       <Tooltip content="回答會附上引用片段與文件來源。">
-                        <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-gray-600 dark:text-gray-300">i</span>
+                        <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">i</span>
                       </Tooltip>
                     </label>
                     <label className="inline-flex items-center gap-2 text-sm">
@@ -638,8 +638,8 @@ export default function SettingsPage() {
           {section === 'generation' && tab === 'advanced' && (
           <Card id="generation" className="p-4 md:p-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-gray-800 dark:text-gray-100">生成參數</h3>
-              <label className="inline-flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+              <h3 className="text-sm font-medium text-[var(--text-primary)] ">生成參數</h3>
+              <label className="inline-flex items-center gap-2 text-xs text-[var(--text-secondary)]">
                 <input type="checkbox" checked={!!cfg.override_generation} onChange={(e)=> setCfg({ ...cfg!, override_generation: e.target.checked })} /> 手動調整
               </label>
             </div>
@@ -647,7 +647,7 @@ export default function SettingsPage() {
               <div className="grid gap-1.5">
                 <label className="text-sm inline-flex items-center gap-1">溫度（Temperature）
                   <Tooltip content="範例：精準 0.2／平衡 0.5／創意 0.9">
-                    <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-gray-600 dark:text-gray-300">i</span>
+                    <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">i</span>
                   </Tooltip>
                 </label>
                 <div className="flex items-center gap-3">
@@ -672,13 +672,13 @@ export default function SettingsPage() {
                     disabled={!cfg!.override_generation}
                   />
                 </div>
-                <div className="text-xs text-gray-500">0 更穩定、2 更具創造性。建議 0.2–0.8。</div>
+                <div className="text-xs text-[var(--text-muted)]">0 更穩定、2 更具創造性。建議 0.2–0.8。</div>
                 {errs.temp && (<div className="text-xs text-red-600">溫度範圍需在 0–2。</div>)}
               </div>
               <div className="grid gap-1.5">
                 <label className="text-sm inline-flex items-center gap-1">Top P
                   <Tooltip content="範例：保守 0.3／平衡 0.7／多樣 1.0">
-                    <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-gray-600 dark:text-gray-300">i</span>
+                    <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">i</span>
                   </Tooltip>
                 </label>
                 <div className="flex items-center gap-3">
@@ -719,36 +719,36 @@ export default function SettingsPage() {
           {section === 'retrieval' && (
           <Card id="retrieval" className="p-4 md:p-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-gray-800 dark:text-gray-100">檢索參數</h3>
+              <h3 className="text-sm font-medium text-[var(--text-primary)] ">檢索參數</h3>
               <div className="flex items-center gap-2">
-                <label className="inline-flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                <label className="inline-flex items-center gap-2 text-xs text-[var(--text-secondary)]">
                   <input type="checkbox" checked={!!cfg.override_retrieval} onChange={(e)=> setCfg({ ...cfg!, override_retrieval: e.target.checked })} /> 手動調整
                 </label>
-                <button type="button" className="text-xs text-indigo-600 underline hover:opacity-90 dark:text-indigo-400" onClick={() => setShowAdvanced((v)=>!v)}>
+                <button type="button" className="text-xs text-[var(--brand-primary)] underline hover:opacity-80 " onClick={() => setShowAdvanced((v)=>!v)}>
                   {showAdvanced ? '隱藏説明' : '顯示説明'}
                 </button>
               </div>
             </div>
             <Collapsible open={showAdvanced}>
-              <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">Chunk 與重疊只影響未來上傳文件；既有索引需重新上傳重建。</p>
+              <p className="mt-2 text-xs text-[var(--text-secondary)]">Chunk 與重疊只影響未來上傳文件；既有索引需重新上傳重建。</p>
             </Collapsible>
             <div className={`mt-3 grid grid-cols-1 gap-3 md:grid-cols-3 ${cfg!.override_retrieval ? '' : 'opacity-60'}`} aria-disabled={!cfg!.override_retrieval}>
               <div className="grid gap-1.5">
                 <label className="text-sm">Chunk 大小</label>
                 <Input id="chunk-size-input" type="number" min={1} step={1} value={cfg.chunk_size} onChange={(e) => setCfg({ ...cfg!, chunk_size: Number(e.target.value) })} disabled={!cfg!.override_retrieval} />
-                <div className="text-xs text-gray-500">每段文字的最大字元數，建議 1000。</div>
+                <div className="text-xs text-[var(--text-muted)]">每段文字的最大字元數，建議 1000。</div>
                 {errs.chunkSize && (<div className="text-xs text-red-600">Chunk 大小必須大於 0。</div>)}
               </div>
               <div className="grid gap-1.5">
                 <label className="text-sm">重疊長度</label>
                 <Input id="chunk-overlap-input" type="number" min={0} step={1} value={cfg.chunk_overlap} onChange={(e) => setCfg({ ...cfg!, chunk_overlap: Number(e.target.value) })} disabled={!cfg!.override_retrieval} />
-                <div className="text-xs text-gray-500">相鄰段落的重疊字元，建議 200（需小於 Chunk 大小）。</div>
+                <div className="text-xs text-[var(--text-muted)]">相鄰段落的重疊字元，建議 200（需小於 Chunk 大小）。</div>
                 {errs.overlap && (<div className="text-xs text-red-600">重疊長度需在 0 與 Chunk 大小之間。</div>)}
               </div>
               <div className="grid gap-1.5">
                 <label className="text-sm">檢索份數（Top K）</label>
                 <Input id="topk-input" type="number" min={1} step={1} value={cfg.top_k} onChange={(e) => setCfg({ ...cfg!, top_k: Number(e.target.value) })} disabled={!cfg!.override_retrieval} />
-                <div className="text-xs text-gray-500">每次取回的相關片段數，建議 4。</div>
+                <div className="text-xs text-[var(--text-muted)]">每次取回的相關片段數，建議 4。</div>
                 {errs.topK && (<div className="text-xs text-red-600">Top K 必須大於或等於 1。</div>)}
               </div>
             </div>
@@ -761,7 +761,7 @@ export default function SettingsPage() {
           {/* Error summary */}
           {(section === 'models' || section === 'generation' || section === 'retrieval') && invalid && (
             <Card className="p-3">
-              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200">
+              <div className="rounded-md border border-red-200 bg-[var(--danger-soft)] p-3 text-xs text-[var(--danger)] ">
                 <div className="mb-1 font-medium">有幾個欄位需要修正：</div>
                 <div className="flex flex-wrap gap-2">
                   {errs.chatModel && (<button type="button" className="underline" onClick={()=>scrollToField('models')}>Chat 模型</button>)}
@@ -782,7 +782,7 @@ export default function SettingsPage() {
           {/* Save bar */}
           {(section === 'models' || section === 'generation' || section === 'retrieval') && (
           <div className="sticky bottom-0 z-10 -mb-2 -mx-1 mt-2">
-            <div className="pointer-events-none bg-gradient-to-t from-white to-transparent pb-2 pt-10 dark:from-neutral-900">
+            <div className="pointer-events-none bg-gradient-to-t from-[var(--surface)] to-transparent pb-2 pt-10 ">
               <div className="pointer-events-auto flex items-center justify-end gap-2">
                 <Button size="sm" variant="outline" type="button" onClick={handleResetToRecommended}>建議值</Button>
                 <Button size="sm" disabled={busy || invalid || !dirty}>{busy ? '儲存中…' : dirty ? '儲存' : '已儲存'}</Button>
@@ -793,7 +793,7 @@ export default function SettingsPage() {
         </form>
 
         {section === 'retrieval' && (
-          <div className="mt-4 text-sm text-gray-500">注意：調整 Chunk/Overlap 僅影響後續上傳文件；需重新上傳以重建索引。</div>
+          <div className="mt-4 text-sm text-[var(--text-muted)]">注意：調整 Chunk/Overlap 僅影響後續上傳文件；需重新上傳以重建索引。</div>
         )}
       </section>
     </div>

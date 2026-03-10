@@ -116,7 +116,7 @@ export default function AdminPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold">系統管理</h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400">管理角色、權限與文件使用範圍。</p>
+          <p className="text-sm text-[var(--text-secondary)]">管理角色、權限與文件使用範圍。</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-72"><Input placeholder="搜尋姓名或 Email…" value={query} onChange={(e)=>setQuery(e.target.value)} /></div>
@@ -132,9 +132,9 @@ export default function AdminPage() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_1fr]">
         <Card className="p-0">
-          <div className="border-b border-gray-200 px-4 py-3 text-sm font-semibold text-gray-700 dark:border-neutral-800 dark:text-gray-200">使用者清單</div>
+          <div className="border-b border-[var(--border-light)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">使用者清單</div>
           {loading ? (
-            <div className="grid gap-2 p-4">{Array.from({length:6}).map((_,i)=>(<div key={i} className="h-12 rounded-xl bg-gray-100 dark:bg-neutral-800" />))}</div>
+            <div className="grid gap-2 p-4">{Array.from({length:6}).map((_,i)=>(<div key={i} className="h-12 rounded-xl bg-[var(--surface-muted)]" />))}</div>
           ) : (
             <div className="max-h-[520px] overflow-y-auto">
               {filteredUsers.map((u) => {
@@ -145,20 +145,20 @@ export default function AdminPage() {
                     key={u.id}
                     type="button"
                     onClick={() => openPerms(u)}
-                    className={`flex w-full items-center gap-3 border-b border-gray-100 px-4 py-3 text-left transition hover:bg-gray-50 dark:border-neutral-800 dark:hover:bg-neutral-800/60 ${selected ? 'bg-indigo-50/60 dark:bg-indigo-500/10' : ''}`}
+                    className={`flex w-full items-center gap-3 border-b border-[var(--border-light)] px-4 py-3 text-left transition hover:bg-[var(--surface-muted)] ${selected ? 'bg-[var(--soft-brand-background)]' : ''}`}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium" title={u.email}>{u.name || '未命名'} <span className="text-gray-500">· {u.email}</span></div>
-                      <div className="text-xs text-gray-500">建立於 {new Date(u.created_at).toLocaleString()}</div>
+                      <div className="truncate text-sm font-medium" title={u.email}>{u.name || '未命名'} <span className="text-[var(--text-muted)]">· {u.email}</span></div>
+                      <div className="text-xs text-[var(--text-muted)]">建立於 {new Date(u.created_at).toLocaleString()}</div>
                     </div>
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[12px] ${authLabel==='admin' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-200' : authLabel==='manager' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200' : 'bg-gray-100 text-gray-600 dark:bg-neutral-800 dark:text-gray-200'}`}>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[12px] ${authLabel==='admin' ? 'bg-[var(--soft-brand-background)] text-[var(--brand-primary)]' : authLabel==='manager' ? 'bg-[var(--warning-soft)] text-[var(--warning)]' : 'bg-[var(--surface-muted)] text-[var(--text-secondary)]'}`}>
                       {authLabel==='admin' ? 'Admin' : authLabel==='manager' ? 'Manager' : 'User'}
                     </span>
                   </button>
                 );
               })}
               {filteredUsers.length === 0 && (
-                <div className="px-4 py-8 text-center text-sm text-gray-500">找不到符合的使用者</div>
+                <div className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">找不到符合的使用者</div>
               )}
             </div>
           )}
@@ -169,14 +169,14 @@ export default function AdminPage() {
             <div className="grid gap-4">
               <div>
                 <div className="text-sm font-semibold">{selectedUser.name || '未命名'}</div>
-                <div className="text-xs text-gray-500">{selectedUser.email}</div>
-                <div className="mt-2 inline-flex overflow-hidden rounded-lg border border-gray-200 bg-white p-0.5 text-xs dark:border-neutral-700 dark:bg-neutral-800">
+                <div className="text-xs text-[var(--text-muted)]">{selectedUser.email}</div>
+                <div className="mt-2 inline-flex overflow-hidden rounded-lg border border-[var(--border-light)] bg-[var(--surface-muted)] p-0.5 text-xs">
                   {(['user','manager','admin'] as const).map((a) => (
                     <button
                       key={a}
                       type="button"
                       onClick={() => setAuth(selectedUser, a)}
-                      className={`h-8 px-3 ${ (selectedUser.auth===a || (selectedUser.auth==='administrator' && a==='admin')) ? 'rounded-md bg-indigo-600 text-white dark:bg-indigo-500' : 'rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-neutral-700'}`}
+                      className={`h-8 px-3 ${ (selectedUser.auth===a || (selectedUser.auth==='administrator' && a==='admin')) ? 'rounded-md bg-[var(--brand-primary)] text-white' : 'rounded-md text-[var(--text-primary)] hover:bg-[var(--surface-muted)]'}`}
                       disabled={busy===`auth:${selectedUser.id}`}
                     >
                       {a==='admin' ? 'Admin' : a==='manager' ? 'Manager' : 'User'}
@@ -186,18 +186,18 @@ export default function AdminPage() {
               </div>
 
               {selectedUserIsAdmin ? (
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600 dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-gray-300">
+                <div className="rounded-2xl border border-[var(--border-light)] bg-[var(--surface-muted)] px-4 py-3 text-xs text-[var(--text-secondary)] ">
                   Admin 角色預設擁有所有檔案，無需設定或調整權限。
                 </div>
               ) : (
                 <>
-                  <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600 dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-gray-300">
+                  <div className="rounded-2xl border border-[var(--border-light)] bg-[var(--surface-muted)] px-4 py-3 text-xs text-[var(--text-secondary)] ">
                     預設全部勾選代表可使用所有檔案；想要限制時，取消勾選不允許的檔案即可。
                   </div>
 
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {docs.map((d) => (
-                      <label key={d.document_id} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-3 text-sm dark:border-neutral-800 dark:bg-neutral-900">
+                      <label key={d.document_id} className="flex items-center gap-2 rounded-xl border border-[var(--border-light)] bg-[var(--surface)] p-3 text-sm ">
                         <input
                           type="checkbox"
                           checked={selectedDocs.length === 0 ? true : selectedDocs.includes(d.document_id)}
@@ -206,7 +206,7 @@ export default function AdminPage() {
                         <span className="truncate" title={d.name}>{d.name}</span>
                       </label>
                     ))}
-                    {docs.length === 0 && <div className="text-sm text-gray-500">尚無檔案。</div>}
+                    {docs.length === 0 && <div className="text-sm text-[var(--text-muted)]">尚無檔案。</div>}
                   </div>
 
                   <div className="flex items-center justify-end gap-2">
@@ -217,8 +217,8 @@ export default function AdminPage() {
               )}
             </div>
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-sm text-gray-500">
-              <div className="text-base font-semibold text-gray-700 dark:text-gray-200">請先選擇左側的使用者</div>
+            <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-sm text-[var(--text-muted)]">
+              <div className="text-base font-semibold text-[var(--text-primary)]">請先選擇左側的使用者</div>
               <p>選取後可以檢視檔案存取範圍並調整權限。</p>
             </div>
           )}
@@ -231,10 +231,10 @@ export default function AdminPage() {
 function StatCard({ label, value, hint, subHint }: { label: string; value: number; hint: string; subHint?: string }) {
   return (
     <Card className="p-4">
-      <div className="text-xs uppercase tracking-wide text-gray-500">{label}</div>
+      <div className="text-xs uppercase tracking-wide text-[var(--text-muted)]">{label}</div>
       <div className="mt-1 text-2xl font-bold">{value}</div>
-      <div className="text-xs text-gray-500">{hint}</div>
-      {subHint && <div className="text-[11px] text-gray-400">{subHint}</div>}
+      <div className="text-xs text-[var(--text-muted)]">{hint}</div>
+      {subHint && <div className="text-[11px] text-[var(--text-muted)]">{subHint}</div>}
     </Card>
   );
 }

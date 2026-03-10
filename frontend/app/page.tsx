@@ -3,8 +3,10 @@ import Link from "next/link";
 import { buttonClasses } from "@/app/components/ui/Button";
 import Container from "@/app/components/ui/Container";
 import Badge from "@/app/components/ui/Badge";
+import { useLanguage } from "@/app/providers/LanguageProvider";
 
 export default function HomePage() {
+  const { t } = useLanguage();
   return (
     <div className="relative overflow-hidden">
       {/* Global bg layers come from layout; add local accents */}
@@ -16,22 +18,22 @@ export default function HomePage() {
       {/* Hero */}
       <Container className="relative flex flex-col items-center py-16 text-center md:py-24">
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <Badge>AI Workspace</Badge>
-          <Badge tone="neutral">RAG • Citations</Badge>
-          <Badge tone="success">Production Ready</Badge>
+          <Badge>{t('home.badgeWorkspace')}</Badge>
+          <Badge tone="neutral">{t('home.badgeRag')}</Badge>
+          <Badge tone="success">{t('home.badgeProd')}</Badge>
         </div>
         <h1 className="mt-5 bg-gradient-to-tr from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent sm:text-5xl">
-          Premium AI Chat & Knowledge Workspace
+          {t('home.heroTitle')}
         </h1>
-        <p className="mx-auto mt-4 max-w-[62ch] text-base text-gray-700 dark:text-gray-300">
-          Upload, configure, and chat with grounded answers and citations. A modern, readable, and vivid AI experience that feels cohesive across pages.
+        <p className="mx-auto mt-4 max-w-[62ch] text-base text-[var(--text-secondary)]">
+          {t('home.heroDescription')}
         </p>
         <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/chat" className={buttonClasses({ variant: "primary", size: "md" })}>Start Chatting</Link>
-          <Link href="/data" className={buttonClasses({ variant: "outline", size: "md" })}>Upload Data</Link>
-          <Link href="/settings" className={buttonClasses({ variant: "outline", size: "md" })}>Configure</Link>
+          <Link href="/chat" className={buttonClasses({ variant: "primary", size: "md" })}>{t('home.ctaChat')}</Link>
+          <Link href="/data" className={buttonClasses({ variant: "outline", size: "md" })}>{t('home.ctaUpload')}</Link>
+          <Link href="/settings" className={buttonClasses({ variant: "outline", size: "md" })}>{t('home.ctaConfigure')}</Link>
         </div>
-        <div className="mt-3 text-center text-[11px] text-gray-500 dark:text-gray-400">Sign in required.</div>
+        <div className="mt-3 text-center text-[11px] text-[var(--text-muted)]">{t('home.signInRequired')}</div>
       </Container>
     </div>
   );

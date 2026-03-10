@@ -3,10 +3,15 @@ COMPOSE := docker compose
 
 export COMPOSE_PROJECT_NAME := $(PROJECT_NAME)
 
-.PHONY: up down logs ps rebuild restart backend-shell frontend-shell clean
+.PHONY: up up-nocache down logs ps rebuild restart backend-shell frontend-shell clean
 
 up: .env
 	$(COMPOSE) up -d --build
+
+# Force a full rebuild without using any cache layers
+up-nocache: .env
+	$(COMPOSE) build --no-cache
+	$(COMPOSE) up -d
 
 down:
 	$(COMPOSE) down
@@ -35,4 +40,3 @@ clean:
 .env:
 	@test -f .env || (echo "Creating .env from .env.example" && cp .env.example .env)
 	@echo "Ensure OPENAI_API_KEY is set in .env."
-

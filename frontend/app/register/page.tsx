@@ -8,6 +8,7 @@ import Button from "@/app/components/ui/Button";
 import { login, registerAccount } from "@/lib/api";
 import { saveSession } from "@/lib/session";
 import { showToast } from "@/app/components/Toaster";
+import { useLanguage } from "@/app/providers/LanguageProvider";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -16,11 +17,12 @@ export default function RegisterPage() {
   const [busy, setBusy] = useState(false);
   const router = useRouter();
   const [flash, setFlash] = useState<{ type: 'success' | 'error'; title: string; message?: string } | null>(null);
+  const { t, language } = useLanguage();
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email || !password) {
-      showToast("請填寫必填欄位", { kind: "info" });
+      showToast(t('auth.registerEmpty'), { kind: "info" });
       return;
     }
     setBusy(true);
@@ -28,13 +30,13 @@ export default function RegisterPage() {
       await registerAccount({ email, password, name });
       const loggedIn = await login({ email, password });
       saveSession(loggedIn.access_token, loggedIn.user);
-      setFlash({ type: 'success', title: '註冊並登入成功' });
+      setFlash({ type: 'success', title: t('auth.registerFlashSuccess') });
       setTimeout(() => {
         setFlash(null);
         router.replace("/");
       }, 1000);
     } catch (err: any) {
-      setFlash({ type: 'error', title: '註冊失敗', message: err?.message || '請稍後再試' });
+      setFlash({ type: 'error', title: t('auth.registerFlashError'), message: err?.message || t('auth.loginFlashMessage') });
     } finally {
       setBusy(false);
     }
@@ -43,7 +45,7 @@ export default function RegisterPage() {
   return (
     <div className="mx-auto flex min-h-[80vh] max-w-md flex-col justify-center">
       {flash && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-[rgba(18,28,48,0.45)]">
           <div role="dialog" aria-modal="true" className="mx-4 w-full max-w-md scale-100 rounded-3xl bg-white p-8 text-center shadow-2xl ring-1 ring-black/5 transition dark:bg-neutral-900">
             <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${flash.type === 'success' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300'}`}>
               {flash.type === 'success' ? (
@@ -52,42 +54,42 @@ export default function RegisterPage() {
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-7 w-7"><path fillRule="evenodd" d="M12 2.25a9.75 9.75 0 1 0 0 19.5 9.75 9.75 0 0 0 0-19.5ZM10.72 8.47a.75.75 0 1 0-1.06 1.06L10.94 11l-1.28 1.47a.75.75 0 1 0 1.12 1l1.22-1.4 1.22 1.4a.75.75 0 0 0 1.12-1L13.06 11l1.28-1.47a.75.75 0 1 0-1.12-1L12 9.94l-1.28-1.47Z" clipRule="evenodd"/></svg>
               )}
             </div>
-            <h3 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{flash.title}</h3>
-            {flash.message && <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{flash.message}</p>}
+            <h3 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">{flash.title}</h3>
+            {flash.message && <p className="mt-2 text-sm text-[var(--text-secondary)]">{flash.message}</p>}
             {flash.type === 'error' && (
               <div className="mt-6">
-                <button type="button" onClick={()=>setFlash(null)} className="inline-flex min-w-[120px] items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200 dark:hover:bg-neutral-700">確認</button>
+                <button type="button" onClick={()=>setFlash(null)} className="inline-flex min-w-[120px] items-center justify-center rounded-xl border border-[var(--border-light)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] shadow-surface hover:bg-[var(--surface-muted)]">{t('common.confirm')}</button>
               </div>
             )}
             {flash.type === 'success' && (
-              <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">歡迎</div>
+              <div className="mt-2 text-sm text-[var(--text-secondary)]">{t('auth.welcome')}</div>
             )}
           </div>
         </div>
       )}
       <Card className="p-8">
         <div className="mb-6 space-y-2 text-center">
-          <div className="text-sm font-semibold text-indigo-600">建立帳號</div>
-          <h1 className="text-2xl font-bold">註冊新使用者</h1>
-          <p className="text-sm text-gray-500">建立帳號後即可開始上傳資料與進行聊天。</p>
+          <div className="text-sm font-semibold text-[var(--brand-primary)]">{t('common.appName')}</div>
+          <h1 className="text-2xl font-bold">{t('auth.registerHeading')}</h1>
+          <p className="text-sm text-[var(--text-muted)]">{t('auth.registerSubheading')}</p>
         </div>
         <form onSubmit={onSubmit} className="grid gap-4">
           <div className="grid gap-1.5">
-            <label className="text-sm">顯示名稱（選填）</label>
-            <Input placeholder="王小明" value={name} onChange={(e) => setName(e.target.value)} />
+            <label className="text-sm">{t('auth.nameLabel')}</label>
+            <Input placeholder={language === 'zh' ? '王小明' : 'Alex Chen'} value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="grid gap-1.5">
-            <label className="text-sm">Email</label>
+            <label className="text-sm">{t('auth.emailLabel')}</label>
             <Input type="email" autoComplete="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </div>
           <div className="grid gap-1.5">
-            <label className="text-sm">密碼</label>
-            <Input type="password" autoComplete="new-password" placeholder="至少 6 碼" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+            <label className="text-sm">{t('auth.passwordLabel')}</label>
+            <Input type="password" autoComplete="new-password" placeholder={t('auth.passwordPlaceholder')} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
           </div>
-          <Button disabled={busy}>{busy ? "註冊中…" : "建立帳號"}</Button>
+          <Button disabled={busy}>{busy ? t('auth.registerBusy') : t('auth.registerAction')}</Button>
         </form>
-        <div className="mt-4 text-center text-sm text-gray-500">
-          已有帳號？ <Link href="/login" className="text-indigo-600 hover:underline">前往登入</Link>
+        <div className="mt-4 text-center text-sm text-[var(--text-muted)]">
+          {t('auth.registerLinkLogin')} <Link href="/login" className="text-[var(--brand-primary)] hover:underline">{t('auth.registerLinkLoginCta')}</Link>
         </div>
       </Card>
     </div>

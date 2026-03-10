@@ -24,16 +24,16 @@ export default function Modal({ open, title, onClose, children, footer, classNam
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[rgba(18,28,48,0.35)] p-4" onClick={onClose}>
       <div
         className={cn(
-          "w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-xl dark:border-neutral-800 dark:bg-neutral-900",
+          "w-full max-w-md rounded-3xl border border-[var(--border-strong)] bg-[var(--surface)] p-6 shadow-panel",
           className
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        {title && <div className="text-base font-semibold">{title}</div>}
-        {children && <div className="mt-2 text-sm text-gray-700 dark:text-gray-300">{children}</div>}
+        {title && <div className="text-base font-semibold text-[var(--text-primary)]">{title}</div>}
+        {children && <div className="mt-2 text-sm text-[var(--text-secondary)]">{children}</div>}
         {footer !== undefined ? (
           <div className="mt-4 flex justify-end gap-2">{footer}</div>
         ) : (
@@ -47,4 +47,3 @@ export default function Modal({ open, title, onClose, children, footer, classNam
     </div>
   );
 }
-

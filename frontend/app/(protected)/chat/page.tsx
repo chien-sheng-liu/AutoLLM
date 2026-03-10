@@ -6,6 +6,7 @@ import ChatMessage from "@/app/components/ChatMessage";
 import Button from "@/app/components/ui/Button";
 import Textarea from "@/app/components/ui/Textarea";
 import { createConversation, titleFromMessages, type Conversation } from "@/lib/conversations";
+import { useLanguage } from "@/app/providers/LanguageProvider";
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -32,6 +33,18 @@ export default function ChatPage() {
   const rootRef = useRef<HTMLDivElement>(null);
   const [containerH, setContainerH] = useState<number | null>(null);
   const [conversationsReady, setConversationsReady] = useState(false);
+  const { t, language, autoDetectFromInput } = useLanguage();
+  const fallbackTitle = t('chat.newConversation');
+  const isDefaultTitle = (title?: string | null) => {
+    const normalized = (title || '').trim();
+    return !normalized || normalized === fallbackTitle || normalized === '新的對話' || normalized === 'New conversation';
+  };
+  const displayTitle = (title?: string | null) => (isDefaultTitle(title) ? fallbackTitle : (title || fallbackTitle));
+  const providerOptions = [
+    { id: 'openai', label: 'OpenAI', hint: t('chat.providerHints.openai') },
+    { id: 'gemini', label: 'Gemini', hint: t('chat.providerHints.gemini') },
+    { id: 'anthropic', label: 'Claude', hint: t('chat.providerHints.anthropic') },
+  ] as const;
 
   const sortConversations = useCallback((list: Conversation[]) => {
     return [...list].sort((a, b) => b.updatedAt - a.updatedAt);
@@ -53,7 +66,7 @@ export default function ChatPage() {
       if (!Array.isArray(list)) list = [];
       if (list.length === 0) {
         if (!allowEmpty) {
-          const created = await createServerConversation('新的對話');
+          const created = await createServerConversation(fallbackTitle);
           await loadConversations(created.id, { keepCurrent: false, skipMessages });
           return;
         }
@@ -161,7 +174,7 @@ export default function ChatPage() {
   async function newChat() {
     if (!conversationsReady) return;
     try {
-      const created = await createServerConversation('新的對話');
+      const created = await createServerConversation(fallbackTitle);
       await loadConversations(created.id);
       setLastCitations([]);
       setUsedPrompt(undefined);
@@ -172,7 +185,7 @@ export default function ChatPage() {
     if (!conversationsReady) return;
     const cur = convs.find((c) => c.id === currentId);
     if (!cur) return;
-    const name = prompt("重新命名對話", cur.title || "");
+    const name = prompt(t('chat.renamePrompt'), cur.title || "");
     if (name === null) return;
     const title = name.trim();
     if (!title) return;
@@ -188,7 +201,7 @@ export default function ChatPage() {
     if (!conversationsReady || !currentId) return;
     const cur = convs.find((c) => c.id === currentId);
     if (!cur) return;
-    if (!confirm("確定要刪除此對話？")) return;
+    if (!confirm(t('chat.deleteConversationConfirm'))) return;
     const targetId = currentId;
     setConvs((prev) => prev.filter((c) => c.id !== targetId));
     if (currentIdRef.current === targetId) {
@@ -212,6 +225,7 @@ export default function ChatPage() {
     const userMessage: Message = { role: "user", content: input.trim() };
     const newMsgs: Message[] = [...messages, userMessage];
     setMessages(newMsgs);
+    autoDetectFromInput(userMessage.content);
     // Clear input immediately
     setInput("");
     requestAnimationFrame(() => {
@@ -227,7 +241,7 @@ export default function ChatPage() {
     const autoTitle = firstLine.length > 40 ? firstLine.slice(0, 40) + '…' : firstLine;
     if (currentId && autoTitle) {
       const cur = convs.find((c) => c.id === currentId);
-      if (cur && (!cur.title || cur.title === '新的對話')) {
+      if (cur && isDefaultTitle(cur.title)) {
         const fid = currentId;
         setConvs((prev) => prev.map((c) => c.id === fid ? { ...c, title: autoTitle, updatedAt: Date.now() } as any : c));
         renameServerConversation(fid, autoTitle)
@@ -262,7 +276,7 @@ export default function ChatPage() {
           updateCurrent((c) => ({ ...c, messages: finalMsgs, updatedAt: Date.now() }));
           loadConversations(currentId, { keepCurrent: true, skipMessages: true }).catch(() => {});
         }
-      }, { signal: ctrl.signal, chat_model: model || cfg?.chat_model, chat_provider: provider || (cfg?.chat_provider as any), conversation_id: currentId || undefined });
+      }, { signal: ctrl.signal, chat_model: model || cfg?.chat_model, chat_provider: provider || (cfg?.chat_provider as any), conversation_id: currentId || undefined, language });
     } catch (err: any) {
       if (ctrl.signal.aborted) {
         const partial = streamAnswer;
@@ -275,7 +289,8 @@ export default function ChatPage() {
           updateCurrent((c) => ({ ...c, messages: finalMsgs, updatedAt: Date.now() }));
         }
       } else {
-        setMessages([...newMsgs, { role: "assistant", content: `錯誤：${err?.message || err}` }]);
+        const msg = (err as any)?.message || err;
+        setMessages([...newMsgs, { role: "assistant", content: t('chat.streamingError', { message: String(msg) }) }]);
       }
     } finally {
       setBusy(false);
@@ -306,10 +321,11 @@ export default function ChatPage() {
           updateCurrent((c) => ({ ...c, messages: finalMsgs, updatedAt: Date.now() }));
           loadConversations(currentId, { keepCurrent: true, skipMessages: true }).catch(() => {});
         }
-      }, { chat_model: model || cfg?.chat_model, chat_provider: provider || (cfg?.chat_provider as any), conversation_id: currentId || undefined, signal: ctrl.signal });
+      }, { chat_model: model || cfg?.chat_model, chat_provider: provider || (cfg?.chat_provider as any), conversation_id: currentId || undefined, signal: ctrl.signal, language });
     } catch (err) {
       if (!ctrl.signal.aborted) {
-        setMessages([...withMessages, { role: "assistant", content: `錯誤：${(err as any)?.message || err}` }]);
+        const msg = (err as any)?.message || err;
+        setMessages([...withMessages, { role: "assistant", content: t('chat.streamingError', { message: String(msg) }) }]);
       }
     } finally {
       setBusy(false);
@@ -332,7 +348,7 @@ export default function ChatPage() {
 
   function handleContinue() {
     if (busy) return;
-    const next = [...messages, { role: 'user', content: '請繼續。' } as Message];
+    const next = [...messages, { role: 'user', content: t('chat.typingContinue') } as Message];
     setMessages(next);
     startStream(next);
   }
@@ -417,7 +433,7 @@ export default function ChatPage() {
 
   // Keep citations collapsed by default; user can expand manually
 
-  // 自動調整輸入框高度
+  // Auto adjust input height
   const viewportH = typeof window !== "undefined" ? window.innerHeight : 900;
   const maxInputHeight = Math.max(120, Math.min(260, ((containerH ?? viewportH) * 0.3)));
   const handleInputHeightChange = (h: number) => setInputHeight(h);
@@ -437,32 +453,32 @@ export default function ChatPage() {
     if (cfg && cfg.show_sources === false) return null;
     if (!lastCitations.length) return null;
     return (
-      <section className="mt-5 rounded-2xl border border-indigo-100 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-indigo-900/40 dark:bg-neutral-900/70">
+      <section className="rounded-2xl border border-[var(--border-light)] bg-[var(--surface)] p-4 shadow-surface">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-wide text-indigo-500">Citations</p>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">追溯來源</h3>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-[var(--text-muted)]">{t('chat.citationsTitle')}</p>
+            <h3 className="text-base font-semibold text-[var(--text-primary)]">{t('chat.citationsSubtitle')}</h3>
           </div>
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              {usedPrompt && (
-                <button
-                  type="button"
-                  className="rounded-full border border-indigo-200 px-3 py-1 font-medium text-indigo-600 hover:bg-indigo-50 dark:border-indigo-900/40 dark:text-indigo-200 dark:hover:bg-indigo-950/40"
-                  onClick={() => setShowPrompt((v) => !v)}
-                >
-                  {showPrompt ? "隱藏提示詞" : "顯示提示詞"}
-                </button>
-              )}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            {usedPrompt && (
               <button
                 type="button"
-                className="rounded-full border border-gray-200 px-3 py-1 font-medium text-gray-700 hover:bg-gray-50 dark:border-neutral-700 dark:text-gray-200 dark:hover:bg-neutral-800"
-                onClick={() => setRefsOpen((o) => !o)}
+                className="rounded-full border border-[var(--soft-brand-border)] bg-[var(--soft-brand-background)] px-3 py-1 text-[11px] font-semibold text-[var(--brand-primary)] transition hover:bg-[var(--brand-50)]"
+                onClick={() => setShowPrompt((v) => !v)}
               >
-                {refsOpen ? "收合引用" : "展開引用"}
+                {showPrompt ? t('chat.hidePrompt') : t('chat.showPrompt')}
               </button>
+            )}
+            <button
+              type="button"
+              className="rounded-full border border-[var(--border-light)] bg-[var(--surface-muted)] px-3 py-1 text-[11px] font-semibold text-[var(--text-primary)] transition hover:bg-[var(--surface)]"
+              onClick={() => setRefsOpen((o) => !o)}
+            >
+              {refsOpen ? t('chat.hideSources') : t('chat.showSources')}
+            </button>
             {lastAnswerId && (
-              <div className="ml-2 flex items-center gap-1">
-                <span className="text-gray-500">這個回答是否有幫助？</span>
+              <div className="flex items-center gap-1 text-[var(--text-muted)]">
+                <span>{t('chat.feedbackPrompt')}</span>
                 <button
                   type="button"
                   disabled={!!feedbackSent}
@@ -470,8 +486,10 @@ export default function ChatPage() {
                     if (!lastAnswerId) return;
                     try { await sendFeedback(lastAnswerId, 'up'); setFeedbackSent('up'); } catch (_) {}
                   }}
-                  className={`rounded-full border px-2 py-0.5 ${feedbackSent === 'up' ? 'border-green-300 bg-green-50 text-green-700 dark:border-green-900/40 dark:bg-green-950/30 dark:text-green-200' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200'}`}
-                >贊成</button>
+                  className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${feedbackSent === 'up' ? 'border-[var(--success)] bg-[var(--success-soft)] text-[var(--success)]' : 'border-[var(--border-light)] bg-[var(--surface)] text-[var(--text-primary)] hover:bg-[var(--surface-muted)]'}`}
+                >
+                  {t('chat.feedbackUp')}
+                </button>
                 <button
                   type="button"
                   disabled={!!feedbackSent}
@@ -479,8 +497,10 @@ export default function ChatPage() {
                     if (!lastAnswerId) return;
                     try { await sendFeedback(lastAnswerId, 'down'); setFeedbackSent('down'); } catch (_) {}
                   }}
-                  className={`rounded-full border px-2 py-0.5 ${feedbackSent === 'down' ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200'}`}
-                >不贊成</button>
+                  className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${feedbackSent === 'down' ? 'border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]' : 'border-[var(--border-light)] bg-[var(--surface)] text-[var(--text-primary)] hover:bg-[var(--surface-muted)]'}`}
+                >
+                  {t('chat.feedbackDown')}
+                </button>
               </div>
             )}
           </div>
@@ -490,40 +510,43 @@ export default function ChatPage() {
             {lastCitations.map((c, i) => (
               <article
                 key={`${c.name}-${i}-${c.page ?? 'na'}`}
-                className="rounded-xl border border-gray-200 bg-gradient-to-br from-white to-indigo-50/40 p-3 dark:border-neutral-800 dark:from-neutral-900 dark:to-neutral-900/60"
+                className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-50">
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-[12px] font-bold text-white">
+                    <div className="flex items-center gap-3 text-sm font-semibold text-[var(--text-primary)]">
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--brand-primary)] text-[12px] font-bold text-white">
                         {i + 1}
                       </span>
-                      {c.name}
+                      <span className="truncate">{c.name}</span>
                     </div>
-                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{typeof c.page === 'number' ? `第 ${c.page} 頁` : '頁碼不詳'}</p>
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">{typeof c.page === 'number' ? t('chat.pageLabel', { page: c.page }) : t('chat.pageUnknown')}</p>
                   </div>
-                  <span className="text-xs text-gray-500">來源</span>
+                  <span className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-muted)]">{t('chat.sourceLabel')}</span>
                 </div>
-                <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-500"></div>
               </article>
             ))}
           </div>
         )}
         {showPrompt && usedPrompt && (
-          <div className="mt-4 rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/70 p-3 text-[13px] text-indigo-900 dark:border-indigo-900/50 dark:bg-indigo-950/40 dark:text-indigo-100">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-indigo-500">System Prompt</div>
-            <pre className="whitespace-pre-wrap">{usedPrompt}</pre>
+          <div className="mt-4 rounded-2xl border border-dashed border-[var(--soft-brand-border)] bg-[var(--soft-brand-background)] p-3 text-[13px] text-[var(--brand-primary)]">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-[0.3em]">{t('chat.systemPromptLabel')}</div>
+            <pre className="whitespace-pre-wrap border-none bg-transparent p-0 text-[13px] text-[var(--brand-primary)] shadow-none">{usedPrompt}</pre>
           </div>
         )}
       </section>
     );
   };
 
+  const composerActionClasses =
+    "rounded-full border border-transparent px-3 py-1 text-[12px] font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-200)]";
+  const conversationTitle = displayTitle(convs.find((c) => c.id === currentId)?.title);
+
   if (immersive) {
     return (
-      <div className="fixed inset-0 z-[60] flex flex-col bg-white dark:bg-neutral-900">
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2 text-sm dark:border-neutral-800">
-          <div className="font-semibold">沉浸式聊天</div>
+      <div className="fixed inset-0 z-[60] flex flex-col bg-[var(--bg-app)]">
+        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface)] px-4 py-2 text-sm">
+          <div className="font-semibold">{t('chat.immersiveTitle')}</div>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -534,27 +557,27 @@ export default function ChatPage() {
                 updateCurrent((c) => ({ ...c, messages: [], updatedAt: Date.now() }));
               }}
               disabled={busy}
-            >清除訊息</Button>
-            <Button variant="outline" onClick={() => setImmersive(false)}>退出全螢幕</Button>
+            >{t('chat.clearMessages')}</Button>
+            <Button variant="outline" onClick={() => setImmersive(false)}>{t('chat.exitImmersive')}</Button>
           </div>
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
           <div ref={chatRef} className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
             {messages.length === 0 && !streamAnswer && (
-              <div className="text-gray-500">對文件有任何問題，儘管問我！</div>
+              <div className="text-[var(--text-muted)]">{t('chat.emptyState')}</div>
             )}
-            <div className="grid gap-4">
+            <div className="grid gap-1">
               {messages.map((m, i) => (
                 <ChatMessage key={i} role={m.role} content={m.content} />
               ))}
               {streamAnswer && <ChatMessage role="assistant" content={streamAnswer} />}
               {busy && !streamAnswer && (
                 <div className="flex w-full justify-start">
-                  <div className="flex max-w-[95vw] items-start gap-4 md:max-w-[960px]">
-                    <div className="flex h-10 w-10 shrink-0 select-none items-center justify-center rounded-full text-xl shadow border border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/40 dark:bg-violet-950/40 dark:text-violet-200">🤖</div>
-                    <div className="rounded-2xl border px-3 py-2 text-[15px] leading-relaxed shadow-sm border-gray-200 bg-gray-50 text-gray-900 dark:border-neutral-800 dark:bg-neutral-800 dark:text-gray-100">
-                      <div className="typing-dots text-gray-500 dark:text-gray-300"><span></span><span></span><span></span></div>
+                  <div className="flex max-w-[95vw] items-start gap-1 md:max-w-[960px]">
+                    <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-2xl border border-[var(--soft-brand-border)] bg-[var(--soft-brand-background)] text-sm text-[var(--brand-primary)] shadow-surface">🤖</div>
+                    <div className="rounded-[20px] border border-[var(--border-light)] bg-[var(--surface-muted)] px-3 py-1.5 text-[14px] leading-[1.4] text-[var(--text-primary)] shadow-sm">
+                      <div className="typing-dots text-[var(--text-muted)]"><span></span><span></span><span></span></div>
                     </div>
                   </div>
                 </div>
@@ -568,16 +591,16 @@ export default function ChatPage() {
                       const el = chatRef.current;
                       if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
                     }}
-                    className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 shadow hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200 dark:hover:bg-neutral-700"
+                    className="rounded-full border border-[var(--border-light)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-primary)] shadow-surface hover:bg-[var(--surface-muted)]"
                   >
-                    回到底部
+                    {t('chat.scrollToBottom')}
                   </button>
                 </div>
               )}
               
             </div>
           </div>
-          <div className="shrink-0 border-t border-gray-200 bg-white p-4 md:p-5 dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="shrink-0 border-t border-[var(--border-subtle)] bg-[var(--surface)] p-4 md:p-5">
             <form onSubmit={onSend} className="flex items-end gap-3">
               <Textarea
                 ref={inputRef}
@@ -585,7 +608,7 @@ export default function ChatPage() {
                 rows={1}
                 maxHeight={maxInputHeight}
                 onHeightChange={handleInputHeightChange}
-                placeholder="輸入訊息，按 Enter 送出（Shift+Enter 換行）"
+                placeholder={t('chat.inputPlaceholder')}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -601,11 +624,11 @@ export default function ChatPage() {
                   style={{ height: inputHeight }}
                   disabled
                 >
-                  傳送中…
+                  {t('chat.sending')}
                 </Button>
               ) : (
                 <Button type="submit" style={{ height: inputHeight }} className="min-w-[72px] whitespace-nowrap" disabled={busy}>
-                  送出
+                  {t('chat.send')}
                 </Button>
               )}
             </form>
@@ -619,204 +642,198 @@ export default function ChatPage() {
   }
 
 
+
   return (
     <div
       ref={rootRef}
-      className="relative mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-6 px-2 py-6 md:px-6 lg:flex-row"
-      style={{ height: containerH ? containerH + "px" : undefined }}
+      className="relative mx-auto flex w-full max-w-[1800px] flex-1 gap-5 px-4 pb-6 pt-4 lg:gap-7 lg:px-8"
+      style={{ height: containerH ? `${containerH}px` : undefined }}
     >
-        <aside className="order-2 flex h-full flex-col overflow-hidden rounded-3xl border border-white/20 bg-white/5 p-5 shadow-soft backdrop-blur-lg lg:order-1 lg:w-[320px]">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.3em] text-slate-400">History</p>
-              <h2 className="text-xl font-semibold text-slate-100">會話清單</h2>
-            </div>
-            <Button variant="outline" size="sm" onClick={newChat} disabled={!conversationsReady}>新對話</Button>
+      <aside className="flex h-full w-[250px] shrink-0 flex-col overflow-hidden rounded-[30px] border border-[var(--border-light)] bg-[var(--surface)] shadow-panel">
+        <div className="flex items-center justify-between gap-2 border-b border-[var(--border-light)] px-4 py-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.35em] text-[var(--text-muted)]">{t('chat.historyBadge')}</p>
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">{t('chat.conversationListTitle')}</h2>
           </div>
-          <div className="space-y-2 overflow-auto pr-1">
+          <Button size="sm" onClick={newChat} disabled={!conversationsReady}>{t('chat.createConversation')}</Button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-3 py-4">
+          <div className="space-y-1.5">
             {convs.map((c) => {
               const active = c.id === currentId;
-              const baseClasses = 'group w-full rounded-2xl border px-3 py-3 text-left text-sm transition backdrop-blur-md';
+              const baseClasses = 'w-full rounded-2xl border px-3.5 py-3 text-left text-sm transition';
               const variant = active
-                ? 'border-indigo-200 bg-white shadow dark:border-indigo-900/60 dark:bg-neutral-800'
-                : 'border-transparent bg-white/60 hover:border-indigo-100 hover:bg-white dark:bg-neutral-800/60 dark:hover:border-neutral-700';
+                ? 'border-[var(--border-subtle)] bg-[var(--surface-panel)] shadow-surface'
+                : 'border-transparent bg-[var(--surface-muted)] hover:border-[var(--border-light)] hover:bg-[var(--surface)]';
               return (
                 <button
                   key={c.id}
-                onClick={async () => {
-                  setCurrentId(c.id);
-                  try { setMessages(await fetchConversationMessages(c.id)); } catch { setMessages([]); }
-                }}
+                  type="button"
+                  onClick={async () => {
+                    setCurrentId(c.id);
+                    try { setMessages(await fetchConversationMessages(c.id)); } catch { setMessages([]); }
+                  }}
                   className={`${baseClasses} ${variant}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className="truncate font-medium text-slate-900 dark:text-gray-100">{c.title || '新的對話'}</div>
-                    {active && <span className="text-[11px] uppercase tracking-wide text-indigo-500">最新</span>}
+                    <div className="truncate font-semibold text-[var(--text-primary)]">{displayTitle(c.title)}</div>
+                    {active && <span className="text-[10px] uppercase tracking-[0.25em] text-[var(--brand-primary)]">{t('chat.latestBadge')}</span>}
                   </div>
-                  <div className="mt-1 truncate text-xs text-slate-500 dark:text-gray-400">{new Date(c.updatedAt).toLocaleString()}</div>
+                  <div className="mt-1 truncate text-[11px] text-[var(--text-muted)]">{new Date(c.updatedAt).toLocaleString()}</div>
                 </button>
               );
             })}
             {!convs.length && (
-              <div className="rounded-2xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500 dark:border-neutral-800 dark:text-gray-400">
-                尚未建立對話。
+              <div className="rounded-2xl border border-dashed border-[var(--border-light)] px-3 py-4 text-center text-[12px] text-[var(--text-muted)]">
+                {t('chat.noConversations')}
               </div>
             )}
           </div>
-          {currentId && (
-            <div className="mt-6 grid gap-2">
-              <Button variant="outline" size="sm" onClick={renameChat} disabled={!conversationsReady}>重新命名</Button>
-              <Button variant="danger" size="sm" onClick={deleteChat} disabled={!conversationsReady}>刪除</Button>
+        </div>
+        <div className="border-t border-[var(--border-light)] px-4 py-4">
+          {currentId ? (
+            <div className="flex flex-col gap-2">
+              <Button variant="outline" size="sm" onClick={renameChat} disabled={!conversationsReady}>{t('chat.menuRename')}</Button>
+              <Button variant="danger" size="sm" onClick={deleteChat} disabled={!conversationsReady}>{t('chat.menuDelete')}</Button>
             </div>
+          ) : (
+            <p className="text-xs text-[var(--text-muted)]">{t('chat.noConversations')}</p>
           )}
-        </aside>
-
-        <div className="order-1 flex flex-1 flex-col gap-4 lg:order-2">
-          <div className="rounded-3xl border border-white/15 bg-white/5 px-5 py-4 backdrop-blur-md">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex-1">
-                <p className="text-[11px] uppercase tracking-[0.3em] text-indigo-500">Active conversation</p>
-                <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">{convs.find((c) => c.id === currentId)?.title || '新的對話'}</h1>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <Button variant="outline" size="sm" onClick={() => setImmersive(true)}>沉浸模式</Button>
-              </div>
-            </div>
+        </div>
+      </aside>
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[36px] border border-[var(--border-light)] bg-[var(--surface)] shadow-panel">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border-light)] px-6 py-5 lg:px-10">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-[var(--text-muted)]">{t('chat.activeLabel')}</p>
+            <h1 className="text-2xl font-semibold text-[var(--text-primary)]">{conversationTitle}</h1>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setImmersive(true)}>{t('chat.immersiveMode')}</Button>
+          </div>
+        </header>
 
-          <div className="rounded-3xl border border-white/15 bg-white/5 px-5 py-3 text-xs text-slate-300 backdrop-blur-md">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="inline-flex overflow-hidden rounded-full border border-slate-200 bg-white p-0.5 dark:border-neutral-700 dark:bg-neutral-800">
-                {([
-                  { id: 'openai', label: 'OpenAI', hint: '通用/高品質' },
-                  { id: 'gemini', label: 'Gemini', hint: '推理/長上下文' },
-                  { id: 'anthropic', label: 'Claude', hint: '語言/安全' },
-                ] as const).map((p) => {
+        <div className="border-b border-[var(--border-light)] px-6 py-4 lg:px-10">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] uppercase tracking-[0.25em] text-[var(--text-muted)]">{t('chat.providerLabel')}</span>
+              <div className="flex flex-wrap gap-1.5">
+                {providerOptions.map((p) => {
                   const selected = provider === p.id;
                   const buttonClasses = selected
-                    ? 'rounded-full bg-gradient-to-tr from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-glow'
-                    : 'rounded-full text-slate-100 hover:bg-white/20';
+                    ? 'border border-[var(--soft-brand-border)] bg-[var(--brand-primary)] text-white shadow-brand'
+                    : 'border border-[var(--border-light)] bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:bg-[var(--surface)]';
                   return (
                     <button
                       key={p.id}
                       type="button"
                       onClick={() => setProvider(p.id)}
                       aria-pressed={selected}
-                      className={`h-7 px-3 text-[11px] font-medium transition ${buttonClasses}`}
+                      className={`h-8 rounded-full px-3 text-[11px] font-semibold transition ${buttonClasses}`}
                       title={p.hint}
                     >{p.label}</button>
                   );
                 })}
               </div>
-              <div className="flex-1 overflow-x-auto whitespace-nowrap [scrollbar-width:thin]">
-                <div className="flex gap-1.5">
-                  {chatSuggestions(provider).map((m) => {
-                    const selected = model === m;
-                    const pillClasses = selected
-                      ? 'border border-white/20 bg-gradient-to-tr from-indigo-600/90 to-fuchsia-600/90 text-white shadow-glow'
-                      : 'border border-white/15 bg-white/10 text-slate-100 hover:bg-white/20';
-                    return (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => setModel(m)}
-                        aria-pressed={selected}
-                        className={`h-7 rounded-full px-3 text-[11px] transition ${pillClasses}`}
-                      >{displayModelLabel(m)}</button>
-                    );
-                  })}
-                </div>
+            </div>
+            <div className="hidden h-8 w-px bg-[var(--border-light)] lg:block" />
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <span className="text-[11px] uppercase tracking-[0.25em] text-[var(--text-muted)] whitespace-nowrap">{t('chat.modelLabel')}</span>
+              <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:thin]">
+                {chatSuggestions(provider).map((m) => {
+                  const selected = model === m;
+                  const pillClasses = selected
+                    ? 'border border-[var(--soft-brand-border)] bg-[var(--brand-primary)] text-white shadow-brand'
+                    : 'border border-[var(--border-light)] bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:bg-[var(--surface)]';
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setModel(m)}
+                      aria-pressed={selected}
+                      className={`h-8 rounded-full px-3 text-[11px] font-semibold transition ${pillClasses}`}
+                    >{displayModelLabel(m)}</button>
+                  );
+                })}
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="flex-1 overflow-hidden rounded-3xl border border-white/12 bg-white/5 backdrop-blur-md">
-            <div ref={chatRef} className="flex h-full flex-col gap-4 overflow-y-auto px-4 pb-6 pt-6 sm:px-8">
-              {messages.length === 0 && !streamAnswer && (
-                <div className="rounded-3xl border border-dashed border-white/20 px-5 py-8 text-center text-sm text-slate-300">
-                  對文件有任何問題，儘管問我！
-                </div>
-              )}
-              {messages.map((m, i) => (
-                <ChatMessage key={i} role={m.role} content={m.content} />
-              ))}
-              {streamAnswer && <ChatMessage role="assistant" content={streamAnswer} />}
-              {busy && !streamAnswer && (
-                <div className="flex w-full justify-start">
-                  <div className="flex max-w-[95vw] items-start gap-4 md:max-w-[960px]">
-                    <div className="flex h-10 w-10 shrink-0 select-none items-center justify-center rounded-full border border-violet-200 bg-violet-50 text-xl text-violet-700 shadow dark:border-violet-900/40 dark:bg-violet-950/40 dark:text-violet-200">🤖</div>
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-[15px] leading-relaxed text-slate-700 shadow-sm dark:border-neutral-800 dark:bg-neutral-800 dark:text-gray-100">
-                      <div className="typing-dots text-gray-500 dark:text-gray-300"><span></span><span></span><span></span></div>
-                    </div>
+        <div className="relative flex min-h-0 flex-1 bg-[var(--surface-panel)]">
+          <div ref={chatRef} className="flex h-full w-full flex-col gap-1 overflow-y-auto px-4 pb-32 pt-8 sm:px-8 lg:px-12">
+            {messages.length === 0 && !streamAnswer && (
+              <div className="mx-auto w-full max-w-[640px] rounded-3xl border border-dashed border-[var(--border-light)] px-6 py-12 text-center text-sm text-[var(--text-muted)]">
+                {t('chat.emptyState')}
+              </div>
+            )}
+            {messages.map((m, i) => (
+              <ChatMessage key={i} role={m.role} content={m.content} />
+            ))}
+            {streamAnswer && <ChatMessage role="assistant" content={streamAnswer} />}
+            {busy && !streamAnswer && (
+              <div className="flex w-full justify-start">
+                <div className="flex items-start gap-1">
+                  <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-2xl border border-[var(--soft-brand-border)] bg-[var(--soft-brand-background)] text-sm text-[var(--brand-primary)] shadow-surface">🤖</div>
+                  <div className="rounded-[20px] border border-[var(--border-light)] bg-[var(--surface)] px-3 py-1.5 text-[14px] text-[var(--text-primary)] shadow-surface">
+                    <div className="typing-dots text-[var(--text-muted)]"><span></span><span></span><span></span></div>
                   </div>
                 </div>
-              )}
-              {renderCitationsSection()}
-              {showScroller && (
-                <div className="sticky bottom-2 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const el = chatRef.current;
-                      if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-                    }}
-                    className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-slate-100"
-                  >
-                    回到底部
-                  </button>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
+            {renderCitationsSection()}
           </div>
-
-          <div className="rounded-3xl border border-white/15 bg-white/5 px-4 py-4 text-xs text-slate-300 backdrop-blur-md sm:px-8">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              {!busy && (
-                <>
-                  <button type="button" onClick={handleRegenerate} className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-slate-100 hover:bg-white/20">
-                    重新產生
-                  </button>
-                  <button type="button" onClick={handleContinue} className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-slate-100 hover:bg-white/20">
-                    繼續
-                  </button>
-                  <button type="button" onClick={handleCopyLast} className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-slate-100 hover:bg-white/20">
-                    複製
-                  </button>
-                </>
-              )}
-              {/* 移除停止按鈕（僅保留下方表單中的狀態提示） */}
-            </div>
-            <form onSubmit={onSend} className="flex items-end gap-3">
-              <Textarea
-                ref={inputRef}
-                value={input}
-                rows={1}
-                maxHeight={maxInputHeight}
-                onHeightChange={handleInputHeightChange}
-                placeholder="輸入訊息，Enter 送出（Shift+Enter 換行）"
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    if (!busy && input.trim()) onSend(e);
-                  }
-                }}
-              />
-              {busy ? (
-                <>
-                  {/* 移除停止按鈕 */}
-                  <Button type="submit" className="cursor-not-allowed whitespace-nowrap opacity-60" style={{ height: inputHeight }} disabled>
-                    傳送中…
-                  </Button>
-                </>
-              ) : (
-                <Button type="submit" style={{ height: inputHeight }} className="min-w-[72px] whitespace-nowrap" disabled={busy}>
-                  送出
-                </Button>
-              )}
-            </form>
+          <div className={`pointer-events-none absolute bottom-8 right-8 transition-all duration-200 ${showScroller ? 'opacity-100' : 'translate-y-1 opacity-0'}`}>
+            <button
+              type="button"
+              onClick={() => {
+                const el = chatRef.current;
+                if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+              }}
+              className="pointer-events-auto rounded-full border border-[var(--border-light)] bg-[var(--surface)] px-4 py-1.5 text-[12px] font-semibold text-[var(--text-secondary)] shadow-surface hover:bg-[var(--surface-muted)]"
+            >
+              {t('chat.scrollToBottom')}
+            </button>
           </div>
         </div>
+
+        <div className="border-t border-[var(--border-light)] bg-[var(--surface)] px-4 py-4 sm:px-8">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            {!busy && (
+              <>
+                <button type="button" onClick={handleRegenerate} className={composerActionClasses}>{t('chat.regenerate')}</button>
+                <button type="button" onClick={handleContinue} className={composerActionClasses}>{t('chat.continue')}</button>
+                <button type="button" onClick={handleCopyLast} className={composerActionClasses}>{t('chat.copy')}</button>
+              </>
+            )}
+          </div>
+          <form onSubmit={onSend} className="flex items-end gap-3">
+            <Textarea
+              ref={inputRef}
+              value={input}
+              rows={1}
+              maxHeight={maxInputHeight}
+              onHeightChange={handleInputHeightChange}
+              placeholder={t('chat.inputPlaceholder')}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  if (!busy && input.trim()) onSend(e);
+                }
+              }}
+            />
+            {busy ? (
+              <Button type="submit" className="cursor-not-allowed whitespace-nowrap opacity-60" style={{ height: inputHeight }} disabled>
+                {t('chat.sending')}
+              </Button>
+            ) : (
+              <Button type="submit" style={{ height: inputHeight }} className="min-w-[96px] whitespace-nowrap" disabled={busy}>
+                {t('chat.send')}
+              </Button>
+            )}
+          </form>
+        </div>
+      </section>
     </div>
   );
 }

@@ -12,10 +12,9 @@ export type StatProps = {
 export default function Stat({ label, value, hint, className }: StatProps) {
   return (
     <Card className={"p-4 " + (className || "")}>
-      <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
-      <div className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{value}</div>
-      {hint && <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{hint}</div>}
+      <div className="text-xs uppercase tracking-wide text-[var(--text-muted)]">{label}</div>
+      <div className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{value}</div>
+      {hint && <div className="mt-1 text-xs text-[var(--text-secondary)]">{hint}</div>}
     </Card>
   );
 }
-

@@ -18,7 +18,13 @@ type Props = {
 
 export default function Segmented({ name, options, value, onChange, className }: Props) {
   return (
-    <div className={"inline-flex overflow-hidden rounded-lg border border-gray-200 bg-white p-0.5 dark:border-neutral-700 dark:bg-neutral-800 " + (className || "")} aria-label={name}>
+    <div
+      className={
+        "inline-flex overflow-hidden rounded-2xl border border-[var(--border-light)] bg-[var(--surface-muted)] p-0.5 " +
+        (className || "")
+      }
+      aria-label={name}
+    >
       {options.map((opt) => {
         const selected = value === opt.id;
         const btn = (
@@ -27,8 +33,10 @@ export default function Segmented({ name, options, value, onChange, className }:
             type="button"
             onClick={() => onChange(opt.id)}
             aria-pressed={selected}
-            className={`h-7 px-3 text-[12px] leading-none rounded-md transition-all duration-150 focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-              selected ? 'bg-indigo-600 text-white dark:bg-indigo-500' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-neutral-700'
+            className={`h-8 rounded-xl px-3 text-[12px] font-semibold leading-none transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-200)] ${
+              selected
+                ? 'bg-[var(--brand-primary)] text-white shadow-brand'
+                : 'text-[var(--text-secondary)] hover:bg-[var(--surface)]'
             }`}
           >{opt.label}</button>
         );
@@ -41,4 +49,3 @@ export default function Segmented({ name, options, value, onChange, className }:
     </div>
   );
 }
-

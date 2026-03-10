@@ -3,6 +3,7 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import CodeBlock from "@/app/components/CodeBlock";
+import { useLanguage } from "@/app/providers/LanguageProvider";
 
 type Props = {
   role: "user" | "assistant" | "system";
@@ -21,7 +22,7 @@ function renderCitationAware(children: React.ReactNode) {
           return (
             <sup
               key={`cite-${idx}-${segIdx}`}
-              className="ml-0.5 align-super text-[0.7em] font-semibold text-indigo-600 dark:text-indigo-300"
+              className="chat-markdown__citation"
             >
               [{match[1]}]
             </sup>
@@ -43,135 +44,120 @@ const markdownComponents = {
     if (!inline) {
       return <CodeBlock code={code} lang={match?.[1]} />;
     }
-    return (
-      <code className="break-words rounded bg-gray-200 px-1 py-[1px] text-[13px] text-gray-900 dark:bg-neutral-700 dark:text-gray-100">
-        {children}
-      </code>
-    );
+    return <code>{children}</code>;
   },
   p({ children }: any) {
-    return (
-      <p className="m-0 whitespace-pre-wrap break-words leading-6 text-[14px]">
-        {renderCitationAware(children)}
-      </p>
-    );
+    return <p>{renderCitationAware(children)}</p>;
   },
   ul({ children }: any) {
-    return <ul className="my-0 list-disc space-y-0 pl-5 text-[14px] leading-6 whitespace-pre-wrap break-words">{renderCitationAware(children)}</ul>;
+    return <ul>{children}</ul>;
   },
   ol({ children }: any) {
-    return <ol className="my-0 list-decimal space-y-0 pl-5 text-[14px] leading-6 whitespace-pre-wrap break-words">{renderCitationAware(children)}</ol>;
+    return <ol>{children}</ol>;
   },
   li({ children }: any) {
-    return <li className="m-0 break-words whitespace-pre-wrap leading-6 [&>p]:m-0">{renderCitationAware(children)}</li>;
+    return <li>{renderCitationAware(children)}</li>;
+  },
+  blockquote({ children }: any) {
+    return <blockquote>{renderCitationAware(children)}</blockquote>;
   },
   a({ href, children }: any) {
     return (
-      <a href={href} target="_blank" rel="noreferrer" className="break-words text-indigo-600 underline dark:text-indigo-300">
+      <a href={href} target="_blank" rel="noreferrer">
         {children}
       </a>
     );
   },
   h1({ children }: any) {
-    return <h1 className="my-2 text-[15px] font-semibold leading-6">{children}</h1>;
+    return <h1>{renderCitationAware(children)}</h1>;
   },
   h2({ children }: any) {
-    return <h2 className="my-2 text-[14px] font-semibold leading-6">{children}</h2>;
+    return <h2>{renderCitationAware(children)}</h2>;
   },
   h3({ children }: any) {
-    return <h3 className="my-1.5 text-[14px] font-medium leading-6">{children}</h3>;
+    return <h3>{renderCitationAware(children)}</h3>;
+  },
+  h4({ children }: any) {
+    return <h4>{renderCitationAware(children)}</h4>;
   },
   table({ children }: any) {
-    return <table className="mb-3 w-full table-auto border-collapse text-sm">{children}</table>;
+    return <table>{children}</table>;
   },
   th({ children }: any) {
-    return <th className="border border-gray-300 bg-gray-100 px-2 py-1 text-left dark:border-neutral-700 dark:bg-neutral-800">{children}</th>;
+    return <th>{children}</th>;
   },
   td({ children }: any) {
-    return <td className="border border-gray-300 px-2 py-1 dark:border-neutral-700">{children}</td>;
-  },
-  blockquote({ children }: any) {
-    return (
-      <blockquote className="border-l-4 border-indigo-200/70 bg-indigo-50/50 px-4 py-2 text-sm italic text-gray-700 dark:border-indigo-900/60 dark:bg-indigo-950/30 dark:text-indigo-100">
-        {children}
-      </blockquote>
-    );
+    return <td>{children}</td>;
   },
   hr() {
-    return <hr className="my-4 border-dashed border-gray-300 dark:border-neutral-700" />;
+    return <hr />;
   },
 };
 
 const avatarMap: Record<string, { label: string; emoji: string }> = {
-  user: { label: "你", emoji: "🧑‍💻" },
+  user: { label: "user", emoji: "🧑‍💻" },
   assistant: { label: "Autollm", emoji: "🤖" },
-  system: { label: "系統", emoji: "⚙️" },
+  system: { label: "system", emoji: "⚙️" },
 };
 
 export default function ChatMessage({ role, content }: Props) {
   const isUser = role === "user";
   const isSystem = role === "system";
   const avatar = avatarMap[role] || avatarMap.assistant;
-  // Bubble: readable width with character cap for better UX
-  const bubbleBase = "relative inline-block max-w-[calc(100vw-5rem)] md:max-w-[80ch] rounded-2xl px-4 py-2 ring-1 shadow-sm transition-colors break-words whitespace-pre-wrap hyphens-auto";
-  const assistantBubble = `${bubbleBase} bg-white/70 ring-white/40 backdrop-blur-md text-gray-900 hover:ring-white/60 dark:bg-white/5 dark:ring-white/10 dark:text-gray-100 dark:hover:ring-white/20`;
-  const userBubble = `${bubbleBase} bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 text-white ring-violet-500/30 hover:ring-violet-400/50 shadow-glow`;
-  const rowWidth = "max-w-[95vw]";
-  // Subtle min width so very short messages don’t look cramped
-  const len = (content || '').replace(/\s+/g, ' ').trim().length;
-  const assistantSizeClass = len < 16 ? 'min-w-[12ch]' : len < 48 ? 'min-w-[18ch]' : 'min-w-[24ch]';
-  const userSizeClass = len < 12 ? 'min-w-[8ch]' : len < 36 ? 'min-w-[14ch]' : 'min-w-[20ch]';
+  const { t } = useLanguage();
+  const bubbleBase =
+    "relative w-fit max-w-full rounded-[14px] px-[12px] py-[7px] text-left text-[13px] leading-[1.35] break-words whitespace-pre-wrap hyphens-auto shadow-sm";
+  const assistantBubble = `${bubbleBase} border border-[var(--border-subtle)] bg-[var(--surface-card)] text-[var(--text-primary)] max-w-[88vw] sm:max-w-[700px] lg:max-w-[820px]`;
+  const userBubble = `${bubbleBase} border border-transparent bg-[var(--brand-primary)] text-white shadow-brand max-w-[76vw] sm:max-w-[520px] lg:max-w-[640px]`;
+
+  const copyButtonBase =
+    "pointer-events-auto absolute -top-4 z-10 rounded-full border px-2 py-0.5 text-[10px] font-medium opacity-0 shadow-sm transition focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-200)] group-hover:opacity-100";
+  const copyButtonSide = isUser ? "right-0" : "left-0";
+  const copyButtonTone = isUser
+    ? "border-transparent bg-[var(--brand-primary)]/90 text-white shadow-brand/30"
+    : "border-[var(--border-light)] bg-[var(--surface)] text-[var(--text-secondary)]";
 
   return (
-    <article className={`relative flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
-      <div className={`relative flex w-full items-start gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
+    <article className={`group relative flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
+      <div className={`flex max-w-full items-start gap-0.5 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
         <div
-          className={`flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-full border text-base shadow ${
+          className={`flex h-6 w-6 shrink-0 select-none items-center justify-center rounded-[14px] border text-[12px] font-medium shadow-sm ${
             isUser
-              ? "border-indigo-300 bg-indigo-100 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-100"
-              : "border-gray-300 bg-gray-100 text-gray-700 dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-gray-200"
+              ? "border-transparent bg-[var(--brand-primary)] text-white shadow-brand"
+              : "border-[var(--border-subtle)] bg-[var(--surface-muted)] text-[var(--text-secondary)] shadow-surface"
           }`}
           aria-hidden
         >
           {avatar.emoji}
         </div>
-        <div className="flex-1">
-          <div className={`group relative ${rowWidth} w-fit max-w-full ${isUser ? "ml-auto" : "mr-auto"}`}>
+        <div className="flex max-w-full flex-1">
+          <div className={`relative flex max-w-full flex-col ${isUser ? "items-end" : "items-start"}`}>
+            {!isSystem && (
+              <button
+                type="button"
+                aria-label={t('chat.copy')}
+                onClick={() => navigator.clipboard.writeText(content).catch(() => {})}
+                className={`${copyButtonBase} ${copyButtonSide} ${copyButtonTone}`}
+              >
+                {t('chat.copy')}
+              </button>
+            )}
             {isSystem ? (
-              <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-[13px] text-gray-600 dark:border-neutral-700 dark:bg-neutral-900/60 dark:text-gray-300">
+              <div className="max-w-[700px] rounded-[14px] border border-dashed border-[var(--border-subtle)] bg-[var(--surface-muted)] px-3 py-1.5 text-[12px] text-[var(--text-secondary)]">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={markdownComponents as any}
-                  className="space-y-1 text-[13px] leading-6 break-words"
+                  className="chat-markdown chat-markdown--system"
                 >
                   {content}
                 </ReactMarkdown>
               </div>
             ) : (
-              <div className={`${isUser ? userBubble : assistantBubble} ${isUser ? userSizeClass : assistantSizeClass}`}>
-                {/* Tail notch */}
-                <span
-                  aria-hidden
-                  className={`absolute top-3 h-2 w-2 rotate-45 ${
-                    isUser
-                      ? "-right-1.5 bg-violet-600"
-                      : "-left-1.5 bg-white/70 ring-1 ring-white/40 dark:bg-white/5 dark:ring-white/10"
-                  }`}
-                />
-                {/* Hover tools */}
-                <div className="pointer-events-none absolute -top-3 right-1 hidden gap-1 opacity-0 transition group-hover:pointer-events-auto group-hover:flex group-hover:opacity-100">
-                  <button
-                    className="rounded-md border border-gray-200 bg-white px-2 py-0.5 text-[11px] text-gray-700 shadow hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-200"
-                    onClick={() => navigator.clipboard.writeText(content).catch(() => {})}
-                    title="複製"
-                  >
-                    複製
-                  </button>
-                </div>
+              <div className={isUser ? userBubble : assistantBubble}>
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={markdownComponents as any}
-                  className="space-y-1 text-[14px] leading-6 break-words"
+                  className={`chat-markdown ${isUser ? "chat-markdown--user" : ""}`}
                 >
                   {content}
                 </ReactMarkdown>

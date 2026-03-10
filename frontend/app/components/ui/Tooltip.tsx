@@ -26,19 +26,22 @@ export default function Tooltip({ content, children, side = "top", className }: 
       onFocus={() => setOpen(true)}
       onBlur={() => setOpen(false)}
     >
-      <span aria-describedby={open ? id : undefined} tabIndex={0} className="outline-none focus:ring-2 focus:ring-indigo-300 rounded">
+      <span
+        aria-describedby={open ? id : undefined}
+        tabIndex={0}
+        className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-200)]"
+      >
         {children}
       </span>
       <span
         role="tooltip"
         id={id}
-        className={`pointer-events-none absolute z-50 whitespace-pre-wrap rounded-md border px-2 py-1 text-xs shadow transition-all duration-150 ${
+        className={`pointer-events-none absolute z-50 whitespace-pre-wrap rounded-xl border px-2.5 py-1.5 text-xs shadow-surface transition-all duration-150 ${
           open ? "opacity-100" : "opacity-0"
-        } ${pos} border-gray-200 bg-white text-gray-800 dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-100`}
+        } ${pos} border-[var(--border-light)] bg-[var(--surface)] text-[var(--text-secondary)]`}
       >
         {content}
       </span>
     </span>
   );
 }
-

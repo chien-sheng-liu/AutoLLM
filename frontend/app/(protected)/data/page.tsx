@@ -18,6 +18,7 @@ import Button, { buttonClasses } from "@/app/components/ui/Button";
 import Input from "@/app/components/ui/Input";
 import Card from "@/app/components/ui/Card";
 import Modal from "@/app/components/ui/Modal";
+import { useLanguage } from "@/app/providers/LanguageProvider";
 
 type Doc = { document_id: string; name: string };
 
@@ -50,6 +51,7 @@ export default function DataPage() {
   const [docPermLoading, setDocPermLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const nameSearchRef = useRef<HTMLInputElement>(null);
+  const { t } = useLanguage();
 
   const normalizeAuth = (value?: string | null) => {
     const v = (value || 'user').toLowerCase();
@@ -71,9 +73,9 @@ export default function DataPage() {
     const valid = arr.filter(isAllowed);
     const rejected = arr.filter((f) => !isAllowed(f));
     if (rejected.length) {
-      showToast(`已忽略不支援的檔案：${rejected.map((f) => f.name).join(", ")}`, { kind: "info" });
+      showToast(t('data.unsupportedFiles', { names: rejected.map((f) => f.name).join(', ') }), { kind: "info" });
     }
-    const next = [...selectedFiles, ...valid].slice(0, 10); // 最多 10 個
+    const next = [...selectedFiles, ...valid].slice(0, 10); // limit to 10 files per batch
     setSelectedFiles(next);
   }
 
@@ -84,7 +86,7 @@ export default function DataPage() {
       setDocs(res.items || []);
       setSelectedIds([]);
     } catch (e: any) {
-      showToast(e?.message || "載入文件清單失敗", { kind: "error" });
+      showToast(e?.message || t('data.loadFail'), { kind: "error" });
     } finally {
       setLoading(false);
     }
@@ -106,7 +108,7 @@ export default function DataPage() {
       .then((res) => setPermissionUsers(res))
       .catch((e: any) => {
         setPermissionUsers([]);
-        showToast(e?.message || '載入使用者失敗', { kind: 'error' });
+        showToast(e?.message || t('data.permissionsLoadError'), { kind: 'error' });
       })
       .finally(() => setPermissionUsersLoading(false));
   }, [canManage]);
@@ -187,9 +189,9 @@ export default function DataPage() {
       }
       setSelectedFiles([]);
       await refresh();
-      showToast("上傳完成", { kind: "success" });
+      showToast(t('data.uploadDone'), { kind: "success" });
     } catch (e: any) {
-      showToast(e?.message || "上傳失敗", { kind: "error" });
+      showToast(e?.message || t('data.uploadFail'), { kind: "error" });
     } finally {
       setUploading(false);
       setCurrentIndex(0);
@@ -213,10 +215,10 @@ export default function DataPage() {
         catch { fail++; }
       }
       await refresh();
-      if (fail === 0) showToast(`刪除完成（${ok} 筆）`, { kind: "success" });
-      else showToast(`部分刪除失敗：成功 ${ok}、失敗 ${fail}`, { kind: "info" });
+      if (fail === 0) showToast(t('data.deleteComplete', { count: ok }), { kind: "success" });
+      else showToast(t('data.deletePartial', { ok, fail }), { kind: "info" });
     } catch (e: any) {
-      showToast(e?.message || "刪除失敗", { kind: "error" });
+      showToast(e?.message || t('data.deleteFail'), { kind: "error" });
     } finally {
       setBusy(false);
     }
@@ -280,7 +282,7 @@ export default function DataPage() {
 
   async function saveDocPermissions() {
     if (!selectedDocId) {
-      showToast('請先選擇檔案', { kind: 'info' });
+      showToast(t('data.selectFileFirst'), { kind: 'info' });
       return;
     }
     setPermBusy(true);
@@ -290,9 +292,9 @@ export default function DataPage() {
         : docUserIds.filter((id) => allPermissionUserIds.includes(id));
       await setDocumentPermissions(selectedDocId, normalized);
       setDocUserIds(normalized.length ? normalized : []);
-      showToast('檔案權限已更新', { kind: 'success' });
+      showToast(t('data.permissionsSavedToast'), { kind: 'success' });
     } catch (e: any) {
-      showToast(e?.message || '更新檔案權限失敗', { kind: 'error' });
+      showToast(e?.message || t('data.permissionsSaveError'), { kind: 'error' });
     } finally {
       setPermBusy(false);
     }
@@ -317,7 +319,7 @@ export default function DataPage() {
   }, []);
 
   if (!authLoaded) {
-    return <div className="text-sm text-gray-500">載入權限中…</div>;
+    return <div className="text-sm text-[var(--text-muted)]">{t('data.permissionsLoading')}</div>;
   }
 
   if (!canManage) {
@@ -326,36 +328,36 @@ export default function DataPage() {
       <div className="grid gap-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold">所有文件（僅檢視）</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">您可以檢視所有文件並複製 ID，但不可變更。</p>
+            <h2 className="text-xl font-semibold">{t('data.readonlyTitle')}</h2>
+            <p className="text-sm text-[var(--text-secondary)]">{t('data.readonlySubtitle')}</p>
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-            <span className="rounded-full border border-gray-200 px-3 py-1 dark:border-neutral-700">{loading ? '—' : docs.length} 份文件</span>
-            <button className="rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50 dark:border-neutral-800 dark:hover:bg-neutral-800" onClick={refresh}>重新整理</button>
+          <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+            <span className="rounded-full border border-[var(--border-light)] px-3 py-1">{loading ? '—' : t('data.recordsCount', { count: docs.length })}</span>
+            <button className="rounded-xl border border-[var(--border-light)] px-3 py-2 hover:bg-[var(--surface-muted)]" onClick={refresh}>{t('common.refresh')}</button>
           </div>
         </div>
 
         <Card className="p-5">
           <div className="mb-4 flex flex-wrap items-center gap-3">
-            <div className="relative w-72"><Input ref={nameSearchRef} placeholder="搜尋名稱或 ID…（按 / 聚焦）" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
-            <Button variant="outline" onClick={() => setSortAsc((s) => !s)}>名稱 {sortAsc ? 'A→Z' : 'Z→A'}</Button>
+            <div className="relative w-72"><Input ref={nameSearchRef} placeholder={t('data.searchNamePlaceholder')} value={query} onChange={(e) => setQuery(e.target.value)} /></div>
+            <Button variant="outline" onClick={() => setSortAsc((s) => !s)}>{t('common.name')} {sortAsc ? 'A→Z' : 'Z→A'}</Button>
           </div>
 
-          <div className="hidden grid-cols-[1fr_320px_120px] gap-3 px-4 py-2 text-xs text-gray-500 md:grid dark:text-gray-400">
-            <div>名稱</div>
+          <div className="hidden grid-cols-[1fr_320px_120px] gap-3 px-4 py-2 text-xs text-[var(--text-muted)] md:grid">
+            <div>{t('common.name')}</div>
             <div>ID</div>
-            <div>操作</div>
+            <div>{t('common.actions')}</div>
           </div>
           {filteredDocs.length === 0 ? (
-            <div className="p-6 text-sm text-gray-600 dark:text-gray-400">{docs.length === 0 ? '目前尚未被授權使用任何文件。' : '沒有符合的文件。'}</div>
+            <div className="p-6 text-sm text-[var(--text-secondary)]">{docs.length === 0 ? t('data.noAuthorizedDocs') : t('data.noMatches')}</div>
           ) : (
-            <div className="divide-y divide-gray-100 dark:divide-neutral-800">
+            <div className="divide-y divide-[var(--border-light)]">
               {filteredDocs.map((d) => (
                 <div key={d.document_id} className="grid grid-cols-1 items-start gap-3 p-4 md:grid-cols-[1fr_320px_120px] md:items-center">
                   <div className="truncate font-medium">{d.name}</div>
-                  <div className="break-all text-xs text-gray-500">{d.document_id}</div>
+                  <div className="break-all text-xs text-[var(--text-muted)]">{d.document_id}</div>
                   <div>
-                    <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(d.document_id).then(() => showToast('已複製 ID', { kind: 'success' })).catch(() => showToast('複製失敗', { kind: 'error' }))}>複製 ID</Button>
+                    <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(d.document_id).then(() => showToast(t('data.copyIdSuccess'), { kind: 'success' })).catch(() => showToast(t('data.copyIdFail'), { kind: 'error' }))}>{t('data.copyId')}</Button>
                   </div>
                 </div>
               ))}
@@ -371,12 +373,12 @@ export default function DataPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold">資料管理</h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400">上傳、瀏覽、刪除文件。支援拖放上傳與批次刪除。</p>
+          <h2 className="text-xl font-semibold">{t('data.manageTitle')}</h2>
+          <p className="text-sm text-[var(--text-secondary)]">{t('data.manageSubtitle')}</p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <span className="rounded-full border border-gray-200 px-3 py-1 dark:border-neutral-700">{loading ? '—' : docs.length} 份文件</span>
-          <button className="rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50 dark:border-neutral-800 dark:hover:bg-neutral-800" onClick={refresh} disabled={uploading || busy}>重新整理</button>
+        <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+          <span className="rounded-full border border-[var(--border-light)] px-3 py-1">{loading ? '—' : t('data.recordsCount', { count: docs.length })}</span>
+          <button className="rounded-xl border border-[var(--border-light)] px-3 py-2 hover:bg-[var(--surface-muted)]" onClick={refresh} disabled={uploading || busy}>{t('common.refresh')}</button>
         </div>
       </div>
 
@@ -384,12 +386,12 @@ export default function DataPage() {
       <Card className="relative overflow-hidden p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold">上傳檔案</div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">支援 .txt 與 .pdf，單次最多 10 個</div>
+            <div className="text-sm font-semibold">{t('data.uploadCta')}</div>
+            <div className="text-xs text-[var(--text-secondary)]">{t('data.uploadHintExtended')}</div>
           </div>
           <div className="flex gap-2">
             <label className={buttonClasses({ variant: 'outline', size: 'md' }) + ' cursor-pointer'}>
-              選擇檔案
+              {t('data.selectFiles')}
               <input
                 type="file"
                 accept=".txt,.pdf"
@@ -399,16 +401,16 @@ export default function DataPage() {
               />
             </label>
             <Button disabled={uploading || selectedFiles.length === 0} onClick={() => onUpload()}>
-              {uploading ? `上傳中… ${overallProgress}%` : `上傳 ${selectedFiles.length} 個`}
+              {uploading ? `${t('data.uploadBusy')} ${overallProgress}%` : t('data.uploadingCount', { count: selectedFiles.length })}
             </Button>
             {selectedFiles.length > 0 && !uploading && (
-              <Button variant="outline" onClick={() => setSelectedFiles([])}>清空</Button>
+              <Button variant="outline" onClick={() => setSelectedFiles([])}>{t('data.clearSelection')}</Button>
             )}
           </div>
         </div>
 
         <div
-          className={`rounded-xl border-2 border-dashed p-8 text-center text-sm transition backdrop-blur-md ${dragOver ? 'border-indigo-400 bg-white/40 dark:border-indigo-800 dark:bg-white/10' : 'border-white/20 bg-white/30 dark:border-white/10 dark:bg-white/5'}`}
+          className={`rounded-xl border-2 border-dashed p-8 text-center text-sm transition backdrop-blur-md ${dragOver ? 'border-[var(--soft-brand-border)] bg-[var(--soft-brand-background)]' : 'border-[var(--border-light)] bg-[var(--surface-muted)]'}`}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={(e) => {
@@ -416,9 +418,9 @@ export default function DataPage() {
             if (e.dataTransfer.files) handlePick(e.dataTransfer.files);
           }}
         >
-          將檔案拖放到此處，或點擊「選擇檔案」挑選
+          {t('data.dragHint')}
           {uploading && (
-            <div className="mx-auto mt-4 h-2 w-full max-w-lg overflow-hidden rounded bg-white/30 dark:bg-white/10">
+            <div className="mx-auto mt-4 h-2 w-full max-w-lg overflow-hidden rounded bg-[rgba(241,244,249,0.65)]">
               <div className="h-full bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600" style={{ width: `${overallProgress}%` }} />
             </div>
           )}
@@ -427,9 +429,9 @@ export default function DataPage() {
         {selectedFiles.length > 0 && (
           <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {selectedFiles.map((f, i) => (
-              <div key={`${f.name}-${i}`} className="flex items-center justify-between rounded-xl border border-white/30 bg-white/60 p-3 text-sm backdrop-blur-md dark:border-white/10 dark:bg-white/10">
+              <div key={`${f.name}-${i}`} className="flex items-center justify-between rounded-xl border border-[var(--border-light)] bg-[var(--surface)] p-3 text-sm backdrop-blur-md ">
                 <div className="min-w-0 truncate pr-3"><span className="truncate" title={f.name}>{f.name}</span></div>
-                <Button variant="outline" size="sm" disabled={uploading} onClick={() => setSelectedFiles((prev) => prev.filter((_, idx) => idx !== i))}>移除</Button>
+                <Button variant="outline" size="sm" disabled={uploading} onClick={() => setSelectedFiles((prev) => prev.filter((_, idx) => idx !== i))}>{t('data.remove')}</Button>
               </div>
             ))}
           </div>
@@ -439,13 +441,13 @@ export default function DataPage() {
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <div className="relative w-72"><Input ref={nameSearchRef} placeholder="搜尋名稱或 ID…（按 / 聚焦）" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
-          <Button variant="outline" onClick={() => setSortAsc((s) => !s)}>名稱 {sortAsc ? "A→Z" : "Z→A"}</Button>
+          <div className="relative w-72"><Input ref={nameSearchRef} placeholder={t('data.searchNamePlaceholder')} value={query} onChange={(e) => setQuery(e.target.value)} /></div>
+          <Button variant="outline" onClick={() => setSortAsc((s) => !s)}>{t('common.name')} {sortAsc ? "A→Z" : "Z→A"}</Button>
         </div>
         <div className="flex items-center gap-2">
           {isAdmin && (
             <Button variant="danger" disabled={busy || selectedIds.length === 0} onClick={() => askDelete(selectedIds)}>
-              刪除已選（{selectedIds.length}）
+              {t('data.deleteSelected', { count: selectedIds.length })}
             </Button>
           )}
         </div>
@@ -453,7 +455,7 @@ export default function DataPage() {
 
       {/* Documents list */}
       <Card className="overflow-hidden">
-        <div className="hidden grid-cols-[24px_1fr_320px_120px] items-center gap-3 border-b border-white/20 px-4 py-3 text-xs text-gray-500 dark:border-white/10 md:grid">
+        <div className="hidden grid-cols-[24px_1fr_320px_120px] items-center gap-3 border-b border-[var(--border-light)] px-4 py-3 text-xs text-[var(--text-muted)] md:grid">
           <div>
             <input
               aria-label="select all"
@@ -462,21 +464,21 @@ export default function DataPage() {
               onChange={(e) => toggleSelectAll(e.target.checked)}
             />
           </div>
-          <div>名稱</div>
+          <div>{t('common.name')}</div>
           <div>ID</div>
-          <div className="text-right">動作</div>
+          <div className="text-right">{t('common.actions')}</div>
         </div>
 
         {loading ? (
           <div className="grid gap-2 p-4">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-14 rounded-xl bg-white/30 dark:bg-white/10" />
+              <div key={i} className="h-14 rounded-xl bg-[rgba(241,244,249,0.65)]" />
             ))}
           </div>
         ) : filteredDocs.length === 0 ? (
-          <div className="p-6 text-sm text-gray-600 dark:text-gray-400">{docs.length === 0 ? '尚未上傳任何文件，請先於上方進行上傳。' : '沒有符合的文件。'}</div>
+          <div className="p-6 text-sm text-[var(--text-secondary)]">{docs.length === 0 ? t('data.noDocumentsUploaded') : t('data.noMatches')}</div>
         ) : (
-          <div className="divide-y divide-white/20 dark:divide-white/10">
+          <div className="divide-y divide-[var(--border-light)]">
             {filteredDocs.map((d) => (
               <div key={d.document_id} className="grid grid-cols-1 items-start gap-3 p-4 md:grid-cols-[24px_1fr_320px_120px] md:items-center">
                 <div className="mt-0.5 md:mt-0">
@@ -490,13 +492,13 @@ export default function DataPage() {
                 <div className="min-w-0">
                   <div className="truncate font-medium" title={d.name}>{d.name}</div>
                 </div>
-                <div className="truncate text-xs text-gray-500">
+                <div className="truncate text-xs text-[var(--text-muted)]">
                   {d.document_id}
                 </div>
                 <div className="flex items-center justify-end gap-2">
-                  <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(d.document_id).then(() => showToast('已複製 ID', { kind: 'success' })).catch(() => showToast('複製失敗', { kind: 'error' }))}>複製 ID</Button>
+                  <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(d.document_id).then(() => showToast(t('data.copyIdSuccess'), { kind: 'success' })).catch(() => showToast(t('data.copyIdFail'), { kind: 'error' }))}>{t('data.copyId')}</Button>
                   {isAdmin && (
-                    <Button variant="danger" size="sm" onClick={() => askDelete([d.document_id])} disabled={busy}>刪除</Button>
+                    <Button variant="danger" size="sm" onClick={() => askDelete([d.document_id])} disabled={busy}>{t('common.delete')}</Button>
                   )}
                 </div>
               </div>
@@ -509,26 +511,26 @@ export default function DataPage() {
       <Card className="p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold">檔案使用權限</div>
-            <p className="text-xs text-gray-600 dark:text-gray-400">指定哪些使用者可以使用特定資料於聊天。</p>
+            <div className="text-sm font-semibold">{t('data.permissionsTitle')}</div>
+            <p className="text-xs text-[var(--text-secondary)]">{t('data.permissionsSubtitle')}</p>
           </div>
           {selectedDoc && (
-            <div className="text-xs text-gray-500 dark:text-gray-400">目前選擇：{selectedDoc.name}</div>
+            <div className="text-xs text-[var(--text-muted)]">{t('data.permissionsCurrent', { name: selectedDoc.name })}</div>
           )}
         </div>
 
         {docs.length === 0 ? (
-          <div className="mt-4 rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-500 dark:border-neutral-800 dark:text-gray-400">
+          <div className="mt-4 rounded-2xl border border-dashed border-[var(--border-light)] p-4 text-sm text-[var(--text-muted)]">
             尚未上傳任何資料，請先於上方新增檔案後再設定權限。
           </div>
         ) : (
           <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,320px)_1fr]">
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-gray-600 dark:text-gray-400" htmlFor="doc-select">選擇檔案</label>
+                <label className="text-xs font-semibold text-[var(--text-secondary)]" htmlFor="doc-select">選擇檔案</label>
                 <select
                   id="doc-select"
-                  className="mt-1 w-full rounded-2xl border border-gray-200 bg-white p-3 text-sm dark:border-neutral-800 dark:bg-neutral-900"
+                  className="mt-1 w-full rounded-2xl border border-[var(--border-light)] bg-[var(--surface)] p-3 text-sm "
                   value={selectedDocId || ''}
                   onChange={(e) => setSelectedDocId(e.target.value || null)}
                   disabled={docs.length === 0}
@@ -541,10 +543,10 @@ export default function DataPage() {
               </div>
 
               {selectedDoc && (
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm dark:border-neutral-800 dark:bg-neutral-900/40">
+                <div className="rounded-2xl border border-[var(--border-light)] bg-[var(--surface-muted)] p-4 text-sm /40">
                   <div className="font-semibold">{selectedDoc.name}</div>
-                  <div className="mt-1 break-all text-xs text-gray-500">{selectedDoc.document_id}</div>
-                  <div className="mt-3 text-xs text-gray-600 dark:text-gray-400">
+                  <div className="mt-1 break-all text-xs text-[var(--text-muted)]">{selectedDoc.document_id}</div>
+                  <div className="mt-3 text-xs text-[var(--text-secondary)]">
                     {docUserIds.length === 0
                       ? '目前所有登入者都可以使用此檔案。'
                       : `僅 ${docUserIds.length} 位使用者可使用此檔案。`}
@@ -552,7 +554,7 @@ export default function DataPage() {
                 </div>
               )}
 
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-gray-300">
+              <div className="rounded-2xl border border-[var(--border-light)] bg-[var(--surface)] p-4 text-xs text-[var(--text-secondary)] ">
                 預設所有帳號皆可引用此檔案，取消勾選即可限制不得使用的帳號；若後續又全數勾回，系統會恢復為「允許所有人」。Admin 角色始終擁有所有檔案，無法取消。
               </div>
 
@@ -562,11 +564,11 @@ export default function DataPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="rounded-2xl border border-[var(--border-light)] bg-[var(--surface)] p-4 ">
               {permissionUsersLoading || docPermLoading ? (
-                <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">載入使用者中…</div>
+                <div className="py-10 text-center text-sm text-[var(--text-muted)]">載入使用者中…</div>
               ) : sortedPermissionUsers.length === 0 ? (
-                <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">目前僅有您一位使用者可用。</div>
+                <div className="py-10 text-center text-sm text-[var(--text-muted)]">目前僅有您一位使用者可用。</div>
               ) : (
                 <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                   {sortedPermissionUsers.map((user) => {
@@ -574,13 +576,13 @@ export default function DataPage() {
                     const normalizedAuth = authLabel === 'administrator' ? 'admin' : authLabel;
                     const isAdminUser = normalizedAuth === 'admin';
                     const badgeClass = normalizedAuth === 'admin'
-                      ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-100'
+                      ? 'bg-indigo-100 text-[var(--brand-primary)]'
                       : normalizedAuth === 'manager'
-                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-100'
-                        : 'bg-gray-100 text-gray-600 dark:bg-neutral-700 dark:text-gray-200';
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-[var(--surface-muted)] text-[var(--text-secondary)]';
                     const badgeLabel = normalizedAuth === 'admin' ? 'Admin' : normalizedAuth === 'manager' ? 'Manager' : 'User';
                     return (
-                      <label key={user.user_id} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm dark:border-neutral-800 dark:bg-neutral-800/60">
+                      <label key={user.user_id} className="flex items-center gap-3 rounded-xl border border-[var(--border-light)] bg-[var(--surface-muted)] p-3 text-sm">
                         <input
                           type="checkbox"
                           className="h-4 w-4"
@@ -591,7 +593,7 @@ export default function DataPage() {
                         />
                         <div className="min-w-0 flex-1">
                           <div className="truncate font-medium" title={user.name || user.email}>{user.name || user.email}</div>
-                          <div className="truncate text-xs text-gray-500" title={user.email}>{user.email}</div>
+                          <div className="truncate text-xs text-[var(--text-muted)]" title={user.email}>{user.email}</div>
                         </div>
                         <span className={`rounded-full px-2 py-0.5 text-[11px] ${badgeClass}`}>{badgeLabel}</span>
                       </label>

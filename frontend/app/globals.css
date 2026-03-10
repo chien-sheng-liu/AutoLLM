@@ -2,37 +2,303 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Base tweaks */
-html, body { height: 100%; }
-body {
-  background-color: #03030b;
-  color: #f5f6ff;
+/* Design tokens */
+:root {
+  color-scheme: light;
+  --bg-app: #F6F8FC;
+  --bg-subtle: #EEF2F8;
+  --bg-base: var(--bg-app);
+
+  --surface: #FFFFFF;
+  --surface-panel: #F9FBFF;
+  --surface-card: #FFFFFF;
+  --surface-muted: #F2F5FB;
+  --surface-soft: #F4F7FC;
+
+  --border-light: #E7ECF5;
+  --border-subtle: #E3E9F4;
+  --border-strong: #D7DEEB;
+
+  --text-primary: #182033;
+  --text-secondary: #4F5B76;
+  --text-muted: #7A859F;
+  --text-disabled: #A7B0C3;
+  --text-inverse: #FFFFFF;
+
+  --brand-50: #F6F2FF;
+  --brand-100: #F1EDFF;
+  --brand-200: #E4DAFF;
+  --brand-300: #D8CCFF;
+  --brand-400: #B69CFF;
+  --brand-500: #7C5CFF;
+  --brand-600: #6D4EF2;
+  --brand-700: #5E43D8;
+  --brand-800: #4E38B1;
+  --brand-primary: #7C5CFF;
+  --brand-hover: #6D4EF2;
+  --brand-active: #5E43D8;
+  --soft-brand-background: #F1EDFF;
+  --soft-brand-border: #D8CCFF;
+
+  --accent-blue: #4F8CFF;
+  --accent-teal: #26B8A6;
+  --accent-pink: #FF6FB5;
+  --accent-from: #7C5CFF;
+  --accent-to: #4F8CFF;
+
+  --success: #1FA971;
+  --success-soft: #E8F8F1;
+  --warning: #E8A317;
+  --warning-soft: #FFF6DF;
+  --danger: #D84C63;
+  --danger-soft: #FDECEF;
+  --info: #2F7CF6;
+  --info-soft: #EAF2FF;
+
+  --shadow-soft-sm: 0 2px 8px rgba(24, 32, 51, 0.05);
+  --shadow-soft-md: 0 8px 24px rgba(24, 32, 51, 0.08);
+  --shadow-soft-lg: 0 18px 45px rgba(15, 23, 42, 0.12);
+  --shadow-brand: 0 20px 40px rgba(124, 92, 255, 0.25);
+
+  --gradient-brand: linear-gradient(135deg, #7C5CFF 0%, #6D4EF2 55%, #4F8CFF 100%);
+  --gradient-brand-soft: linear-gradient(135deg, #F6F2FF 0%, #EEF4FF 100%);
+  --gradient-app:
+    radial-gradient(circle at 10% 20%, rgba(124, 92, 255, 0.12), transparent 42%),
+    radial-gradient(circle at 80% 0%, rgba(79, 140, 255, 0.12), transparent 45%),
+    radial-gradient(circle at 20% 80%, rgba(255, 111, 181, 0.08), transparent 40%);
+
+  --grid-line: rgba(71, 86, 120, 0.05);
 }
-* { @apply box-border; }
-a { @apply text-inherit no-underline; }
-pre { @apply whitespace-pre-wrap bg-neutral-900 text-neutral-100 p-3 rounded-xl border border-neutral-800 overflow-auto; }
+
+/* Base tweaks */
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  @apply box-border;
+}
+
+a {
+  color: var(--brand-600);
+  text-decoration: none;
+}
+
+pre {
+  @apply whitespace-pre-wrap rounded-2xl border;
+  background: var(--surface-muted);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+  padding: 0.85rem 1rem;
+  overflow: auto;
+}
 
 /* Typing indicator (three blinking dots) */
 @keyframes typing-blink {
-  0%, 80%, 100% { opacity: 0.25; }
-  40% { opacity: 1; }
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
 }
-.typing-dots span { display: inline-block; width: 0.35rem; height: 0.35rem; border-radius: 9999px; background-color: currentColor; margin-right: 0.25rem; opacity: 0.25; animation: typing-blink 1.4s infinite both; }
-.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
-.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+.typing-dots span {
+  display: inline-block;
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 9999px;
+  background-color: var(--text-muted);
+  margin-right: 0.25rem;
+  opacity: 0.25;
+  animation: typing-blink 1.4s infinite both;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
 
 /* High-tech background utilities */
 .bg-tech {
-  background-image:
-    radial-gradient(1600px 800px at 5% -10%, rgba(124,77,255,0.25), transparent 60%),
-    radial-gradient(1200px 700px at 85% -5%, rgba(0,194,255,0.18), transparent 55%),
-    linear-gradient(180deg, #03030b 0%, #040112 60%, #050316 100%);
+  background-image: var(--gradient-app);
+  opacity: 0.9;
 }
 
 .grid-overlay {
   pointer-events: none;
   position: absolute;
   inset: 0;
-  background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
+  background-image: linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 46px 46px;
+}
+
+/* Chat markdown typography */
+.chat-markdown {
+  width: 100%;
+  max-width: 900px;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  color: inherit;
+  word-break: break-word;
+}
+
+.chat-markdown > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.chat-markdown p {
+  margin: 0.18rem 0;
+}
+
+.chat-markdown :is(p, ul, ol, blockquote, pre, table, hr) + :is(p, ul, ol, blockquote, pre, table, hr) {
+  margin-top: 0.28rem;
+}
+
+.chat-markdown h1,
+.chat-markdown h2,
+.chat-markdown h3,
+.chat-markdown h4 {
+  font-weight: 600;
+  line-height: 1.28;
+  margin-top: 1rem;
+  margin-bottom: 0.4rem;
+}
+
+.chat-markdown h1 { font-size: 1.14rem; }
+.chat-markdown h2 { font-size: 1.06rem; }
+.chat-markdown h3 { font-size: 1rem; }
+.chat-markdown h4 { font-size: 0.94rem; }
+
+.chat-markdown ul,
+.chat-markdown ol {
+  margin: 0.22rem 0 0.32rem;
+  padding-left: 0.9rem;
+}
+
+.chat-markdown li {
+  margin: 0.14rem 0;
+  padding-left: 0.05rem;
+}
+
+.chat-markdown li > ul,
+.chat-markdown li > ol {
+  margin-top: 0.14rem;
+}
+
+.chat-markdown blockquote {
+  margin: 0.3rem 0;
+  padding: 0.45rem 0.6rem;
+  border-left: 3px solid var(--soft-brand-border);
+  background: var(--surface-muted);
+  border-radius: 0.5rem;
+  color: var(--text-secondary);
+}
+
+.chat-markdown :not(pre) > code {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+  border-radius: 0.5rem;
+  padding: 0.08rem 0.35rem;
+  font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.92em;
+}
+
+.chat-markdown pre {
+  margin: 0.55rem 0;
+  border: 1px solid var(--border-light);
+  border-radius: 0.85rem;
+  background: var(--surface-muted);
+  padding: 0.9rem;
+  font-size: 0.92rem;
+  overflow: auto;
+}
+
+.chat-markdown table {
+  width: 100%;
+  margin: 0.6rem 0;
+  border-collapse: collapse;
+  font-size: 0.94rem;
+}
+
+.chat-markdown th,
+.chat-markdown td {
+  border: 1px solid var(--border-subtle);
+  padding: 0.4rem 0.5rem;
+  text-align: left;
+}
+
+.chat-markdown th {
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.chat-markdown hr {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 0.65rem 0;
+}
+
+.chat-markdown strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.chat-markdown em {
+  font-style: italic;
+}
+
+.chat-markdown a {
+  color: var(--brand-primary);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.15em;
+}
+
+.chat-markdown a:hover {
+  color: var(--brand-hover);
+}
+
+.chat-markdown img {
+  max-width: 100%;
+  border-radius: 0.75rem;
+  margin: 0.5rem 0;
+}
+
+.chat-markdown .chat-markdown__citation {
+  font-size: 0.75em;
+  font-weight: 600;
+  color: var(--brand-primary);
+  margin-left: 0.15em;
+  vertical-align: baseline;
+  line-height: 1;
+}
+
+.chat-markdown--system {
+  font-size: 0.92rem;
+}
+
+.chat-markdown--user a {
+  color: rgba(255, 255, 255, 0.95);
+  text-decoration-color: rgba(255, 255, 255, 0.65);
+}
+
+.chat-markdown--user .chat-markdown__citation {
+  color: rgba(255, 255, 255, 0.9);
 }

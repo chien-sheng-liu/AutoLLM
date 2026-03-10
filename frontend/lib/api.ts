@@ -34,6 +34,18 @@ export type PermissionUser = { user_id: string; email: string; name?: string | n
 export type ChatResponse = { answer: string; citations?: Citation[]; used_prompt?: string; answer_id: string };
 export type LoginResult = { access_token: string; token_type: string; user: AuthUser };
 
+function preferredLanguage(): 'en' | 'zh' {
+  try {
+    if (typeof document !== 'undefined') {
+      const attr = document.documentElement.lang;
+      if (attr === 'zh') return 'zh';
+      const stored = localStorage.getItem('autollm.language');
+      if (stored === 'zh') return 'zh';
+    }
+  } catch {}
+  return 'en';
+}
+
 function shouldRedirectOn401() {
   if (typeof window === 'undefined') return false;
   const path = window.location.pathname;
@@ -49,6 +61,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers || {});
   const token = getAccessToken();
   if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`);
+  if (!headers.has('X-Language')) headers.set('X-Language', preferredLanguage());
   const res = await fetch(`${apiBase()}${path}`, { ...init, headers });
   if (!res.ok) {
     if (res.status === 401 && shouldRedirectOn401()) {
@@ -125,7 +138,7 @@ export async function chat(messages: Message[], options?: { top_k?: number; temp
   return apiFetch<ChatResponse>(`/api/v1/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, ...options }),
+    body: JSON.stringify({ messages, ...options, language: preferredLanguage() }),
   });
 }
 
@@ -137,17 +150,17 @@ export type ChatStreamEvent =
 export async function chatStream(
   messages: Message[],
   onEvent: (ev: ChatStreamEvent) => void,
-  options?: { top_k?: number; temperature?: number; chat_model?: string; chat_provider?: string; conversation_id?: string; signal?: AbortSignal }
+  options?: { top_k?: number; temperature?: number; chat_model?: string; chat_provider?: string; conversation_id?: string; signal?: AbortSignal; language?: 'en' | 'zh' }
 ): Promise<void> {
   const ctrl = new AbortController();
   const signal = options?.signal || ctrl.signal;
   const token = getAccessToken();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'X-Language': options?.language || preferredLanguage() };
   if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(`${apiBase()}/api/v1/chat/stream`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ messages, ...options }),
+    body: JSON.stringify({ messages, ...options, language: options?.language || preferredLanguage() }),
     signal,
   });
   if (!res.ok || !res.body) {
@@ -237,6 +250,7 @@ export function uploadDocumentWithProgress(file: File, onProgress: (pct: number)
     xhr.open('POST', `${apiBase()}/api/v1/docs/upload`);
     const token = getAccessToken();
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.setRequestHeader('X-Language', preferredLanguage());
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         try { resolve(JSON.parse(xhr.responseText)); } catch (e) { reject(new Error('Invalid server response')); }
