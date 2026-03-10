@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { flushSync } from "react-dom";
 import type { Message, Citation, ChatStreamEvent, Config } from "@/lib/api";
 import {
   chatStream,
@@ -281,11 +282,12 @@ export default function ChatPage() {
     const newMsgs: Message[] = [...messages, userMessage];
     setMessages(newMsgs);
     autoDetectFromInput(userMessage.content);
-    // Clear input immediately (sync DOM + state to avoid race with React re-render)
-    setInput("");
+    // flushSync forces React to commit setInput("") synchronously before the
+    // async streaming begins, preventing React 18 automatic batching from
+    // deferring the update and leaving stale text in the controlled textarea.
+    flushSync(() => setInput(""));
     const el = inputRef.current;
     if (el) {
-      el.value = "";
       el.style.height = "auto";
       handleInputHeightChange(el.offsetHeight || 48);
     }
@@ -563,10 +565,9 @@ export default function ChatPage() {
   );
   const handleInputHeightChange = (h: number) => setInputHeight(h);
   const clearInput = () => {
-    setInput("");
+    flushSync(() => setInput(""));
     const el = inputRef.current;
     if (el) {
-      el.value = "";
       el.style.height = "auto";
       handleInputHeightChange(el.offsetHeight || 48);
     }
