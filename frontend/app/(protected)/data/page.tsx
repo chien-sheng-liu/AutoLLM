@@ -319,7 +319,7 @@ export default function DataPage() {
   }, []);
 
   if (!authLoaded) {
-    return <div className="text-sm text-gray-500">{t('data.permissionsLoading')}</div>;
+    return <div className="text-sm text-[var(--text-muted)]">{t('data.permissionsLoading')}</div>;
   }
 
   if (!canManage) {
@@ -329,11 +329,11 @@ export default function DataPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold">{t('data.readonlyTitle')}</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">{t('data.readonlySubtitle')}</p>
+            <p className="text-sm text-[var(--text-secondary)]">{t('data.readonlySubtitle')}</p>
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-            <span className="rounded-full border border-gray-200 px-3 py-1 dark:border-neutral-700">{loading ? '—' : t('data.recordsCount', { count: docs.length })}</span>
-            <button className="rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50 dark:border-neutral-800 dark:hover:bg-neutral-800" onClick={refresh}>{t('common.refresh')}</button>
+          <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+            <span className="rounded-full border border-[var(--border-light)] px-3 py-1">{loading ? '—' : t('data.recordsCount', { count: docs.length })}</span>
+            <button className="rounded-xl border border-[var(--border-light)] px-3 py-2 hover:bg-[var(--surface-muted)]" onClick={refresh}>{t('common.refresh')}</button>
           </div>
         </div>
 
@@ -343,19 +343,19 @@ export default function DataPage() {
             <Button variant="outline" onClick={() => setSortAsc((s) => !s)}>{t('common.name')} {sortAsc ? 'A→Z' : 'Z→A'}</Button>
           </div>
 
-          <div className="hidden grid-cols-[1fr_320px_120px] gap-3 px-4 py-2 text-xs text-gray-500 md:grid dark:text-gray-400">
+          <div className="hidden grid-cols-[1fr_320px_120px] gap-3 px-4 py-2 text-xs text-[var(--text-muted)] md:grid">
             <div>{t('common.name')}</div>
             <div>ID</div>
             <div>{t('common.actions')}</div>
           </div>
           {filteredDocs.length === 0 ? (
-            <div className="p-6 text-sm text-gray-600 dark:text-gray-400">{docs.length === 0 ? t('data.noAuthorizedDocs') : t('data.noMatches')}</div>
+            <div className="p-6 text-sm text-[var(--text-secondary)]">{docs.length === 0 ? t('data.noAuthorizedDocs') : t('data.noMatches')}</div>
           ) : (
-            <div className="divide-y divide-gray-100 dark:divide-neutral-800">
+            <div className="divide-y divide-[var(--border-light)]">
               {filteredDocs.map((d) => (
                 <div key={d.document_id} className="grid grid-cols-1 items-start gap-3 p-4 md:grid-cols-[1fr_320px_120px] md:items-center">
                   <div className="truncate font-medium">{d.name}</div>
-                  <div className="break-all text-xs text-gray-500">{d.document_id}</div>
+                  <div className="break-all text-xs text-[var(--text-muted)]">{d.document_id}</div>
                   <div>
                     <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(d.document_id).then(() => showToast(t('data.copyIdSuccess'), { kind: 'success' })).catch(() => showToast(t('data.copyIdFail'), { kind: 'error' }))}>{t('data.copyId')}</Button>
                   </div>
@@ -374,11 +374,11 @@ export default function DataPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold">{t('data.manageTitle')}</h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{t('data.manageSubtitle')}</p>
+          <p className="text-sm text-[var(--text-secondary)]">{t('data.manageSubtitle')}</p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <span className="rounded-full border border-gray-200 px-3 py-1 dark:border-neutral-700">{loading ? '—' : t('data.recordsCount', { count: docs.length })}</span>
-          <button className="rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50 dark:border-neutral-800 dark:hover:bg-neutral-800" onClick={refresh} disabled={uploading || busy}>{t('common.refresh')}</button>
+        <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+          <span className="rounded-full border border-[var(--border-light)] px-3 py-1">{loading ? '—' : t('data.recordsCount', { count: docs.length })}</span>
+          <button className="rounded-xl border border-[var(--border-light)] px-3 py-2 hover:bg-[var(--surface-muted)]" onClick={refresh} disabled={uploading || busy}>{t('common.refresh')}</button>
         </div>
       </div>
 
@@ -387,7 +387,7 @@ export default function DataPage() {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-sm font-semibold">{t('data.uploadCta')}</div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">{t('data.uploadHintExtended')}</div>
+            <div className="text-xs text-[var(--text-secondary)]">{t('data.uploadHintExtended')}</div>
           </div>
           <div className="flex gap-2">
             <label className={buttonClasses({ variant: 'outline', size: 'md' }) + ' cursor-pointer'}>
@@ -410,7 +410,7 @@ export default function DataPage() {
         </div>
 
         <div
-          className={`rounded-xl border-2 border-dashed p-8 text-center text-sm transition backdrop-blur-md ${dragOver ? 'border-indigo-400 bg-white/40 dark:border-indigo-800 dark:bg-white/10' : 'border-white/20 bg-white/30 dark:border-white/10 dark:bg-white/5'}`}
+          className={`rounded-xl border-2 border-dashed p-8 text-center text-sm transition backdrop-blur-md ${dragOver ? 'border-[var(--soft-brand-border)] bg-[var(--soft-brand-background)]' : 'border-[var(--border-light)] bg-[var(--surface-muted)]'}`}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={(e) => {
@@ -420,7 +420,7 @@ export default function DataPage() {
         >
           {t('data.dragHint')}
           {uploading && (
-            <div className="mx-auto mt-4 h-2 w-full max-w-lg overflow-hidden rounded bg-white/30 dark:bg-white/10">
+            <div className="mx-auto mt-4 h-2 w-full max-w-lg overflow-hidden rounded bg-[rgba(241,244,249,0.65)]">
               <div className="h-full bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600" style={{ width: `${overallProgress}%` }} />
             </div>
           )}
@@ -429,7 +429,7 @@ export default function DataPage() {
         {selectedFiles.length > 0 && (
           <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {selectedFiles.map((f, i) => (
-              <div key={`${f.name}-${i}`} className="flex items-center justify-between rounded-xl border border-white/30 bg-white/60 p-3 text-sm backdrop-blur-md dark:border-white/10 dark:bg-white/10">
+              <div key={`${f.name}-${i}`} className="flex items-center justify-between rounded-xl border border-[var(--border-light)] bg-[var(--surface)] p-3 text-sm backdrop-blur-md ">
                 <div className="min-w-0 truncate pr-3"><span className="truncate" title={f.name}>{f.name}</span></div>
                 <Button variant="outline" size="sm" disabled={uploading} onClick={() => setSelectedFiles((prev) => prev.filter((_, idx) => idx !== i))}>{t('data.remove')}</Button>
               </div>
@@ -455,7 +455,7 @@ export default function DataPage() {
 
       {/* Documents list */}
       <Card className="overflow-hidden">
-        <div className="hidden grid-cols-[24px_1fr_320px_120px] items-center gap-3 border-b border-white/20 px-4 py-3 text-xs text-gray-500 dark:border-white/10 md:grid">
+        <div className="hidden grid-cols-[24px_1fr_320px_120px] items-center gap-3 border-b border-[var(--border-light)] px-4 py-3 text-xs text-[var(--text-muted)] md:grid">
           <div>
             <input
               aria-label="select all"
@@ -472,13 +472,13 @@ export default function DataPage() {
         {loading ? (
           <div className="grid gap-2 p-4">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-14 rounded-xl bg-white/30 dark:bg-white/10" />
+              <div key={i} className="h-14 rounded-xl bg-[rgba(241,244,249,0.65)]" />
             ))}
           </div>
         ) : filteredDocs.length === 0 ? (
-          <div className="p-6 text-sm text-gray-600 dark:text-gray-400">{docs.length === 0 ? t('data.noDocumentsUploaded') : t('data.noMatches')}</div>
+          <div className="p-6 text-sm text-[var(--text-secondary)]">{docs.length === 0 ? t('data.noDocumentsUploaded') : t('data.noMatches')}</div>
         ) : (
-          <div className="divide-y divide-white/20 dark:divide-white/10">
+          <div className="divide-y divide-[var(--border-light)]">
             {filteredDocs.map((d) => (
               <div key={d.document_id} className="grid grid-cols-1 items-start gap-3 p-4 md:grid-cols-[24px_1fr_320px_120px] md:items-center">
                 <div className="mt-0.5 md:mt-0">
@@ -492,7 +492,7 @@ export default function DataPage() {
                 <div className="min-w-0">
                   <div className="truncate font-medium" title={d.name}>{d.name}</div>
                 </div>
-                <div className="truncate text-xs text-gray-500">
+                <div className="truncate text-xs text-[var(--text-muted)]">
                   {d.document_id}
                 </div>
                 <div className="flex items-center justify-end gap-2">
@@ -512,25 +512,25 @@ export default function DataPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-sm font-semibold">{t('data.permissionsTitle')}</div>
-            <p className="text-xs text-gray-600 dark:text-gray-400">{t('data.permissionsSubtitle')}</p>
+            <p className="text-xs text-[var(--text-secondary)]">{t('data.permissionsSubtitle')}</p>
           </div>
           {selectedDoc && (
-            <div className="text-xs text-gray-500 dark:text-gray-400">{t('data.permissionsCurrent', { name: selectedDoc.name })}</div>
+            <div className="text-xs text-[var(--text-muted)]">{t('data.permissionsCurrent', { name: selectedDoc.name })}</div>
           )}
         </div>
 
         {docs.length === 0 ? (
-          <div className="mt-4 rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-500 dark:border-neutral-800 dark:text-gray-400">
+          <div className="mt-4 rounded-2xl border border-dashed border-[var(--border-light)] p-4 text-sm text-[var(--text-muted)]">
             尚未上傳任何資料，請先於上方新增檔案後再設定權限。
           </div>
         ) : (
           <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,320px)_1fr]">
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-gray-600 dark:text-gray-400" htmlFor="doc-select">選擇檔案</label>
+                <label className="text-xs font-semibold text-[var(--text-secondary)]" htmlFor="doc-select">選擇檔案</label>
                 <select
                   id="doc-select"
-                  className="mt-1 w-full rounded-2xl border border-gray-200 bg-white p-3 text-sm dark:border-neutral-800 dark:bg-neutral-900"
+                  className="mt-1 w-full rounded-2xl border border-[var(--border-light)] bg-[var(--surface)] p-3 text-sm "
                   value={selectedDocId || ''}
                   onChange={(e) => setSelectedDocId(e.target.value || null)}
                   disabled={docs.length === 0}
@@ -543,10 +543,10 @@ export default function DataPage() {
               </div>
 
               {selectedDoc && (
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm dark:border-neutral-800 dark:bg-neutral-900/40">
+                <div className="rounded-2xl border border-[var(--border-light)] bg-[var(--surface-muted)] p-4 text-sm /40">
                   <div className="font-semibold">{selectedDoc.name}</div>
-                  <div className="mt-1 break-all text-xs text-gray-500">{selectedDoc.document_id}</div>
-                  <div className="mt-3 text-xs text-gray-600 dark:text-gray-400">
+                  <div className="mt-1 break-all text-xs text-[var(--text-muted)]">{selectedDoc.document_id}</div>
+                  <div className="mt-3 text-xs text-[var(--text-secondary)]">
                     {docUserIds.length === 0
                       ? '目前所有登入者都可以使用此檔案。'
                       : `僅 ${docUserIds.length} 位使用者可使用此檔案。`}
@@ -554,7 +554,7 @@ export default function DataPage() {
                 </div>
               )}
 
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-gray-300">
+              <div className="rounded-2xl border border-[var(--border-light)] bg-[var(--surface)] p-4 text-xs text-[var(--text-secondary)] ">
                 預設所有帳號皆可引用此檔案，取消勾選即可限制不得使用的帳號；若後續又全數勾回，系統會恢復為「允許所有人」。Admin 角色始終擁有所有檔案，無法取消。
               </div>
 
@@ -564,11 +564,11 @@ export default function DataPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="rounded-2xl border border-[var(--border-light)] bg-[var(--surface)] p-4 ">
               {permissionUsersLoading || docPermLoading ? (
-                <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">載入使用者中…</div>
+                <div className="py-10 text-center text-sm text-[var(--text-muted)]">載入使用者中…</div>
               ) : sortedPermissionUsers.length === 0 ? (
-                <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">目前僅有您一位使用者可用。</div>
+                <div className="py-10 text-center text-sm text-[var(--text-muted)]">目前僅有您一位使用者可用。</div>
               ) : (
                 <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                   {sortedPermissionUsers.map((user) => {
@@ -576,13 +576,13 @@ export default function DataPage() {
                     const normalizedAuth = authLabel === 'administrator' ? 'admin' : authLabel;
                     const isAdminUser = normalizedAuth === 'admin';
                     const badgeClass = normalizedAuth === 'admin'
-                      ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-100'
+                      ? 'bg-indigo-100 text-[var(--brand-primary)]'
                       : normalizedAuth === 'manager'
-                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-100'
-                        : 'bg-gray-100 text-gray-600 dark:bg-neutral-700 dark:text-gray-200';
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-[var(--surface-muted)] text-[var(--text-secondary)]';
                     const badgeLabel = normalizedAuth === 'admin' ? 'Admin' : normalizedAuth === 'manager' ? 'Manager' : 'User';
                     return (
-                      <label key={user.user_id} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm dark:border-neutral-800 dark:bg-neutral-800/60">
+                      <label key={user.user_id} className="flex items-center gap-3 rounded-xl border border-[var(--border-light)] bg-[var(--surface-muted)] p-3 text-sm">
                         <input
                           type="checkbox"
                           className="h-4 w-4"
@@ -593,7 +593,7 @@ export default function DataPage() {
                         />
                         <div className="min-w-0 flex-1">
                           <div className="truncate font-medium" title={user.name || user.email}>{user.name || user.email}</div>
-                          <div className="truncate text-xs text-gray-500" title={user.email}>{user.email}</div>
+                          <div className="truncate text-xs text-[var(--text-muted)]" title={user.email}>{user.email}</div>
                         </div>
                         <span className={`rounded-full px-2 py-0.5 text-[11px] ${badgeClass}`}>{badgeLabel}</span>
                       </label>

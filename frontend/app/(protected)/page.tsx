@@ -36,12 +36,12 @@ export default function Page() {
       .finally(() => setLoading(false));
   }, []);
 
-  const shimmer = "animate-pulse bg-gray-100 dark:bg-neutral-800";
+  const shimmer = "animate-pulse bg-[var(--surface-muted)] dark:bg-neutral-800";
 
   return (
     <div className="grid gap-8">
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-3xl border border-gray-200 bg-white px-6 py-10 shadow-soft dark:border-neutral-800 dark:bg-neutral-900 md:px-10 md:py-14">
+      <section className="relative overflow-hidden rounded-3xl border border-[var(--border-light)] bg-[var(--surface)] px-6 py-10 shadow-soft dark:border-neutral-800 dark:bg-neutral-900 md:px-10 md:py-14">
         <div className="pointer-events-none absolute -top-16 -right-24 h-56 w-56 rounded-full bg-gradient-to-tr from-indigo-500/30 to-violet-600/30 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-16 -left-24 h-56 w-56 rounded-full bg-gradient-to-tr from-pink-500/20 to-rose-500/20 blur-3xl" />
 
@@ -53,7 +53,7 @@ export default function Page() {
             <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl lg:text-5xl">
               {t('home.dashHeadline')}
             </h1>
-            <p className="max-w-[60ch] text-base text-gray-600 dark:text-gray-400 sm:text-lg">
+            <p className="max-w-[60ch] text-base text-[var(--text-secondary)] sm:text-lg">
               {t('home.dashDescription')}
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
@@ -71,7 +71,7 @@ export default function Page() {
 
           {/* Visual stats (Stat grid) */}
           <div className="relative">
-            <div className="mb-3 text-sm font-medium text-gray-500">{t('home.quickLook')}</div>
+            <div className="mb-3 text-sm font-medium text-[var(--text-muted)]">{t('home.quickLook')}</div>
             <div className="grid gap-3 sm:grid-cols-2">
               <Stat label={t('home.stats.docsLabel')} value={loading ? <span className={`inline-block h-7 w-16 rounded ${shimmer}`} /> : (ov?.docsCount ?? 0)} />
               <Stat label={t('home.stats.topKLabel')} value={loading ? <span className={`inline-block h-7 w-12 rounded ${shimmer}`} /> : (ov?.top_k ?? '—')} />
@@ -97,10 +97,10 @@ export default function Page() {
 
 
       {/* Recent documents */}
-      <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-soft dark:border-neutral-800 dark:bg-neutral-900">
+      <section className="rounded-3xl border border-[var(--border-light)] bg-[var(--surface)] p-6 shadow-soft dark:border-neutral-800 dark:bg-neutral-900">
         <div className="mb-4 flex items-center justify-between">
           <div className="font-semibold">{t('home.recentsTitle')}</div>
-          <a className="text-sm text-indigo-600 hover:underline" href="/data">{t('home.recentsViewAll')}</a>
+          <a className="text-sm text-[var(--brand-primary)] hover:underline" href="/data">{t('home.recentsViewAll')}</a>
         </div>
         {loading ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -111,25 +111,25 @@ export default function Page() {
         ) : ov && ov.docItems.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {ov.docItems.slice(0, 6).map((d) => (
-              <div key={d.document_id} className="flex items-center justify-between rounded-xl border border-gray-200 p-4 text-sm dark:border-neutral-800">
+              <div key={d.document_id} className="flex items-center justify-between rounded-xl border border-[var(--border-light)] p-4 text-sm dark:border-neutral-800">
                 <div className="truncate pr-3">
                   <div className="truncate font-medium" title={d.name}>{d.name}</div>
-                  <div className="text-xs text-gray-500">{t('common.idLabel')}: {d.document_id}</div>
+                  <div className="text-xs text-[var(--text-muted)]">{t('common.idLabel')}: {d.document_id}</div>
                 </div>
                 <a href="/chat" className={`${buttonClasses({ variant: 'outline', size: 'sm' })}`}>{t('nav.chat')}</a>
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-sm text-gray-600 dark:text-gray-400">{t('home.noDocs')}</div>
+          <div className="text-sm text-[var(--text-secondary)]">{t('home.noDocs')}</div>
         )}
       </section>
 
       {/* Final CTA kept minimal for actions */}
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-gray-200 bg-white p-6 shadow-soft dark:border-neutral-800 dark:bg-neutral-900">
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-[var(--border-light)] bg-[var(--surface)] p-6 shadow-soft dark:border-neutral-800 dark:bg-neutral-900">
         <div className="max-w-[70ch]">
-          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('home.shortcutsTitle')}</div>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{t('home.shortcutsSubtitle')}</p>
+          <div className="text-sm font-medium text-[var(--text-primary)]">{t('home.shortcutsTitle')}</div>
+          <p className="text-sm text-[var(--text-secondary)]">{t('home.shortcutsSubtitle')}</p>
         </div>
         <div className="flex gap-3">
           <a className={`${buttonClasses({ variant: 'primary', size: 'md' })}`} href="/data">{t('home.shortcutsUpload')}</a>

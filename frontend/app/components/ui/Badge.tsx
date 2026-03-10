@@ -8,16 +8,16 @@ export type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & {
 
 export default function Badge({ className, tone = 'brand', ...props }: BadgeProps) {
   const tones: Record<string, string> = {
-    neutral: 'border-white/20 bg-white/10 text-white/90',
-    brand: 'border-violet-300/30 bg-violet-500/10 text-violet-200',
-    success: 'border-emerald-300/30 bg-emerald-500/10 text-emerald-200',
-    warning: 'border-amber-300/30 bg-amber-500/10 text-amber-200',
-    danger: 'border-rose-300/30 bg-rose-500/10 text-rose-200',
+    neutral: 'border-[var(--border-light)] bg-[var(--surface-muted)] text-[var(--text-secondary)]',
+    brand: 'border-[var(--soft-brand-border)] bg-[var(--soft-brand-background)] text-[var(--brand-primary)]',
+    success: 'border-[#B8EAD3] bg-[#E8F8F1] text-[#1B7C5B]',
+    warning: 'border-[#F4CE68] bg-[#FFF6E2] text-[#9B620B]',
+    danger: 'border-[#F6AFC0] bg-[#FDECEF] text-[#B0364E]',
   };
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-wide backdrop-blur-md',
+        'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide',
         tones[tone],
         className,
       )}
@@ -25,4 +25,3 @@ export default function Badge({ className, tone = 'brand', ...props }: BadgeProp
     />
   );
 }
-

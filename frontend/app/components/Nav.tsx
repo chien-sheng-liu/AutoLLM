@@ -65,30 +65,38 @@ export default function Nav() {
   ].filter((item) => item.show);
 
   return (
-    <div className="sticky top-0 z-50 bg-transparent">
-      <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-6 rounded-2xl border border-white/5 bg-black/40 px-6 py-3 shadow-[0_10px_40px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+    <div className="sticky top-0 z-50 px-4 pb-3 pt-4 md:px-10">
+      <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-6 rounded-3xl border border-[var(--border-strong)] bg-[var(--surface)]/95 px-4 py-3 shadow-soft backdrop-blur">
         <div className="flex items-center gap-3">
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-500 via-violet-600 to-fuchsia-500 text-lg font-semibold text-white shadow-glow" aria-hidden>⚡</span>
+          <span
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--soft-brand-border)] bg-[var(--soft-brand-background)] text-lg font-semibold text-[var(--brand-primary)] shadow-surface"
+            aria-hidden
+          >
+            ⚡
+          </span>
           <div className="text-sm">
-            <div className="font-semibold tracking-tight text-white">{t('nav.brand')}</div>
-            <div className="text-[11px] uppercase tracking-[0.3em] text-white/50">AI Copilot</div>
+            <div className="font-semibold tracking-tight text-[var(--text-primary)]">{t('nav.brand')}</div>
+            <div className="text-[11px] uppercase tracking-[0.3em] text-[var(--text-muted)]">AI Copilot</div>
           </div>
         </div>
 
         <nav className="hidden flex-1 items-center justify-center gap-1 text-sm md:flex">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`relative rounded-xl px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-                isActive(link.href)
-                  ? 'text-white before:absolute before:inset-0 before:rounded-xl before:bg-gradient-to-r before:from-indigo-500/60 before:to-fuchsia-500/50 before:blur' 
-                  : 'text-white/60 hover:text-white'
-              }`}
-            >
-              <span className="relative z-10">{link.label}</span>
-            </Link>
-          ))}
+          {navLinks.map((link) => {
+            const active = isActive(link.href);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`rounded-2xl px-4 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-200)] ${
+                  active
+                    ? 'bg-[var(--brand-50)] text-[var(--brand-primary)] shadow-surface'
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]'
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="flex items-center gap-4">
@@ -98,33 +106,46 @@ export default function Nav() {
               <button
                 type="button"
                 onClick={() => setMenuOpen((open) => !open)}
-                className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-1.5 text-left text-xs text-white/80 shadow-inner backdrop-blur focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                className="flex items-center gap-2 rounded-2xl border border-[var(--border-light)] bg-[var(--surface-muted)] px-3 py-1.5 text-left text-xs text-[var(--text-secondary)] shadow-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-200)]"
               >
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-600 to-fuchsia-500 text-sm font-semibold text-white">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--brand-primary)] text-sm font-semibold text-white">
                   {avatarLabel}
                 </span>
                 <span className="hidden sm:block">
-                  <div className="text-[12px] font-semibold leading-tight text-white">
+                  <div className="text-[12px] font-semibold leading-tight text-[var(--text-primary)]">
                     {user.name || user.email}
                   </div>
-                  <div className="text-[10px] text-white/60">{t('nav.signedIn')}</div>
+                  <div className="text-[10px] text-[var(--text-muted)]">{t('nav.signedIn')}</div>
                 </span>
-                <span className="text-white/60" aria-hidden>▾</span>
+                <span className="text-[var(--text-muted)]" aria-hidden>
+                  ▾
+                </span>
               </button>
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-white/10 bg-black/80 p-2 text-sm text-white shadow-2xl backdrop-blur">
-                  <Link href="/guide" className="block rounded-xl px-3 py-2 text-white/80 transition hover:bg-white/10" onClick={() => setMenuOpen(false)}>
+                <div className="absolute right-0 mt-2 w-52 rounded-2xl border border-[var(--border-light)] bg-[var(--surface)] p-2 text-sm text-[var(--text-secondary)] shadow-panel">
+                  <Link
+                    href="/guide"
+                    className="block rounded-xl px-3 py-2 transition hover:bg-[var(--surface-muted)]"
+                    onClick={() => setMenuOpen(false)}
+                  >
                     {t('nav.guide')}
                   </Link>
                   {canAdmin && (
-                    <Link href="/admin" className="block rounded-xl px-3 py-2 text-white/80 transition hover:bg-white/10" onClick={() => setMenuOpen(false)}>
+                    <Link
+                      href="/admin"
+                      className="block rounded-xl px-3 py-2 transition hover:bg-[var(--surface-muted)]"
+                      onClick={() => setMenuOpen(false)}
+                    >
                       {t('nav.admin')}
                     </Link>
                   )}
                   <button
                     type="button"
-                    onClick={() => { setMenuOpen(false); handleLogout(); }}
-                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-rose-200 transition hover:bg-rose-500/10"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      handleLogout();
+                    }}
+                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-[var(--danger)] transition hover:bg-[var(--danger-soft)]"
                   >
                     {t('nav.logout')}
                     <span aria-hidden>↗</span>
@@ -135,7 +156,7 @@ export default function Nav() {
           ) : (
             <Link
               href="/login"
-              className="rounded-2xl border border-white/15 bg-white/10 px-3 py-1.5 text-sm font-medium text-white/80 transition hover:bg-white/20"
+              className="rounded-2xl border border-[var(--border-strong)] bg-[var(--surface-muted)] px-3 py-1.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-panel)] hover:text-[var(--text-primary)]"
             >
               {t('nav.login')}
             </Link>

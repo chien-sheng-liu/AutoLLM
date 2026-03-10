@@ -9,7 +9,7 @@ export default function Card({ className, inset = false, ...props }: CardProps) 
   return (
     <div
       className={cn(
-        "rounded-2xl border border-white/30 bg-white/70 shadow-soft backdrop-blur-md dark:border-white/10 dark:bg-white/5",
+        "rounded-3xl border border-[var(--border-light)] bg-[var(--surface)] text-[var(--text-primary)] shadow-surface",
         inset && "p-4",
         className
       )}

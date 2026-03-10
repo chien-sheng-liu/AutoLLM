@@ -10,14 +10,18 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className="relative min-h-screen bg-[#03030b] text-slate-100">
+    <html lang="en">
+      <body className="min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)] antialiased">
         <LanguageProvider>
-          <div className="pointer-events-none absolute inset-0 bg-tech" />
-          <div className="pointer-events-none grid-overlay" />
-          <Nav />
-          <main className="relative px-4 py-8 md:px-10 md:py-12">{children}</main>
-          <Toaster />
+          <div className="relative flex min-h-screen flex-col">
+            <div aria-hidden className="pointer-events-none absolute inset-0 bg-tech" />
+            <div aria-hidden className="pointer-events-none grid-overlay" />
+            <div className="relative z-10 flex flex-1 flex-col">
+              <Nav />
+              <main className="relative flex-1 px-4 py-8 md:px-10 md:py-12">{children}</main>
+            </div>
+            <Toaster />
+          </div>
         </LanguageProvider>
       </body>
     </html>
