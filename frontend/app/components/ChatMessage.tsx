@@ -29,7 +29,9 @@ function renderCitationAware(children: React.ReactNode) {
           );
         }
         return (
-          <React.Fragment key={`txt-${idx}-${segIdx}`}>{segment}</React.Fragment>
+          <React.Fragment key={`txt-${idx}-${segIdx}`}>
+            {segment}
+          </React.Fragment>
         );
       });
     }
@@ -106,9 +108,9 @@ export default function ChatMessage({ role, content }: Props) {
   const avatar = avatarMap[role] || avatarMap.assistant;
   const { t } = useLanguage();
   const bubbleBase =
-    "relative w-fit max-w-full rounded-[14px] px-[12px] py-[7px] text-left text-[13px] leading-[1.35] break-words whitespace-pre-wrap hyphens-auto shadow-sm";
-  const assistantBubble = `${bubbleBase} border border-[var(--border-subtle)] bg-[var(--surface-card)] text-[var(--text-primary)] max-w-[88vw] sm:max-w-[700px] lg:max-w-[820px]`;
-  const userBubble = `${bubbleBase} border border-transparent bg-[var(--brand-primary)] text-white shadow-brand max-w-[76vw] sm:max-w-[520px] lg:max-w-[640px]`;
+    "relative w-fit max-w-full rounded-[14px] px-[12px] py-[7px] text-left text-[13px] break-words hyphens-auto shadow-sm";
+  const assistantBubble = `${bubbleBase} border border-[var(--border-subtle)] bg-[var(--surface-card)] text-[var(--text-primary)]`;
+  const userBubble = `${bubbleBase} border border-transparent bg-[var(--brand-primary)] text-white shadow-brand`;
 
   const copyButtonBase =
     "pointer-events-auto absolute -top-4 z-10 rounded-full border px-2 py-0.5 text-[10px] font-medium opacity-0 shadow-sm transition focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-200)] group-hover:opacity-100";
@@ -118,8 +120,12 @@ export default function ChatMessage({ role, content }: Props) {
     : "border-[var(--border-light)] bg-[var(--surface)] text-[var(--text-secondary)]";
 
   return (
-    <article className={`group relative flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
-      <div className={`flex max-w-full items-start gap-0.5 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
+    <article
+      className={`group relative flex w-full ${isUser ? "justify-end" : "justify-start"}`}
+    >
+      <div
+        className={`flex items-start gap-0.5 ${isUser ? "flex-row-reverse max-w-[64%]" : "flex-row max-w-[74%]"}`}
+      >
         <div
           className={`flex h-6 w-6 shrink-0 select-none items-center justify-center rounded-[14px] border text-[12px] font-medium shadow-sm ${
             isUser
@@ -130,16 +136,20 @@ export default function ChatMessage({ role, content }: Props) {
         >
           {avatar.emoji}
         </div>
-        <div className="flex max-w-full flex-1">
-          <div className={`relative flex max-w-full flex-col ${isUser ? "items-end" : "items-start"}`}>
+        <div className="flex min-w-0 flex-1">
+          <div
+            className={`relative flex max-w-full flex-col ${isUser ? "items-end" : "items-start"}`}
+          >
             {!isSystem && (
               <button
                 type="button"
-                aria-label={t('chat.copy')}
-                onClick={() => navigator.clipboard.writeText(content).catch(() => {})}
+                aria-label={t("chat.copy")}
+                onClick={() =>
+                  navigator.clipboard.writeText(content).catch(() => {})
+                }
                 className={`${copyButtonBase} ${copyButtonSide} ${copyButtonTone}`}
               >
-                {t('chat.copy')}
+                {t("chat.copy")}
               </button>
             )}
             {isSystem ? (
@@ -152,12 +162,18 @@ export default function ChatMessage({ role, content }: Props) {
                   {content}
                 </ReactMarkdown>
               </div>
+            ) : isUser ? (
+              <div className={userBubble}>
+                <span className="whitespace-pre-wrap leading-[1.45]">
+                  {content}
+                </span>
+              </div>
             ) : (
-              <div className={isUser ? userBubble : assistantBubble}>
+              <div className={assistantBubble}>
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={markdownComponents as any}
-                  className={`chat-markdown ${isUser ? "chat-markdown--user" : ""}`}
+                  className="chat-markdown"
                 >
                   {content}
                 </ReactMarkdown>

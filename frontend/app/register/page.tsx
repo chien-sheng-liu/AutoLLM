@@ -37,7 +37,7 @@ export default function RegisterPage() {
       setFlash({ type: "success", title: t("auth.registerFlashSuccess") });
       setTimeout(() => {
         setFlash(null);
-        router.replace("/dashboard");
+        window.location.replace("/dashboard");
       }, 1000);
     } catch (err: any) {
       setFlash({
@@ -57,10 +57,10 @@ export default function RegisterPage() {
           <div
             role="dialog"
             aria-modal="true"
-            className="mx-4 w-full max-w-md scale-100 rounded-3xl bg-white p-8 text-center shadow-2xl ring-1 ring-black/5 transition dark:bg-neutral-900"
+            className="mx-4 w-full max-w-md scale-100 rounded-3xl bg-[var(--surface)] p-8 text-center shadow-2xl ring-1 ring-[var(--border-light)] transition"
           >
             <div
-              className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${flash.type === "success" ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-300" : "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300"}`}
+              className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${flash.type === "success" ? "bg-[var(--success-soft)] text-[var(--success)]" : "bg-[var(--danger-soft)] text-[var(--danger)]"}`}
             >
               {flash.type === "success" ? (
                 <svg

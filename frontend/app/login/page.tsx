@@ -35,7 +35,7 @@ export default function LoginPage() {
       setFlash({ type: "success", title: t("auth.loginFlashSuccess") });
       setTimeout(() => {
         setFlash(null);
-        router.replace("/dashboard");
+        window.location.replace("/dashboard");
       }, 1000);
     } catch (err: any) {
       setFlash({
@@ -55,10 +55,10 @@ export default function LoginPage() {
           <div
             role="dialog"
             aria-modal="true"
-            className="mx-4 w-full max-w-md scale-100 rounded-3xl bg-white p-8 text-center shadow-2xl ring-1 ring-black/5 transition dark:bg-neutral-900"
+            className="mx-4 w-full max-w-md scale-100 rounded-3xl bg-[var(--surface)] p-8 text-center shadow-2xl ring-1 ring-[var(--border-light)] transition"
           >
             <div
-              className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${flash.type === "success" ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-300" : "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300"}`}
+              className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${flash.type === "success" ? "bg-[var(--success-soft)] text-[var(--success)]" : "bg-[var(--danger-soft)] text-[var(--danger)]"}`}
             >
               {flash.type === "success" ? (
                 <svg
@@ -117,7 +117,7 @@ export default function LoginPage() {
       )}
       <Card className="p-8">
         <div className="mb-6 space-y-2 text-center">
-          <div className="text-sm font-semibold text-indigo-600">
+          <div className="text-sm font-semibold text-[var(--brand-primary)]">
             {t("common.appName")}
           </div>
           <h1 className="text-2xl font-bold">{t("auth.loginHeading")}</h1>
@@ -154,7 +154,10 @@ export default function LoginPage() {
         </form>
         <div className="mt-4 text-center text-sm text-[var(--text-muted)]">
           {t("auth.loginLinkRegister")}{" "}
-          <Link href="/register" className="text-indigo-600 hover:underline">
+          <Link
+            href="/register"
+            className="text-[var(--brand-primary)] hover:underline"
+          >
             {t("auth.loginLinkRegisterCta")}
           </Link>
         </div>

@@ -9,7 +9,7 @@ interface Props {
 export default function StreamingBubble({ content, isTyping }: Props) {
   return (
     <article className="group relative flex w-full justify-start">
-      <div className="flex max-w-full items-start gap-0.5">
+      <div className="flex max-w-[74%] items-start gap-0.5">
         {/* Avatar — matches ChatMessage assistant style */}
         <div
           className="flex h-6 w-6 shrink-0 select-none items-center justify-center rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] text-[12px] font-medium text-[var(--text-secondary)] shadow-sm"
@@ -19,7 +19,7 @@ export default function StreamingBubble({ content, isTyping }: Props) {
         </div>
 
         {/* Bubble */}
-        <div className="relative w-fit max-w-[88vw] rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface-card)] px-[12px] py-[7px] text-[13px] leading-[1.35] text-[var(--text-primary)] shadow-sm sm:max-w-[700px] lg:max-w-[820px]">
+        <div className="relative w-fit max-w-full rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface-card)] px-[12px] py-[7px] text-[0.875rem] leading-[1.55] text-[var(--text-primary)] shadow-sm">
           {isTyping ? (
             /* Phase 1 — waiting for first token */
             <div className="typing-dots text-[var(--text-muted)]">
