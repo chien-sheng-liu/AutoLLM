@@ -36,19 +36,19 @@ export default function Page() {
       .finally(() => setLoading(false));
   }, []);
 
-  const shimmer = "animate-pulse bg-[var(--surface-muted)] dark:bg-neutral-800";
+  const shimmer = "animate-pulse bg-[var(--surface-muted)]";
 
   return (
     <div className="grid gap-8">
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-3xl border border-[var(--border-light)] bg-[var(--surface)] px-6 py-10 shadow-soft dark:border-neutral-800 dark:bg-neutral-900 md:px-10 md:py-14">
-        <div className="pointer-events-none absolute -top-16 -right-24 h-56 w-56 rounded-full bg-gradient-to-tr from-indigo-500/30 to-violet-600/30 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-16 -left-24 h-56 w-56 rounded-full bg-gradient-to-tr from-pink-500/20 to-rose-500/20 blur-3xl" />
+      <section className="relative overflow-hidden rounded-3xl border border-[var(--border-light)] bg-[var(--surface)] px-6 py-10 shadow-soft md:px-10 md:py-14">
+        <div className="pointer-events-none absolute -top-16 -right-24 h-56 w-56 rounded-full bg-gradient-to-tr from-[var(--brand-primary)]/20 to-[var(--accent-blue)]/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-16 -left-24 h-56 w-56 rounded-full bg-gradient-to-tr from-[var(--accent-pink)]/15 to-[var(--brand-primary)]/15 blur-3xl" />
 
         <div className="relative grid items-center gap-10 lg:grid-cols-2">
           <div className="space-y-5">
-            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200/60 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 dark:border-indigo-900/40 dark:bg-indigo-950/40 dark:text-indigo-200">
-              <span className="h-1.5 w-1.5 rounded-full bg-indigo-600" /> {t('home.dashBadge')}
+            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--soft-brand-border)] bg-[var(--soft-brand-background)] px-3 py-1 text-xs font-medium text-[var(--brand-primary)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--brand-primary)]" /> {t('home.dashBadge')}
             </div>
             <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl lg:text-5xl">
               {t('home.dashHeadline')}
@@ -95,9 +95,8 @@ export default function Page() {
         <Stat label={t('home.stats.topKLabel')} value={loading ? "—" : ov?.top_k ?? "—"} />
       </section>
 
-
       {/* Recent documents */}
-      <section className="rounded-3xl border border-[var(--border-light)] bg-[var(--surface)] p-6 shadow-soft dark:border-neutral-800 dark:bg-neutral-900">
+      <section className="rounded-3xl border border-[var(--border-light)] bg-[var(--surface)] p-6 shadow-soft">
         <div className="mb-4 flex items-center justify-between">
           <div className="font-semibold">{t('home.recentsTitle')}</div>
           <a className="text-sm text-[var(--brand-primary)] hover:underline" href="/data">{t('home.recentsViewAll')}</a>
@@ -111,7 +110,7 @@ export default function Page() {
         ) : ov && ov.docItems.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {ov.docItems.slice(0, 6).map((d) => (
-              <div key={d.document_id} className="flex items-center justify-between rounded-xl border border-[var(--border-light)] p-4 text-sm dark:border-neutral-800">
+              <div key={d.document_id} className="flex items-center justify-between rounded-xl border border-[var(--border-light)] p-4 text-sm">
                 <div className="truncate pr-3">
                   <div className="truncate font-medium" title={d.name}>{d.name}</div>
                   <div className="text-xs text-[var(--text-muted)]">{t('common.idLabel')}: {d.document_id}</div>
@@ -125,8 +124,8 @@ export default function Page() {
         )}
       </section>
 
-      {/* Final CTA kept minimal for actions */}
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-[var(--border-light)] bg-[var(--surface)] p-6 shadow-soft dark:border-neutral-800 dark:bg-neutral-900">
+      {/* Final CTA */}
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-[var(--border-light)] bg-[var(--surface)] p-6 shadow-soft">
         <div className="max-w-[70ch]">
           <div className="text-sm font-medium text-[var(--text-primary)]">{t('home.shortcutsTitle')}</div>
           <p className="text-sm text-[var(--text-secondary)]">{t('home.shortcutsSubtitle')}</p>

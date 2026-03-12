@@ -7,6 +7,11 @@ export COMPOSE_PROJECT_NAME := $(PROJECT_NAME)
 
 up: .env
 	$(COMPOSE) up -d --build
+	@echo "Waiting for postgres to be ready..."
+	@until $(COMPOSE) exec -T postgres pg_isready -q; do sleep 2; done
+	@echo "Initializing database schema..."
+	@$(COMPOSE) exec -T postgres bash -c 'psql -U $$POSTGRES_USER -d $$POSTGRES_DB -f /docker-entrypoint-initdb.d/init.sql'
+	@echo "Database ready."
 
 # Force a full rebuild without using any cache layers
 up-nocache: .env

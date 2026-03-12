@@ -1,18 +1,31 @@
 "use client";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { buttonClasses } from "@/app/components/ui/Button";
 import Container from "@/app/components/ui/Container";
 import Badge from "@/app/components/ui/Badge";
 import { useLanguage } from "@/app/providers/LanguageProvider";
+import { isAuthenticated } from "@/lib/session";
 
 export default function HomePage() {
   const { t } = useLanguage();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isAuthenticated()) {
+      router.replace("/dashboard");
+    }
+  }, [router]);
+
   return (
     <div className="relative overflow-hidden">
-      {/* Global bg layers come from layout; add local accents */}
+      {/* Brand-aligned background blobs */}
       <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-40 -left-24 h-[28rem] w-[28rem] rounded-full bg-gradient-to-tr from-indigo-600/25 via-violet-600/20 to-fuchsia-600/20 blur-3xl" />
-        <div className="absolute -bottom-40 -right-24 h-[22rem] w-[22rem] rounded-full bg-gradient-to-tr from-cyan-400/20 to-blue-500/20 blur-3xl" />
+        <div className="absolute -top-40 -left-24 h-[28rem] w-[28rem] rounded-full blur-3xl"
+          style={{ background: "radial-gradient(circle, rgba(124,92,255,0.18) 0%, rgba(79,140,255,0.12) 60%, transparent 100%)" }} />
+        <div className="absolute -bottom-40 -right-24 h-[22rem] w-[22rem] rounded-full blur-3xl"
+          style={{ background: "radial-gradient(circle, rgba(79,140,255,0.15) 0%, rgba(124,92,255,0.08) 60%, transparent 100%)" }} />
       </div>
 
       {/* Hero */}
@@ -22,7 +35,10 @@ export default function HomePage() {
           <Badge tone="neutral">{t('home.badgeRag')}</Badge>
           <Badge tone="success">{t('home.badgeProd')}</Badge>
         </div>
-        <h1 className="mt-5 bg-gradient-to-tr from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent sm:text-5xl">
+        <h1
+          className="mt-5 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent sm:text-5xl"
+          style={{ backgroundImage: "var(--gradient-brand)" }}
+        >
           {t('home.heroTitle')}
         </h1>
         <p className="mx-auto mt-4 max-w-[62ch] text-base text-[var(--text-secondary)]">

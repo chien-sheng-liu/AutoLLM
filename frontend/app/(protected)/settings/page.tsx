@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import { getConfig, updateConfig, providerHealth } from "@/lib/api";
 import Card from "@/app/components/ui/Card";
 import Input from "@/app/components/ui/Input";
@@ -11,8 +11,8 @@ import { getStoredUser } from "@/lib/session";
 import Segmented from "@/app/components/ui/Segmented";
 
 type Cfg = {
-  chat_provider?: 'openai' | 'gemini' | 'anthropic' | string;
-  embedding_provider?: 'openai' | 'gemini' | 'anthropic' | string;
+  chat_provider?: "openai" | "gemini" | "anthropic" | string;
+  embedding_provider?: "openai" | "gemini" | "anthropic" | string;
   chat_model: string;
   embedding_model: string;
   chunk_size: number;
@@ -33,32 +33,45 @@ type Cfg = {
   has_anthropic_key?: boolean;
   has_jwt_secret?: boolean;
   // Simple mode fields
-  ui_mode?: 'simple'|'advanced'|string;
-  preset?: 'qna'|'summarize'|'extract'|'brainstorm'|'compliance'|string;
-  creativity?: 'precise'|'balanced'|'creative'|string;
-  answer_length?: 'short'|'medium'|'long'|string;
+  ui_mode?: "simple" | "advanced" | string;
+  preset?:
+    | "qna"
+    | "summarize"
+    | "extract"
+    | "brainstorm"
+    | "compliance"
+    | string;
+  creativity?: "precise" | "balanced" | "creative" | string;
+  answer_length?: "short" | "medium" | "long" | string;
   show_sources?: boolean;
   override_retrieval?: boolean;
   override_generation?: boolean;
 };
 
 export default function SettingsPage() {
-  const [auth, setAuth] = useState<'admin'|'administrator'|'manager'|'user'|'unknown'>('unknown');
+  const [auth, setAuth] = useState<
+    "admin" | "administrator" | "manager" | "user" | "unknown"
+  >("unknown");
   const [cfg, setCfg] = useState<Cfg | null>(null);
   const [orig, setOrig] = useState<Cfg | null>(null);
   const [busy, setBusy] = useState(false);
-  const [health, setHealth] = useState<{ chat?: string; embedding?: string }>({});
+  const [health, setHealth] = useState<{ chat?: string; embedding?: string }>(
+    {},
+  );
   const [checkedAt, setCheckedAt] = useState<number | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showEmbedding, setShowEmbedding] = useState(false);
-  const [section, setSection] = useState<'models'|'generation'|'retrieval'|'keys'|'security'>('models');
-  const [tab, setTab] = useState<'simple'|'advanced'>('simple');
+  const [section, setSection] = useState<
+    "models" | "generation" | "retrieval" | "keys" | "security"
+  >("models");
+  const [tab, setTab] = useState<"simple" | "advanced">("simple");
   // Ephemeral API key inputs (not returned by GET); admin can set/clear them
-  const [openaiKey, setOpenaiKey] = useState<string>('');
-  const [googleKey, setGoogleKey] = useState<string>('');
-  const [anthropicKey, setAnthropicKey] = useState<string>('');
+  const [openaiKey, setOpenaiKey] = useState<string>("");
+  const [googleKey, setGoogleKey] = useState<string>("");
+  const [anthropicKey, setAnthropicKey] = useState<string>("");
   const [keysBusy, setKeysBusy] = useState(false);
-  const firstOr = <T,>(arr: T[], fallback: T) => (arr && arr.length ? arr[0] : fallback);
+  const firstOr = <T,>(arr: T[], fallback: T) =>
+    arr && arr.length ? arr[0] : fallback;
   const errs = (() => {
     if (!cfg) return { fatal: true } as any;
     return {
@@ -67,20 +80,26 @@ export default function SettingsPage() {
       chunkSize: cfg.chunk_size <= 0,
       overlap: cfg.chunk_overlap < 0 || cfg.chunk_overlap >= cfg.chunk_size,
       topK: cfg.top_k < 1,
-      temp: cfg.temperature != null && (cfg.temperature < 0 || cfg.temperature > 2),
+      temp:
+        cfg.temperature != null && (cfg.temperature < 0 || cfg.temperature > 2),
       topP: cfg.top_p != null && (cfg.top_p < 0 || cfg.top_p > 1),
-      pres: cfg.presence_penalty != null && (cfg.presence_penalty < -2 || cfg.presence_penalty > 2),
-      freq: cfg.frequency_penalty != null && (cfg.frequency_penalty < -2 || cfg.frequency_penalty > 2),
+      pres:
+        cfg.presence_penalty != null &&
+        (cfg.presence_penalty < -2 || cfg.presence_penalty > 2),
+      freq:
+        cfg.frequency_penalty != null &&
+        (cfg.frequency_penalty < -2 || cfg.frequency_penalty > 2),
       maxTok: cfg.max_tokens != null && (cfg.max_tokens as number) < 1,
     };
   })();
-  const invalid = !!(errs as any).fatal || Object.values(errs as any).some(Boolean);
+  const invalid =
+    !!(errs as any).fatal || Object.values(errs as any).some(Boolean);
 
   function scrollToField(id: string) {
     try {
       const el = document.getElementById(id);
       if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
         (el as HTMLElement).focus?.();
       }
     } catch {}
@@ -91,19 +110,28 @@ export default function SettingsPage() {
     try {
       // role from session (per-tab)
       const u0 = getStoredUser();
-      if (u0) setAuth((u0?.auth || 'user') as any);
+      if (u0) setAuth((u0?.auth || "user") as any);
       // Refresh from server to be accurate
-      fetchProfile().then((u)=>{ setAuth((u?.auth || 'user') as any); }).catch(()=>{});
-      const tabLS = localStorage.getItem('settings.tab') as 'simple'|'advanced'|null;
-      const preset = localStorage.getItem('settings.simple.preset') as any;
-      const creativity = localStorage.getItem('settings.simple.creativity') as any;
-      const length = localStorage.getItem('settings.simple.length') as any;
-      const show = localStorage.getItem('settings.simple.show_sources');
+      fetchProfile()
+        .then((u) => {
+          setAuth((u?.auth || "user") as any);
+        })
+        .catch(() => {});
+      const tabLS = localStorage.getItem("settings.tab") as
+        | "simple"
+        | "advanced"
+        | null;
+      const preset = localStorage.getItem("settings.simple.preset") as any;
+      const creativity = localStorage.getItem(
+        "settings.simple.creativity",
+      ) as any;
+      const length = localStorage.getItem("settings.simple.length") as any;
+      const show = localStorage.getItem("settings.simple.show_sources");
       const optimistic: Cfg = {
-        chat_provider: 'openai',
-        embedding_provider: 'openai',
-        chat_model: 'gpt-4o-mini',
-        embedding_model: 'text-embedding-3-small',
+        chat_provider: "openai",
+        embedding_provider: "openai",
+        chat_model: "gpt-4o-mini",
+        embedding_model: "text-embedding-3-small",
         chunk_size: 1000,
         chunk_overlap: 200,
         top_k: 4,
@@ -113,11 +141,11 @@ export default function SettingsPage() {
         frequency_penalty: 0,
         fallback_chat_provider: null,
         fallback_chat_model: null,
-        ui_mode: tabLS || 'simple',
-        preset: preset || 'qna',
-        creativity: creativity || 'balanced',
-        answer_length: length || 'medium',
-        show_sources: show ? show === 'true' : true,
+        ui_mode: tabLS || "simple",
+        preset: preset || "qna",
+        creativity: creativity || "balanced",
+        answer_length: length || "medium",
+        show_sources: show ? show === "true" : true,
         override_generation: false,
         override_retrieval: false,
       };
@@ -125,13 +153,16 @@ export default function SettingsPage() {
       setTab(optimistic.ui_mode as any);
     } catch {}
     getConfig()
-      .then((c) => { setCfg((prev) => ({ ...(prev as any), ...c })); setOrig(c); })
-      .catch((e) => alert(e?.message || '載入設定失敗'));
+      .then((c) => {
+        setCfg((prev) => ({ ...(prev as any), ...c }));
+        setOrig(c);
+      })
+      .catch((e) => alert(e?.message || "載入設定失敗"));
   }, []);
 
   useEffect(() => {
     if (!cfg) return;
-    setTab((cfg.ui_mode as any) === 'advanced' ? 'advanced' : 'simple');
+    setTab((cfg.ui_mode as any) === "advanced" ? "advanced" : "simple");
   }, [cfg?.ui_mode]);
 
   // Keep chat/embedding models consistent with provider selection when no free-text input is shown for chat model
@@ -155,24 +186,32 @@ export default function SettingsPage() {
   // Keyboard shortcuts: 1..5 to select presets in Simple mode
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (tab !== 'simple' || !cfg) return;
+      if (tab !== "simple" || !cfg) return;
       const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || (target as any).isContentEditable)) return;
-      const map: Record<string, Cfg['preset']> = {
-        '1': 'qna',
-        '2': 'summarize',
-        '3': 'extract',
-        '4': 'brainstorm',
-        '5': 'compliance',
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          (target as any).isContentEditable)
+      )
+        return;
+      const map: Record<string, Cfg["preset"]> = {
+        "1": "qna",
+        "2": "summarize",
+        "3": "extract",
+        "4": "brainstorm",
+        "5": "compliance",
       };
       const p = map[e.key as string];
       if (p) {
         setCfg({ ...cfg, preset: p });
-        try { localStorage.setItem('settings.simple.preset', p); } catch {}
+        try {
+          localStorage.setItem("settings.simple.preset", p);
+        } catch {}
       }
     }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [tab, cfg]);
 
   async function onSave(e: React.FormEvent) {
@@ -185,11 +224,23 @@ export default function SettingsPage() {
       const saved = await updateConfig(payload);
       setOrig(saved);
       // After save, clear inputs; update has_* flags from server response
-      setOpenaiKey(''); setGoogleKey(''); setAnthropicKey('');
-      setCfg((prev)=> prev ? { ...prev, has_openai_key: saved.has_openai_key, has_google_key: saved.has_google_key, has_anthropic_key: saved.has_anthropic_key, ...(saved as any) } : prev);
-      alert('設定已更新');
+      setOpenaiKey("");
+      setGoogleKey("");
+      setAnthropicKey("");
+      setCfg((prev) =>
+        prev
+          ? {
+              ...prev,
+              has_openai_key: saved.has_openai_key,
+              has_google_key: saved.has_google_key,
+              has_anthropic_key: saved.has_anthropic_key,
+              ...(saved as any),
+            }
+          : prev,
+      );
+      alert("設定已更新");
     } catch (e: any) {
-      alert(e?.message || '儲存失敗：無法儲存設定，請稍後再試');
+      alert(e?.message || "儲存失敗：無法儲存設定，請稍後再試");
     } finally {
       setBusy(false);
     }
@@ -200,25 +251,37 @@ export default function SettingsPage() {
     setKeysBusy(true);
     try {
       const payload: any = {};
-      if (openaiKey !== '') payload.openai_api_key = openaiKey;
-      if (googleKey !== '') payload.google_api_key = googleKey;
-      if (anthropicKey !== '') payload.anthropic_api_key = anthropicKey;
+      if (openaiKey !== "") payload.openai_api_key = openaiKey;
+      if (googleKey !== "") payload.google_api_key = googleKey;
+      if (anthropicKey !== "") payload.anthropic_api_key = anthropicKey;
       if (Object.keys(payload).length === 0) {
-        alert('請先輸入要更新的金鑰或清除後再送出');
+        alert("請先輸入要更新的金鑰或清除後再送出");
         return;
       }
       const saved = await updateConfig(payload as any);
-      setOrig((prev)=> prev ? { ...prev, ...saved } : saved);
+      setOrig((prev) => (prev ? { ...prev, ...saved } : saved));
       // 清空輸入框，更新 has_* 指示
-      setOpenaiKey('');
-      setGoogleKey('');
-      setAnthropicKey('');
-      setCfg((prev)=> prev ? { ...prev, has_openai_key: saved.has_openai_key, has_google_key: saved.has_google_key, has_anthropic_key: saved.has_anthropic_key, has_jwt_secret: saved.has_jwt_secret } : prev);
+      setOpenaiKey("");
+      setGoogleKey("");
+      setAnthropicKey("");
+      setCfg((prev) =>
+        prev
+          ? {
+              ...prev,
+              has_openai_key: saved.has_openai_key,
+              has_google_key: saved.has_google_key,
+              has_anthropic_key: saved.has_anthropic_key,
+              has_jwt_secret: saved.has_jwt_secret,
+            }
+          : prev,
+      );
       // 立即快速測試
-      try { await onCheckProviders(); } catch {}
-      alert('金鑰已更新');
+      try {
+        await onCheckProviders();
+      } catch {}
+      alert("金鑰已更新");
     } catch (err: any) {
-      alert(err?.message || '更新金鑰失敗');
+      alert(err?.message || "更新金鑰失敗");
     } finally {
       setKeysBusy(false);
     }
@@ -226,9 +289,9 @@ export default function SettingsPage() {
 
   function pickForCompare(c: Cfg) {
     return {
-      chat_provider: c.chat_provider || 'openai',
+      chat_provider: c.chat_provider || "openai",
       chat_model: c.chat_model,
-      embedding_provider: c.embedding_provider || 'openai',
+      embedding_provider: c.embedding_provider || "openai",
       embedding_model: c.embedding_model,
       chunk_size: c.chunk_size,
       chunk_overlap: c.chunk_overlap,
@@ -240,10 +303,10 @@ export default function SettingsPage() {
       max_tokens: c.max_tokens ?? null,
       fallback_chat_provider: c.fallback_chat_provider ?? null,
       fallback_chat_model: c.fallback_chat_model ?? null,
-      ui_mode: c.ui_mode || 'simple',
-      preset: c.preset || 'qna',
-      creativity: c.creativity || 'balanced',
-      answer_length: c.answer_length || 'medium',
+      ui_mode: c.ui_mode || "simple",
+      preset: c.preset || "qna",
+      creativity: c.creativity || "balanced",
+      answer_length: c.answer_length || "medium",
       show_sources: !!c.show_sources,
       override_generation: !!c.override_generation,
       override_retrieval: !!c.override_retrieval,
@@ -252,71 +315,99 @@ export default function SettingsPage() {
 
   const dirty = (() => {
     if (!cfg || !orig) return false;
-    try { return JSON.stringify(pickForCompare(cfg)) !== JSON.stringify(pickForCompare(orig)); } catch { return false; }
+    try {
+      return (
+        JSON.stringify(pickForCompare(cfg)) !==
+        JSON.stringify(pickForCompare(orig))
+      );
+    } catch {
+      return false;
+    }
   })();
 
-  function chatSuggestions(provider?: Cfg['chat_provider']): string[] {
-    switch ((provider || 'openai')) {
-      case 'gemini':
-        return ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.5-flash-8b'];
-      case 'anthropic':
-        return ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'];
+  function chatSuggestions(provider?: Cfg["chat_provider"]): string[] {
+    switch (provider || "openai") {
+      case "gemini":
+        return [
+          "gemini-2.0-flash",
+          "gemini-1.5-flash",
+          "gemini-1.5-pro",
+          "gemini-1.5-flash-8b",
+        ];
+      case "anthropic":
+        return [
+          "claude-3-5-sonnet-20241022",
+          "claude-3-5-haiku-20241022",
+          "claude-3-opus-20240229",
+          "claude-3-sonnet-20240229",
+          "claude-3-haiku-20240307",
+        ];
       default:
-        return ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-mini', 'o3-mini'];
+        return ["gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "o3-mini"];
     }
   }
 
-  function displayChatModel(id: string, provider?: Cfg['chat_provider']): string {
-    const p = (provider || 'openai');
-    if (p === 'anthropic') {
-      if (/claude-3-5-sonnet/i.test(id)) return 'Claude Sonnet 3.5';
-      if (/claude-3-5-haiku/i.test(id)) return 'Claude Haiku 3.5';
-      if (/claude-3-opus/i.test(id)) return 'Claude Opus 3';
-      if (/claude-3-sonnet/i.test(id)) return 'Claude Sonnet 3';
-      if (/claude-3-haiku/i.test(id)) return 'Claude Haiku 3';
+  function displayChatModel(
+    id: string,
+    provider?: Cfg["chat_provider"],
+  ): string {
+    const p = provider || "openai";
+    if (p === "anthropic") {
+      if (/claude-3-5-sonnet/i.test(id)) return "Claude Sonnet 3.5";
+      if (/claude-3-5-haiku/i.test(id)) return "Claude Haiku 3.5";
+      if (/claude-3-opus/i.test(id)) return "Claude Opus 3";
+      if (/claude-3-sonnet/i.test(id)) return "Claude Sonnet 3";
+      if (/claude-3-haiku/i.test(id)) return "Claude Haiku 3";
     }
     return id;
   }
 
-  function embeddingSuggestions(provider?: Cfg['embedding_provider']): string[] {
-    switch ((provider || 'openai')) {
-      case 'gemini':
-        return ['text-embedding-004'];
+  function embeddingSuggestions(
+    provider?: Cfg["embedding_provider"],
+  ): string[] {
+    switch (provider || "openai") {
+      case "gemini":
+        return ["text-embedding-004"];
       default:
-        return ['text-embedding-3-small', 'text-embedding-3-large'];
+        return ["text-embedding-3-small", "text-embedding-3-large"];
     }
   }
 
-  function chatPlaceholder(p?: Cfg['chat_provider']): string {
+  function chatPlaceholder(p?: Cfg["chat_provider"]): string {
     const first = chatSuggestions(p)[0];
-    return `自訂模型 ID（例如 ${first || 'gpt-4o-mini'}）`;
+    return `自訂模型 ID（例如 ${first || "gpt-4o-mini"}）`;
   }
 
-  function embPlaceholder(p?: Cfg['embedding_provider']): string {
+  function embPlaceholder(p?: Cfg["embedding_provider"]): string {
     const first = embeddingSuggestions(p)[0];
-    return `自訂模型 ID（例如 ${first || 'text-embedding-3-small'}）`;
+    return `自訂模型 ID（例如 ${first || "text-embedding-3-small"}）`;
   }
 
   async function onCheckProviders() {
     try {
       const res = await providerHealth();
       setHealth({
-        chat: res.chat.ok ? `✅ ${res.chat.provider}` : `❌ ${res.chat.provider}: ${res.chat.error || res.chat.details || 'fail'}`,
-        embedding: res.embedding.ok ? `✅ ${res.embedding.provider}` : `❌ ${res.embedding.provider}: ${res.embedding.error || res.embedding.details || 'fail'}`,
+        chat: res.chat.ok
+          ? `✅ ${res.chat.provider}`
+          : `❌ ${res.chat.provider}: ${res.chat.error || res.chat.details || "fail"}`,
+        embedding: res.embedding.ok
+          ? `✅ ${res.embedding.provider}`
+          : `❌ ${res.embedding.provider}: ${res.embedding.error || res.embedding.details || "fail"}`,
       });
       setCheckedAt(Date.now());
     } catch (e: any) {
-      setHealth({ chat: '❌ 檢查失敗', embedding: '❌ 檢查失敗' });
+      setHealth({ chat: "❌ 檢查失敗", embedding: "❌ 檢查失敗" });
       setCheckedAt(Date.now());
     }
   }
 
   function handleResetToRecommended() {
     if (!cfg) return;
-    const cp = (cfg.chat_provider || 'openai') as Cfg['chat_provider'];
-    const ep = (cfg.embedding_provider || 'openai') as Cfg['embedding_provider'];
-    const recChat = firstOr(chatSuggestions(cp), 'gpt-4o-mini');
-    const recEmb = firstOr(embeddingSuggestions(ep), 'text-embedding-3-small');
+    const cp = (cfg.chat_provider || "openai") as Cfg["chat_provider"];
+    const ep = (cfg.embedding_provider ||
+      "openai") as Cfg["embedding_provider"];
+    const recChat = firstOr(chatSuggestions(cp), "gpt-4o-mini");
+    const recEmb = firstOr(embeddingSuggestions(ep), "text-embedding-3-small");
     setCfg({
       ...cfg,
       chat_provider: cp,
@@ -330,12 +421,14 @@ export default function SettingsPage() {
   }
 
   if (!cfg) return <div className="text-[var(--text-muted)]">載入設定中…</div>;
-  const normalizedAuth = (auth || 'user').toLowerCase();
-  if (!(normalizedAuth === 'admin' || normalizedAuth === 'administrator')) {
+  const normalizedAuth = (auth || "user").toLowerCase();
+  if (!(normalizedAuth === "admin" || normalizedAuth === "administrator")) {
     return (
       <div className="max-w-xl">
         <h2 className="text-xl font-semibold">無權限</h2>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">此頁面僅限系統管理員使用。若需調整設定，請聯絡管理員。</p>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">
+          此頁面僅限系統管理員使用。若需調整設定，請聯絡管理員。
+        </p>
       </div>
     );
   }
@@ -344,7 +437,9 @@ export default function SettingsPage() {
     <div className="mx-auto w-full max-w-7xl px-4 py-6">
       <div className="mb-4">
         <h1 className="text-2xl font-semibold">設定</h1>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">管理模型、檢索與回答風格。將設定套用到後端後，聊天與索引會依新設定運作。</p>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">
+          管理模型、檢索與回答風格。將設定套用到後端後，聊天與索引會依新設定運作。
+        </p>
       </div>
 
       {/* Content */}
@@ -352,239 +447,483 @@ export default function SettingsPage() {
         <div className="mb-3 flex justify-end">
           <Segmented
             name="設定分類"
-            options={[{id:'models',label:'模型'},{id:'generation',label:'生成'},{id:'retrieval',label:'檢索'},{id:'keys',label:'API 金鑰'},{id:'security',label:'安全'}]}
+            options={[
+              { id: "models", label: "模型" },
+              { id: "generation", label: "生成" },
+              { id: "retrieval", label: "檢索" },
+              { id: "keys", label: "API 金鑰" },
+              { id: "security", label: "安全" },
+            ]}
             value={section as any}
-            onChange={(t)=> setSection(t as any)}
+            onChange={(t) => setSection(t as any)}
           />
         </div>
         <form onSubmit={onSave} className="grid gap-6">
           {/* API Keys (Admin only) */}
-          {section === 'keys' && (
-          <Card id="keys" className="p-4 md:p-6">
-            <div className="mb-3">
-              <div className="text-sm font-semibold">API 金鑰</div>
-              <div className="text-xs text-[var(--text-secondary)]">僅管理員可設定。留空不變更；輸入空字串後儲存可清除。金鑰僅儲存於後端，不會在前端顯示。</div>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="grid gap-1.5">
-                <label className="text-sm inline-flex items-center gap-1">OpenAI API Key
-                  <Tooltip content="用於 OpenAI Chat 與 Embedding。格式多為 sk- 或 sk-proj- 開頭。">
-                    <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">i</span>
-                  </Tooltip>
-                </label>
-                <div className="flex gap-2">
-                  <Input className="flex-1" type="password" placeholder={cfg?.has_openai_key ? '已設定（留空不變更）' : 'sk-...'} value={openaiKey} onChange={(e)=>setOpenaiKey(e.target.value)} />
-                  <Button type="button" variant="outline" size="sm" onClick={()=>setOpenaiKey(' ')}>清除</Button>
+          {section === "keys" && (
+            <Card id="keys" className="p-4 md:p-6">
+              <div className="mb-3">
+                <div className="text-sm font-semibold">API 金鑰</div>
+                <div className="text-xs text-[var(--text-secondary)]">
+                  僅管理員可設定。留空不變更；輸入空字串後儲存可清除。金鑰僅儲存於後端，不會在前端顯示。
                 </div>
               </div>
-              <div className="grid gap-1.5">
-                <label className="text-sm inline-flex items-center gap-1">Google API Key（Gemini）
-                  <Tooltip content="用於 Gemini Chat/Embedding（text-embedding-004）。可於 GCP Console 建立。">
-                    <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">i</span>
-                  </Tooltip>
-                </label>
-                <div className="flex gap-2">
-                  <Input className="flex-1" type="password" placeholder={cfg?.has_google_key ? '已設定（留空不變更）' : 'AIza...'} value={googleKey} onChange={(e)=>setGoogleKey(e.target.value)} />
-                  <Button type="button" variant="outline" size="sm" onClick={()=>setGoogleKey(' ')}>清除</Button>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <label className="text-sm inline-flex items-center gap-1">
+                    OpenAI API Key
+                    <Tooltip content="用於 OpenAI Chat 與 Embedding。格式多為 sk- 或 sk-proj- 開頭。">
+                      <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">
+                        i
+                      </span>
+                    </Tooltip>
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      className="flex-1"
+                      type="password"
+                      placeholder={
+                        cfg?.has_openai_key ? "已設定（留空不變更）" : "sk-..."
+                      }
+                      value={openaiKey}
+                      onChange={(e) => setOpenaiKey(e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setOpenaiKey(" ")}
+                    >
+                      清除
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-1.5">
+                  <label className="text-sm inline-flex items-center gap-1">
+                    Google API Key（Gemini）
+                    <Tooltip content="用於 Gemini Chat/Embedding（text-embedding-004）。可於 GCP Console 建立。">
+                      <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">
+                        i
+                      </span>
+                    </Tooltip>
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      className="flex-1"
+                      type="password"
+                      placeholder={
+                        cfg?.has_google_key ? "已設定（留空不變更）" : "AIza..."
+                      }
+                      value={googleKey}
+                      onChange={(e) => setGoogleKey(e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setGoogleKey(" ")}
+                    >
+                      清除
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-1.5">
+                  <label className="text-sm inline-flex items-center gap-1">
+                    Anthropic API Key
+                    <Tooltip content="用於 Claude Chat（不支援 Embedding）。">
+                      <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">
+                        i
+                      </span>
+                    </Tooltip>
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      className="flex-1"
+                      type="password"
+                      placeholder={
+                        cfg?.has_anthropic_key
+                          ? "已設定（留空不變更）"
+                          : "api-key"
+                      }
+                      value={anthropicKey}
+                      onChange={(e) => setAnthropicKey(e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAnthropicKey(" ")}
+                    >
+                      清除
+                    </Button>
+                  </div>
+                </div>
+                <div className="md:col-span-2 mt-2 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={onCheckProviders}
+                    >
+                      檢查金鑰
+                    </Button>
+                    {checkedAt ? (
+                      <>
+                        {(() => {
+                          const ok = (health.chat || "").startsWith("✅");
+                          const label = ok
+                            ? health.chat || "Chat 正常"
+                            : health.chat || "Chat 失敗";
+                          return (
+                            <span
+                              className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${ok ? "bg-[var(--success-soft)] text-[var(--success)]" : "bg-[var(--danger-soft)] text-[var(--danger)]"}`}
+                            >
+                              {label}
+                            </span>
+                          );
+                        })()}
+                        {(() => {
+                          const ok = (health.embedding || "").startsWith("✅");
+                          const label = ok
+                            ? health.embedding || "Embedding 正常"
+                            : health.embedding || "Embedding 失敗";
+                          return (
+                            <span
+                              className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${ok ? "bg-[var(--success-soft)] text-[var(--success)]" : "bg-[var(--danger-soft)] text-[var(--danger)]"}`}
+                            >
+                              {label}
+                            </span>
+                          );
+                        })()}
+                        <span className="text-xs text-[var(--text-muted)]">
+                          上次檢查：{new Date(checkedAt).toLocaleTimeString()}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-[var(--surface-muted)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)] ">
+                        尚未檢查
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={onSaveKeys}
+                      disabled={keysBusy}
+                    >
+                      {keysBusy ? "更新中…" : "確認更新金鑰"}
+                    </Button>
+                  </div>
                 </div>
               </div>
-              <div className="grid gap-1.5">
-                <label className="text-sm inline-flex items-center gap-1">Anthropic API Key
-                  <Tooltip content="用於 Claude Chat（不支援 Embedding）。">
-                    <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">i</span>
-                  </Tooltip>
-                </label>
-                <div className="flex gap-2">
-                  <Input className="flex-1" type="password" placeholder={cfg?.has_anthropic_key ? '已設定（留空不變更）' : 'api-key'} value={anthropicKey} onChange={(e)=>setAnthropicKey(e.target.value)} />
-                  <Button type="button" variant="outline" size="sm" onClick={()=>setAnthropicKey(' ')}>清除</Button>
-                </div>
-              </div>
-              <div className="md:col-span-2 mt-2 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={onCheckProviders}>檢查金鑰</Button>
-                  {checkedAt ? (
-                    <>
-                      {(() => {
-                        const ok = (health.chat || '').startsWith('✅');
-                        const label = ok ? (health.chat || 'Chat 正常') : (health.chat || 'Chat 失敗');
-                        return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${ok ? 'bg-[var(--success-soft)] text-[var(--success)]' : 'bg-[var(--danger-soft)] text-[var(--danger)]'}`}>{label}</span>;
-                      })()}
-                      {(() => {
-                        const ok = (health.embedding || '').startsWith('✅');
-                        const label = ok ? (health.embedding || 'Embedding 正常') : (health.embedding || 'Embedding 失敗');
-                        return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${ok ? 'bg-[var(--success-soft)] text-[var(--success)]' : 'bg-[var(--danger-soft)] text-[var(--danger)]'}`}>{label}</span>;
-                      })()}
-                      <span className="text-xs text-[var(--text-muted)]">上次檢查：{new Date(checkedAt).toLocaleTimeString()}</span>
-                    </>
-                  ) : (
-                    <span className="inline-flex items-center rounded-full bg-[var(--surface-muted)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)] ">尚未檢查</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <Button type="button" size="sm" onClick={onSaveKeys} disabled={keysBusy}>{keysBusy ? '更新中…' : '確認更新金鑰'}</Button>
-                </div>
-              </div>
-            </div>
-          </Card>
+            </Card>
           )}
           {/* Mode (Generation toggle) */}
-          {section === 'generation' && (
-          <Card id="mode" className="p-4 md:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold">設定模式</div>
-                <div className="text-xs text-[var(--text-secondary)]">簡易提供快速選項；進階可手動微調。</div>
+          {section === "generation" && (
+            <Card id="mode" className="p-4 md:p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold">設定模式</div>
+                  <div className="text-xs text-[var(--text-secondary)]">
+                    簡易提供快速選項；進階可手動微調。
+                  </div>
+                </div>
+                <Segmented
+                  name="設定模式"
+                  options={[
+                    {
+                      id: "simple",
+                      label: "簡易",
+                      tooltip: "快捷選項與常見預設",
+                    },
+                    {
+                      id: "advanced",
+                      label: "進階",
+                      tooltip: "完整調整生成與檢索參數",
+                    },
+                  ]}
+                  value={tab}
+                  onChange={(t) => {
+                    setTab(t as any);
+                    if (cfg) setCfg({ ...cfg, ui_mode: t });
+                    try {
+                      localStorage.setItem("settings.tab", t);
+                    } catch {}
+                  }}
+                />
               </div>
-              <Segmented
-                name="設定模式"
-                options={[{id:'simple',label:'簡易', tooltip:'快捷選項與常見預設'},{id:'advanced',label:'進階', tooltip:'完整調整生成與檢索參數'}]}
-                value={tab}
-                onChange={(t)=>{ setTab(t as any); if (cfg) setCfg({ ...cfg, ui_mode: t }); try{ localStorage.setItem('settings.tab', t);}catch{} }}
-              />
-            </div>
-          </Card>
+            </Card>
           )}
 
           {/* Models */}
-          {section === 'models' && (
-          <Card id="models" className="p-4 md:p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-medium text-[var(--text-primary)] ">模型提供者與型號</h3>
-            </div>
-            <div className="grid gap-6">
-              {/* Chat provider & model */}
-              <section className="grid gap-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <label className="text-sm">Chat 提供者</label>
-                  <div className="inline-flex overflow-hidden rounded-lg border border-[var(--border-light)] bg-[var(--surface-muted)] p-0.5 backdrop-blur-md  " aria-label="Chat 提供者">
-                    {(['openai','gemini','anthropic'] as const).map((p) => (
-                      <Tooltip key={p} content={p==='openai' ? 'OpenAI：例如 gpt-4o-mini / gpt-4o' : p==='gemini' ? 'Gemini：例如 gemini-1.5-flash / 2.0-flash' : 'Claude：例如 claude-3-5-sonnet'}>
-                        <button
+          {section === "models" && (
+            <Card id="models" className="p-4 md:p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-medium text-[var(--text-primary)] ">
+                  模型提供者與型號
+                </h3>
+              </div>
+              <div className="grid gap-6">
+                {/* Chat provider & model */}
+                <section className="grid gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label className="text-sm">Chat 提供者</label>
+                    <div
+                      className="inline-flex overflow-hidden rounded-lg border border-[var(--border-light)] bg-[var(--surface-muted)] p-0.5 backdrop-blur-md  "
+                      aria-label="Chat 提供者"
+                    >
+                      {(["openai", "gemini", "anthropic"] as const).map((p) => (
+                        <Tooltip
                           key={p}
-                          type="button"
-                          onClick={() => setCfg({ ...cfg!, chat_provider: p })}
-                          aria-pressed={cfg!.chat_provider === p || (!cfg!.chat_provider && p==='openai')}
-                          className={`h-7 px-2.5 text-[12px] leading-none rounded-md transition-all duration-150 focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-                            (cfg!.chat_provider || 'openai') === p
-                              ? 'bg-gradient-to-tr from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-glow'
-                              : 'text-[var(--text-primary)] hover:bg-[var(--surface)]  '
-                          }`}
-                          tabIndex={0}
-                        >{p === 'anthropic' ? 'Claude' : p[0].toUpperCase() + p.slice(1)}</button>
-                      </Tooltip>
-                    ))}
+                          content={
+                            p === "openai"
+                              ? "OpenAI：例如 gpt-4o-mini / gpt-4o"
+                              : p === "gemini"
+                                ? "Gemini：例如 gemini-1.5-flash / 2.0-flash"
+                                : "Claude：例如 claude-3-5-sonnet"
+                          }
+                        >
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() =>
+                              setCfg({ ...cfg!, chat_provider: p })
+                            }
+                            aria-pressed={
+                              cfg!.chat_provider === p ||
+                              (!cfg!.chat_provider && p === "openai")
+                            }
+                            className={`h-7 px-2.5 text-[12px] leading-none rounded-md transition-all duration-150 focus-visible:ring-2 focus-visible:ring-[var(--brand-200)] ${
+                              (cfg!.chat_provider || "openai") === p
+                                ? "bg-[var(--brand-primary)] text-white shadow-brand"
+                                : "text-[var(--text-primary)] hover:bg-[var(--surface)]  "
+                            }`}
+                            tabIndex={0}
+                          >
+                            {p === "anthropic"
+                              ? "Claude"
+                              : p[0].toUpperCase() + p.slice(1)}
+                          </button>
+                        </Tooltip>
+                      ))}
+                    </div>
                   </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-[var(--text-muted)]">推薦型號</span>
-                    <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]" aria-label="Chat 常用模型">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-[var(--text-muted)]">
+                      推薦型號
+                    </span>
+                    <div
+                      className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]"
+                      aria-label="Chat 常用模型"
+                    >
                       {chatSuggestions(cfg.chat_provider).map((m) => (
                         <Tooltip key={m} content={`套用模型：${m}`}>
                           <button
                             key={m}
                             type="button"
                             onClick={() => setCfg({ ...cfg!, chat_model: m })}
-                            className={`h-7 whitespace-nowrap rounded-full border px-2.5 text-[12px] leading-none transition-all duration-150 focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-                              cfg!.chat_model === m ? 'border-[var(--soft-brand-border)] bg-[var(--brand-primary)] text-white shadow-brand' : 'border-[var(--border-light)] bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:bg-[var(--surface)]   '
+                            className={`h-7 whitespace-nowrap rounded-full border px-2.5 text-[12px] leading-none transition-all duration-150 focus-visible:ring-2 focus-visible:ring-[var(--brand-200)] ${
+                              cfg!.chat_model === m
+                                ? "border-[var(--soft-brand-border)] bg-[var(--brand-primary)] text-white shadow-brand"
+                                : "border-[var(--border-light)] bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:bg-[var(--surface)]   "
                             }`}
                             tabIndex={0}
                             aria-pressed={cfg!.chat_model === m}
-                          >{displayChatModel(m, cfg.chat_provider)}</button>
+                          >
+                            {displayChatModel(m, cfg.chat_provider)}
+                          </button>
                         </Tooltip>
                       ))}
                     </div>
-                  {/* Chat model free-text removed per requirement */}
-                </div>
-              </section>
-
-              {/* Embedding provider & model */}
-              <section className="grid gap-2">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-medium text-[var(--text-primary)] ">嵌入模型（Embedding）</h4>
-                  <button type="button" className="inline-flex items-center gap-1 text-xs text-[var(--brand-primary)] hover:underline " onClick={() => setShowEmbedding(v => !v)}>
-                    <span className={`transition-transform duration-150 ${showEmbedding ? 'rotate-180' : 'rotate-0'}`}>⌄</span>
-                    {showEmbedding ? '隱藏' : '顯示'}
-                  </button>
-                </div>
-                <div className="inline-flex overflow-hidden rounded-lg border border-[var(--border-light)] bg-[var(--surface-muted)] p-0.5 backdrop-blur-md  " aria-label="Embedding 提供者">
-                  {(['openai','gemini'] as const).map((p) => (
-                    <Tooltip key={p} content={p==='openai' ? 'OpenAI 向量：text-embedding-3-small/large' : 'Gemini 向量：text-embedding-004'}>
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => setCfg({ ...cfg!, embedding_provider: p })}
-                        aria-pressed={cfg!.embedding_provider === p || (!cfg!.embedding_provider && p==='openai')}
-                        className={`h-7 px-2.5 text-[12px] leading-none rounded-md transition-all duration-150 focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-                          (cfg!.embedding_provider || 'openai') === p
-                            ? 'bg-gradient-to-tr from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-glow'
-                            : 'text-[var(--text-primary)] hover:bg-[var(--surface)]  '
-                        }`}
-                        tabIndex={0}
-                      >{p[0].toUpperCase() + p.slice(1)}</button>
-                    </Tooltip>
-                  ))}
-                </div>
-                <Collapsible open={showEmbedding}>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-[var(--text-muted)]">推薦型號</span>
-                    <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]" aria-label="Embedding 常用模型">
-                      {embeddingSuggestions(cfg.embedding_provider).map((m) => (
-                        <Tooltip key={m} content={`套用向量模型：${m}`}>
-                          <button
-                            key={m}
-                            type="button"
-                            onClick={() => setCfg({ ...cfg!, embedding_model: m })}
-                            className={`h-7 whitespace-nowrap rounded-full border px-2.5 text-[12px] leading-none transition-all duration-150 focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-                              cfg!.embedding_model === m ? 'border-[var(--soft-brand-border)] bg-[var(--brand-primary)] text-white shadow-brand' : 'border-[var(--border-light)] bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:bg-[var(--surface)]   '
-                            }`}
-                            tabIndex={0}
-                          >{m}</button>
-                        </Tooltip>
-                      ))}
-                    </div>
-                    <div className="min-w-[240px] flex-1">
-                      <Input id="emb-model-input" aria-label="自訂 Embedding 模型 ID" value={cfg.embedding_model} onChange={(e) => setCfg({ ...cfg, embedding_model: e.target.value })} placeholder={embPlaceholder(cfg.embedding_provider)} />
-                      {errs.embModel && (<div className="mt-1 text-xs text-red-600">請輸入有效的向量模型 ID。</div>)}
-                    </div>
+                    {/* Chat model free-text removed per requirement */}
                   </div>
-                </Collapsible>
-              </section>
-            </div>
-          </Card>
+                </section>
+
+                {/* Embedding provider & model */}
+                <section className="grid gap-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-[var(--text-primary)] ">
+                      嵌入模型（Embedding）
+                    </h4>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 text-xs text-[var(--brand-primary)] hover:underline "
+                      onClick={() => setShowEmbedding((v) => !v)}
+                    >
+                      <span
+                        className={`transition-transform duration-150 ${showEmbedding ? "rotate-180" : "rotate-0"}`}
+                      >
+                        ⌄
+                      </span>
+                      {showEmbedding ? "隱藏" : "顯示"}
+                    </button>
+                  </div>
+                  <div
+                    className="inline-flex overflow-hidden rounded-lg border border-[var(--border-light)] bg-[var(--surface-muted)] p-0.5 backdrop-blur-md  "
+                    aria-label="Embedding 提供者"
+                  >
+                    {(["openai", "gemini"] as const).map((p) => (
+                      <Tooltip
+                        key={p}
+                        content={
+                          p === "openai"
+                            ? "OpenAI 向量：text-embedding-3-small/large"
+                            : "Gemini 向量：text-embedding-004"
+                        }
+                      >
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() =>
+                            setCfg({ ...cfg!, embedding_provider: p })
+                          }
+                          aria-pressed={
+                            cfg!.embedding_provider === p ||
+                            (!cfg!.embedding_provider && p === "openai")
+                          }
+                          className={`h-7 px-2.5 text-[12px] leading-none rounded-md transition-all duration-150 focus-visible:ring-2 focus-visible:ring-[var(--brand-200)] ${
+                            (cfg!.embedding_provider || "openai") === p
+                              ? "bg-[var(--brand-primary)] text-white shadow-brand"
+                              : "text-[var(--text-primary)] hover:bg-[var(--surface)]  "
+                          }`}
+                          tabIndex={0}
+                        >
+                          {p[0].toUpperCase() + p.slice(1)}
+                        </button>
+                      </Tooltip>
+                    ))}
+                  </div>
+                  <Collapsible open={showEmbedding}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-[var(--text-muted)]">
+                        推薦型號
+                      </span>
+                      <div
+                        className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]"
+                        aria-label="Embedding 常用模型"
+                      >
+                        {embeddingSuggestions(cfg.embedding_provider).map(
+                          (m) => (
+                            <Tooltip key={m} content={`套用向量模型：${m}`}>
+                              <button
+                                key={m}
+                                type="button"
+                                onClick={() =>
+                                  setCfg({ ...cfg!, embedding_model: m })
+                                }
+                                className={`h-7 whitespace-nowrap rounded-full border px-2.5 text-[12px] leading-none transition-all duration-150 focus-visible:ring-2 focus-visible:ring-[var(--brand-200)] ${
+                                  cfg!.embedding_model === m
+                                    ? "border-[var(--soft-brand-border)] bg-[var(--brand-primary)] text-white shadow-brand"
+                                    : "border-[var(--border-light)] bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:bg-[var(--surface)]   "
+                                }`}
+                                tabIndex={0}
+                              >
+                                {m}
+                              </button>
+                            </Tooltip>
+                          ),
+                        )}
+                      </div>
+                      <div className="min-w-[240px] flex-1">
+                        <Input
+                          id="emb-model-input"
+                          aria-label="自訂 Embedding 模型 ID"
+                          value={cfg.embedding_model}
+                          onChange={(e) =>
+                            setCfg({ ...cfg, embedding_model: e.target.value })
+                          }
+                          placeholder={embPlaceholder(cfg.embedding_provider)}
+                        />
+                        {errs.embModel && (
+                          <div className="mt-1 text-xs text-red-600">
+                            請輸入有效的向量模型 ID。
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Collapsible>
+                </section>
+              </div>
+            </Card>
           )}
 
           {/* Simple mode */}
-          {section === 'generation' && tab === 'simple' && (
+          {section === "generation" && tab === "simple" && (
             <Card id="simple" className="p-4 md:p-5">
               <div className="grid gap-4">
                 {/* Presets */}
                 <div className="grid gap-3">
-                  <div className="text-sm font-medium text-[var(--text-primary)] ">使用情境</div>
+                  <div className="text-sm font-medium text-[var(--text-primary)] ">
+                    使用情境
+                  </div>
                   <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                     {[
-                      {id:'qna',title:'Q&A with Sources',desc:'問答並附來源',icon:'📚'},
-                      {id:'summarize',title:'Summarize & Explain',desc:'總結與說明',icon:'📝'},
-                      {id:'extract',title:'Extract & Structure',desc:'萃取與結構化',icon:'🧩'},
-                      {id:'brainstorm',title:'Brainstorm',desc:'發想與提案',icon:'💡'},
-                      {id:'compliance',title:'Strict Compliance',desc:'嚴謹與一致',icon:'✅'},
-                    ].map(p => (
+                      {
+                        id: "qna",
+                        title: "Q&A with Sources",
+                        desc: "問答並附來源",
+                        icon: "📚",
+                      },
+                      {
+                        id: "summarize",
+                        title: "Summarize & Explain",
+                        desc: "總結與說明",
+                        icon: "📝",
+                      },
+                      {
+                        id: "extract",
+                        title: "Extract & Structure",
+                        desc: "萃取與結構化",
+                        icon: "🧩",
+                      },
+                      {
+                        id: "brainstorm",
+                        title: "Brainstorm",
+                        desc: "發想與提案",
+                        icon: "💡",
+                      },
+                      {
+                        id: "compliance",
+                        title: "Strict Compliance",
+                        desc: "嚴謹與一致",
+                        icon: "✅",
+                      },
+                    ].map((p) => (
                       <button
                         key={p.id}
                         type="button"
-                        onClick={() => { setCfg({ ...cfg, preset: p.id as any }); try{ localStorage.setItem('settings.simple.preset', p.id);}catch{}}}
-                        className={`relative flex h-full flex-col justify-between rounded-2xl border p-4 text-left transition-all duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-                          cfg.preset===p.id ? 'border-indigo-300 bg-[var(--soft-brand-background)] shadow-sm ring-1 ring-[var(--soft-brand-border)]  ' : 'border-[var(--border-light)] bg-[var(--surface)] hover:-translate-y-0.5 hover:shadow-md hover:bg-[var(--surface-muted)] '
+                        onClick={() => {
+                          setCfg({ ...cfg, preset: p.id as any });
+                          try {
+                            localStorage.setItem(
+                              "settings.simple.preset",
+                              p.id,
+                            );
+                          } catch {}
+                        }}
+                        className={`relative flex h-full flex-col justify-between rounded-2xl border p-4 text-left transition-all duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-200)] ${
+                          cfg.preset === p.id
+                            ? "border-[var(--soft-brand-border)] bg-[var(--soft-brand-background)] shadow-sm ring-1 ring-[var(--soft-brand-border)]  "
+                            : "border-[var(--border-light)] bg-[var(--surface)] hover:-translate-y-0.5 hover:shadow-md hover:bg-[var(--surface-muted)] "
                         }`}
                         tabIndex={0}
-                        aria-pressed={cfg.preset===p.id}
+                        aria-pressed={cfg.preset === p.id}
                       >
                         <div className="mb-2 flex items-center gap-2">
                           <span className="text-lg leading-none">{p.icon}</span>
-                          <span className="text-sm font-semibold">{p.title}</span>
+                          <span className="text-sm font-semibold">
+                            {p.title}
+                          </span>
                         </div>
-                        <div className="text-xs text-[var(--text-muted)]">{p.desc}</div>
-                        {cfg.preset===p.id && (
-                          <span className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[11px] text-white shadow-sm">✓</span>
+                        <div className="text-xs text-[var(--text-muted)]">
+                          {p.desc}
+                        </div>
+                        {cfg.preset === p.id && (
+                          <span className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand-primary)] text-[11px] text-white shadow-sm">
+                            ✓
+                          </span>
                         )}
                       </button>
                     ))}
@@ -593,39 +932,78 @@ export default function SettingsPage() {
                 {/* Essentials */}
                 <div className="grid gap-3 md:grid-cols-3">
                   <div className="grid gap-1.5">
-                    <label className="text-sm inline-flex items-center gap-1">Creativity
+                    <label className="text-sm inline-flex items-center gap-1">
+                      Creativity
                       <Tooltip content="控制模型的發散程度。精準更穩定、創意更活潑。">
-                        <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">i</span>
+                        <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">
+                          i
+                        </span>
                       </Tooltip>
                     </label>
                     <Segmented
                       name="Creativity"
-                      options={[{id:'precise',label:'精準'},{id:'balanced',label:'平衡'},{id:'creative',label:'創意'}]}
-                      value={cfg.creativity || 'balanced'}
-                      onChange={(v)=>{ setCfg({ ...cfg, creativity: v as any }); try{ localStorage.setItem('settings.simple.creativity', v);}catch{} }}
+                      options={[
+                        { id: "precise", label: "精準" },
+                        { id: "balanced", label: "平衡" },
+                        { id: "creative", label: "創意" },
+                      ]}
+                      value={cfg.creativity || "balanced"}
+                      onChange={(v) => {
+                        setCfg({ ...cfg, creativity: v as any });
+                        try {
+                          localStorage.setItem("settings.simple.creativity", v);
+                        } catch {}
+                      }}
                     />
                   </div>
                   <div className="grid gap-1.5">
-                    <label className="text-sm inline-flex items-center gap-1">回答長度
+                    <label className="text-sm inline-flex items-center gap-1">
+                      回答長度
                       <Tooltip content="短：重點扼要；中：適中；長：詳盡。">
-                        <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">i</span>
+                        <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">
+                          i
+                        </span>
                       </Tooltip>
                     </label>
                     <Segmented
                       name="Answer Length"
-                      options={[{id:'short',label:'短'},{id:'medium',label:'中'},{id:'long',label:'長'}]}
-                      value={cfg.answer_length || 'medium'}
-                      onChange={(v)=>{ setCfg({ ...cfg, answer_length: v as any }); try{ localStorage.setItem('settings.simple.length', v);}catch{} }}
+                      options={[
+                        { id: "short", label: "短" },
+                        { id: "medium", label: "中" },
+                        { id: "long", label: "長" },
+                      ]}
+                      value={cfg.answer_length || "medium"}
+                      onChange={(v) => {
+                        setCfg({ ...cfg, answer_length: v as any });
+                        try {
+                          localStorage.setItem("settings.simple.length", v);
+                        } catch {}
+                      }}
                     />
                   </div>
                   <div className="grid gap-1.5">
-                    <label className="text-sm inline-flex items-center gap-1">顯示來源（Citations）
+                    <label className="text-sm inline-flex items-center gap-1">
+                      顯示來源（Citations）
                       <Tooltip content="回答會附上引用片段與文件來源。">
-                        <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">i</span>
+                        <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">
+                          i
+                        </span>
                       </Tooltip>
                     </label>
                     <label className="inline-flex items-center gap-2 text-sm">
-                      <input type="checkbox" checked={cfg.show_sources !== false} onChange={(e)=>{ setCfg({ ...cfg, show_sources: e.target.checked }); try{ localStorage.setItem('settings.simple.show_sources', String(e.target.checked)); }catch{} }} />
+                      <input
+                        type="checkbox"
+                        checked={cfg.show_sources !== false}
+                        onChange={(e) => {
+                          setCfg({ ...cfg, show_sources: e.target.checked });
+                          try {
+                            localStorage.setItem(
+                              "settings.simple.show_sources",
+                              String(e.target.checked),
+                            );
+                          } catch {}
+                        }}
+                      />
                       顯示引用來源
                     </label>
                   </div>
@@ -635,165 +1013,439 @@ export default function SettingsPage() {
           )}
 
           {/* Advanced: Generation */}
-          {section === 'generation' && tab === 'advanced' && (
-          <Card id="generation" className="p-4 md:p-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-[var(--text-primary)] ">生成參數</h3>
-              <label className="inline-flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-                <input type="checkbox" checked={!!cfg.override_generation} onChange={(e)=> setCfg({ ...cfg!, override_generation: e.target.checked })} /> 手動調整
-              </label>
-            </div>
-            <div className={`mt-3 grid gap-3 md:grid-cols-2 ${cfg!.override_generation ? '' : 'opacity-60'}`} aria-disabled={!cfg!.override_generation}>
-              <div className="grid gap-1.5">
-                <label className="text-sm inline-flex items-center gap-1">溫度（Temperature）
-                  <Tooltip content="範例：精準 0.2／平衡 0.5／創意 0.9">
-                    <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">i</span>
-                  </Tooltip>
-                </label>
-                <div className="flex items-center gap-3">
+          {section === "generation" && tab === "advanced" && (
+            <Card id="generation" className="p-4 md:p-5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-[var(--text-primary)] ">
+                  生成參數
+                </h3>
+                <label className="inline-flex items-center gap-2 text-xs text-[var(--text-secondary)]">
                   <input
-                    type="range"
-                    min={0}
-                    max={2}
-                    step={0.1}
-                    value={cfg.temperature ?? 0.2}
-                    onChange={(e) => setCfg({ ...cfg!, temperature: Number(e.target.value) })}
-                    disabled={!cfg!.override_generation}
-                    className="flex-1"
-                  />
-                  <Input id="temp-number"
+                    type="checkbox"
+                    checked={!!cfg.override_generation}
+                    onChange={(e) =>
+                      setCfg({ ...cfg!, override_generation: e.target.checked })
+                    }
+                  />{" "}
+                  手動調整
+                </label>
+              </div>
+              <div
+                className={`mt-3 grid gap-3 md:grid-cols-2 ${cfg!.override_generation ? "" : "opacity-60"}`}
+                aria-disabled={!cfg!.override_generation}
+              >
+                <div className="grid gap-1.5">
+                  <label className="text-sm inline-flex items-center gap-1">
+                    溫度（Temperature）
+                    <Tooltip content="範例：精準 0.2／平衡 0.5／創意 0.9">
+                      <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">
+                        i
+                      </span>
+                    </Tooltip>
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min={0}
+                      max={2}
+                      step={0.1}
+                      value={cfg.temperature ?? 0.2}
+                      onChange={(e) =>
+                        setCfg({ ...cfg!, temperature: Number(e.target.value) })
+                      }
+                      disabled={!cfg!.override_generation}
+                      className="flex-1"
+                    />
+                    <Input
+                      id="temp-number"
+                      type="number"
+                      step={0.1}
+                      min={0}
+                      max={2}
+                      className="w-24"
+                      value={cfg.temperature ?? 0.2}
+                      onChange={(e) =>
+                        setCfg({ ...cfg!, temperature: Number(e.target.value) })
+                      }
+                      disabled={!cfg!.override_generation}
+                    />
+                  </div>
+                  <div className="text-xs text-[var(--text-muted)]">
+                    0 更穩定、2 更具創造性。建議 0.2–0.8。
+                  </div>
+                  {errs.temp && (
+                    <div className="text-xs text-red-600">
+                      溫度範圍需在 0–2。
+                    </div>
+                  )}
+                </div>
+                <div className="grid gap-1.5">
+                  <label className="text-sm inline-flex items-center gap-1">
+                    Top P
+                    <Tooltip content="範例：保守 0.3／平衡 0.7／多樣 1.0">
+                      <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">
+                        i
+                      </span>
+                    </Tooltip>
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={cfg.top_p ?? 1}
+                      onChange={(e) =>
+                        setCfg({ ...cfg!, top_p: Number(e.target.value) })
+                      }
+                      disabled={!cfg!.override_generation}
+                      className="flex-1"
+                    />
+                    <Input
+                      id="topp-number"
+                      type="number"
+                      step={0.05}
+                      min={0}
+                      max={1}
+                      className="w-24"
+                      value={cfg.top_p ?? 1}
+                      onChange={(e) =>
+                        setCfg({ ...cfg!, top_p: Number(e.target.value) })
+                      }
+                      disabled={!cfg!.override_generation}
+                    />
+                  </div>
+                  {errs.topP && (
+                    <div className="text-xs text-red-600">
+                      Top P 範圍需在 0–1。
+                    </div>
+                  )}
+                </div>
+                <div className="grid gap-1.5">
+                  <label className="text-sm inline-flex items-center gap-1">
+                    Presence Penalty
+                  </label>
+                  <Input
+                    id="pres-number"
                     type="number"
                     step={0.1}
-                    min={0}
+                    min={-2}
                     max={2}
-                    className="w-24"
-                    value={cfg.temperature ?? 0.2}
-                    onChange={(e) => setCfg({ ...cfg!, temperature: Number(e.target.value) })}
+                    className="w-32"
+                    value={cfg.presence_penalty ?? 0}
+                    onChange={(e) =>
+                      setCfg({
+                        ...cfg!,
+                        presence_penalty: Number(e.target.value),
+                      })
+                    }
                     disabled={!cfg!.override_generation}
                   />
+                  {errs.pres && (
+                    <div className="text-xs text-red-600">需介於 -2 與 2。</div>
+                  )}
                 </div>
-                <div className="text-xs text-[var(--text-muted)]">0 更穩定、2 更具創造性。建議 0.2–0.8。</div>
-                {errs.temp && (<div className="text-xs text-red-600">溫度範圍需在 0–2。</div>)}
-              </div>
-              <div className="grid gap-1.5">
-                <label className="text-sm inline-flex items-center gap-1">Top P
-                  <Tooltip content="範例：保守 0.3／平衡 0.7／多樣 1.0">
-                    <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] text-[var(--text-secondary)]">i</span>
-                  </Tooltip>
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={cfg.top_p ?? 1}
-                    onChange={(e) => setCfg({ ...cfg!, top_p: Number(e.target.value) })}
+                <div className="grid gap-1.5">
+                  <label className="text-sm inline-flex items-center gap-1">
+                    Frequency Penalty
+                  </label>
+                  <Input
+                    id="freq-number"
+                    type="number"
+                    step={0.1}
+                    min={-2}
+                    max={2}
+                    className="w-32"
+                    value={cfg.frequency_penalty ?? 0}
+                    onChange={(e) =>
+                      setCfg({
+                        ...cfg!,
+                        frequency_penalty: Number(e.target.value),
+                      })
+                    }
                     disabled={!cfg!.override_generation}
-                    className="flex-1"
                   />
-                  <Input id="topp-number" type="number" step={0.05} min={0} max={1} className="w-24" value={cfg.top_p ?? 1} onChange={(e) => setCfg({ ...cfg!, top_p: Number(e.target.value) })} disabled={!cfg!.override_generation} />
+                  {errs.freq && (
+                    <div className="text-xs text-red-600">需介於 -2 與 2。</div>
+                  )}
                 </div>
-                {errs.topP && (<div className="text-xs text-red-600">Top P 範圍需在 0–1。</div>)}
-              </div>
-              <div className="grid gap-1.5">
-                <label className="text-sm inline-flex items-center gap-1">Presence Penalty</label>
-                <Input id="pres-number" type="number" step={0.1} min={-2} max={2} className="w-32" value={cfg.presence_penalty ?? 0} onChange={(e) => setCfg({ ...cfg!, presence_penalty: Number(e.target.value) })} disabled={!cfg!.override_generation} />
-                {errs.pres && (<div className="text-xs text-red-600">需介於 -2 與 2。</div>)}
-              </div>
-              <div className="grid gap-1.5">
-                <label className="text-sm inline-flex items-center gap-1">Frequency Penalty</label>
-                <Input id="freq-number" type="number" step={0.1} min={-2} max={2} className="w-32" value={cfg.frequency_penalty ?? 0} onChange={(e) => setCfg({ ...cfg!, frequency_penalty: Number(e.target.value) })} disabled={!cfg!.override_generation} />
-                {errs.freq && (<div className="text-xs text-red-600">需介於 -2 與 2。</div>)}
-              </div>
-              <div className="grid gap-1.5 md:col-span-2">
-                <label className="text-sm inline-flex items-center gap-1">最大輸出 Tokens</label>
-                <Input id="max-tokens-input" type="number" min={1} step={1} className="w-40" value={cfg.max_tokens ?? ''} onChange={(e) => setCfg({ ...cfg!, max_tokens: e.target.value ? Number(e.target.value) : null })} disabled={!cfg!.override_generation} />
-                {errs.maxTok && (<div className="text-xs text-red-600">請輸入正整數或留空。</div>)}
-              </div>
-            </div>
-          </Card>
-          )}
-
-          {/* Advanced: Retrieval */}
-          {section === 'retrieval' && (
-          <Card id="retrieval" className="p-4 md:p-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-[var(--text-primary)] ">檢索參數</h3>
-              <div className="flex items-center gap-2">
-                <label className="inline-flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-                  <input type="checkbox" checked={!!cfg.override_retrieval} onChange={(e)=> setCfg({ ...cfg!, override_retrieval: e.target.checked })} /> 手動調整
-                </label>
-                <button type="button" className="text-xs text-[var(--brand-primary)] underline hover:opacity-80 " onClick={() => setShowAdvanced((v)=>!v)}>
-                  {showAdvanced ? '隱藏説明' : '顯示説明'}
-                </button>
-              </div>
-            </div>
-            <Collapsible open={showAdvanced}>
-              <p className="mt-2 text-xs text-[var(--text-secondary)]">Chunk 與重疊只影響未來上傳文件；既有索引需重新上傳重建。</p>
-            </Collapsible>
-            <div className={`mt-3 grid grid-cols-1 gap-3 md:grid-cols-3 ${cfg!.override_retrieval ? '' : 'opacity-60'}`} aria-disabled={!cfg!.override_retrieval}>
-              <div className="grid gap-1.5">
-                <label className="text-sm">Chunk 大小</label>
-                <Input id="chunk-size-input" type="number" min={1} step={1} value={cfg.chunk_size} onChange={(e) => setCfg({ ...cfg!, chunk_size: Number(e.target.value) })} disabled={!cfg!.override_retrieval} />
-                <div className="text-xs text-[var(--text-muted)]">每段文字的最大字元數，建議 1000。</div>
-                {errs.chunkSize && (<div className="text-xs text-red-600">Chunk 大小必須大於 0。</div>)}
-              </div>
-              <div className="grid gap-1.5">
-                <label className="text-sm">重疊長度</label>
-                <Input id="chunk-overlap-input" type="number" min={0} step={1} value={cfg.chunk_overlap} onChange={(e) => setCfg({ ...cfg!, chunk_overlap: Number(e.target.value) })} disabled={!cfg!.override_retrieval} />
-                <div className="text-xs text-[var(--text-muted)]">相鄰段落的重疊字元，建議 200（需小於 Chunk 大小）。</div>
-                {errs.overlap && (<div className="text-xs text-red-600">重疊長度需在 0 與 Chunk 大小之間。</div>)}
-              </div>
-              <div className="grid gap-1.5">
-                <label className="text-sm">檢索份數（Top K）</label>
-                <Input id="topk-input" type="number" min={1} step={1} value={cfg.top_k} onChange={(e) => setCfg({ ...cfg!, top_k: Number(e.target.value) })} disabled={!cfg!.override_retrieval} />
-                <div className="text-xs text-[var(--text-muted)]">每次取回的相關片段數，建議 4。</div>
-                {errs.topK && (<div className="text-xs text-red-600">Top K 必須大於或等於 1。</div>)}
-              </div>
-            </div>
-            {cfg.chunk_overlap >= cfg.chunk_size && (
-              <div className="text-sm text-red-600">Chunk Overlap 必須小於 Chunk Size。</div>
-            )}
-          </Card>
-          )}
-
-          {/* Error summary */}
-          {(section === 'models' || section === 'generation' || section === 'retrieval') && invalid && (
-            <Card className="p-3">
-              <div className="rounded-md border border-red-200 bg-[var(--danger-soft)] p-3 text-xs text-[var(--danger)] ">
-                <div className="mb-1 font-medium">有幾個欄位需要修正：</div>
-                <div className="flex flex-wrap gap-2">
-                  {errs.chatModel && (<button type="button" className="underline" onClick={()=>scrollToField('models')}>Chat 模型</button>)}
-                  {errs.embModel && (<button type="button" className="underline" onClick={()=>scrollToField('emb-model-input')}>Embedding 模型</button>)}
-                  {tab === 'advanced' && errs.chunkSize && (<button type="button" className="underline" onClick={()=>scrollToField('chunk-size-input')}>Chunk 大小</button>)}
-                  {tab === 'advanced' && errs.overlap && (<button type="button" className="underline" onClick={()=>scrollToField('chunk-overlap-input')}>重疊長度</button>)}
-                  {tab === 'advanced' && errs.topK && (<button type="button" className="underline" onClick={()=>scrollToField('topk-input')}>Top K</button>)}
-                  {tab === 'advanced' && errs.temp && (<button type="button" className="underline" onClick={()=>scrollToField('temp-number')}>溫度</button>)}
-                  {tab === 'advanced' && errs.topP && (<button type="button" className="underline" onClick={()=>scrollToField('topp-number')}>Top P</button>)}
-                  {tab === 'advanced' && errs.pres && (<button type="button" className="underline" onClick={()=>scrollToField('pres-number')}>Presence Penalty</button>)}
-                  {tab === 'advanced' && errs.freq && (<button type="button" className="underline" onClick={()=>scrollToField('freq-number')}>Frequency Penalty</button>)}
-                  {tab === 'advanced' && errs.maxTok && (<button type="button" className="underline" onClick={()=>scrollToField('max-tokens-input')}>最大輸出 Tokens</button>)}
+                <div className="grid gap-1.5 md:col-span-2">
+                  <label className="text-sm inline-flex items-center gap-1">
+                    最大輸出 Tokens
+                  </label>
+                  <Input
+                    id="max-tokens-input"
+                    type="number"
+                    min={1}
+                    step={1}
+                    className="w-40"
+                    value={cfg.max_tokens ?? ""}
+                    onChange={(e) =>
+                      setCfg({
+                        ...cfg!,
+                        max_tokens: e.target.value
+                          ? Number(e.target.value)
+                          : null,
+                      })
+                    }
+                    disabled={!cfg!.override_generation}
+                  />
+                  {errs.maxTok && (
+                    <div className="text-xs text-red-600">
+                      請輸入正整數或留空。
+                    </div>
+                  )}
                 </div>
               </div>
             </Card>
           )}
 
+          {/* Advanced: Retrieval */}
+          {section === "retrieval" && (
+            <Card id="retrieval" className="p-4 md:p-5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-[var(--text-primary)] ">
+                  檢索參數
+                </h3>
+                <div className="flex items-center gap-2">
+                  <label className="inline-flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                    <input
+                      type="checkbox"
+                      checked={!!cfg.override_retrieval}
+                      onChange={(e) =>
+                        setCfg({
+                          ...cfg!,
+                          override_retrieval: e.target.checked,
+                        })
+                      }
+                    />{" "}
+                    手動調整
+                  </label>
+                  <button
+                    type="button"
+                    className="text-xs text-[var(--brand-primary)] underline hover:opacity-80 "
+                    onClick={() => setShowAdvanced((v) => !v)}
+                  >
+                    {showAdvanced ? "隱藏説明" : "顯示説明"}
+                  </button>
+                </div>
+              </div>
+              <Collapsible open={showAdvanced}>
+                <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                  Chunk 與重疊只影響未來上傳文件；既有索引需重新上傳重建。
+                </p>
+              </Collapsible>
+              <div
+                className={`mt-3 grid grid-cols-1 gap-3 md:grid-cols-3 ${cfg!.override_retrieval ? "" : "opacity-60"}`}
+                aria-disabled={!cfg!.override_retrieval}
+              >
+                <div className="grid gap-1.5">
+                  <label className="text-sm">Chunk 大小</label>
+                  <Input
+                    id="chunk-size-input"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={cfg.chunk_size}
+                    onChange={(e) =>
+                      setCfg({ ...cfg!, chunk_size: Number(e.target.value) })
+                    }
+                    disabled={!cfg!.override_retrieval}
+                  />
+                  <div className="text-xs text-[var(--text-muted)]">
+                    每段文字的最大字元數，建議 1000。
+                  </div>
+                  {errs.chunkSize && (
+                    <div className="text-xs text-red-600">
+                      Chunk 大小必須大於 0。
+                    </div>
+                  )}
+                </div>
+                <div className="grid gap-1.5">
+                  <label className="text-sm">重疊長度</label>
+                  <Input
+                    id="chunk-overlap-input"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={cfg.chunk_overlap}
+                    onChange={(e) =>
+                      setCfg({ ...cfg!, chunk_overlap: Number(e.target.value) })
+                    }
+                    disabled={!cfg!.override_retrieval}
+                  />
+                  <div className="text-xs text-[var(--text-muted)]">
+                    相鄰段落的重疊字元，建議 200（需小於 Chunk 大小）。
+                  </div>
+                  {errs.overlap && (
+                    <div className="text-xs text-red-600">
+                      重疊長度需在 0 與 Chunk 大小之間。
+                    </div>
+                  )}
+                </div>
+                <div className="grid gap-1.5">
+                  <label className="text-sm">檢索份數（Top K）</label>
+                  <Input
+                    id="topk-input"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={cfg.top_k}
+                    onChange={(e) =>
+                      setCfg({ ...cfg!, top_k: Number(e.target.value) })
+                    }
+                    disabled={!cfg!.override_retrieval}
+                  />
+                  <div className="text-xs text-[var(--text-muted)]">
+                    每次取回的相關片段數，建議 4。
+                  </div>
+                  {errs.topK && (
+                    <div className="text-xs text-red-600">
+                      Top K 必須大於或等於 1。
+                    </div>
+                  )}
+                </div>
+              </div>
+              {cfg.chunk_overlap >= cfg.chunk_size && (
+                <div className="text-sm text-red-600">
+                  Chunk Overlap 必須小於 Chunk Size。
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* Error summary */}
+          {(section === "models" ||
+            section === "generation" ||
+            section === "retrieval") &&
+            invalid && (
+              <Card className="p-3">
+                <div className="rounded-md border border-red-200 bg-[var(--danger-soft)] p-3 text-xs text-[var(--danger)] ">
+                  <div className="mb-1 font-medium">有幾個欄位需要修正：</div>
+                  <div className="flex flex-wrap gap-2">
+                    {errs.chatModel && (
+                      <button
+                        type="button"
+                        className="underline"
+                        onClick={() => scrollToField("models")}
+                      >
+                        Chat 模型
+                      </button>
+                    )}
+                    {errs.embModel && (
+                      <button
+                        type="button"
+                        className="underline"
+                        onClick={() => scrollToField("emb-model-input")}
+                      >
+                        Embedding 模型
+                      </button>
+                    )}
+                    {tab === "advanced" && errs.chunkSize && (
+                      <button
+                        type="button"
+                        className="underline"
+                        onClick={() => scrollToField("chunk-size-input")}
+                      >
+                        Chunk 大小
+                      </button>
+                    )}
+                    {tab === "advanced" && errs.overlap && (
+                      <button
+                        type="button"
+                        className="underline"
+                        onClick={() => scrollToField("chunk-overlap-input")}
+                      >
+                        重疊長度
+                      </button>
+                    )}
+                    {tab === "advanced" && errs.topK && (
+                      <button
+                        type="button"
+                        className="underline"
+                        onClick={() => scrollToField("topk-input")}
+                      >
+                        Top K
+                      </button>
+                    )}
+                    {tab === "advanced" && errs.temp && (
+                      <button
+                        type="button"
+                        className="underline"
+                        onClick={() => scrollToField("temp-number")}
+                      >
+                        溫度
+                      </button>
+                    )}
+                    {tab === "advanced" && errs.topP && (
+                      <button
+                        type="button"
+                        className="underline"
+                        onClick={() => scrollToField("topp-number")}
+                      >
+                        Top P
+                      </button>
+                    )}
+                    {tab === "advanced" && errs.pres && (
+                      <button
+                        type="button"
+                        className="underline"
+                        onClick={() => scrollToField("pres-number")}
+                      >
+                        Presence Penalty
+                      </button>
+                    )}
+                    {tab === "advanced" && errs.freq && (
+                      <button
+                        type="button"
+                        className="underline"
+                        onClick={() => scrollToField("freq-number")}
+                      >
+                        Frequency Penalty
+                      </button>
+                    )}
+                    {tab === "advanced" && errs.maxTok && (
+                      <button
+                        type="button"
+                        className="underline"
+                        onClick={() => scrollToField("max-tokens-input")}
+                      >
+                        最大輸出 Tokens
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            )}
+
           {/* Save bar */}
-          {(section === 'models' || section === 'generation' || section === 'retrieval') && (
-          <div className="sticky bottom-0 z-10 -mb-2 -mx-1 mt-2">
-            <div className="pointer-events-none bg-gradient-to-t from-[var(--surface)] to-transparent pb-2 pt-10 ">
-              <div className="pointer-events-auto flex items-center justify-end gap-2">
-                <Button size="sm" variant="outline" type="button" onClick={handleResetToRecommended}>建議值</Button>
-                <Button size="sm" disabled={busy || invalid || !dirty}>{busy ? '儲存中…' : dirty ? '儲存' : '已儲存'}</Button>
+          {(section === "models" ||
+            section === "generation" ||
+            section === "retrieval") && (
+            <div className="sticky bottom-0 z-10 -mb-2 -mx-1 mt-2">
+              <div className="pointer-events-none bg-gradient-to-t from-[var(--surface)] to-transparent pb-2 pt-10 ">
+                <div className="pointer-events-auto flex items-center justify-end gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    type="button"
+                    onClick={handleResetToRecommended}
+                  >
+                    建議值
+                  </Button>
+                  <Button size="sm" disabled={busy || invalid || !dirty}>
+                    {busy ? "儲存中…" : dirty ? "儲存" : "已儲存"}
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
           )}
         </form>
 
-        {section === 'retrieval' && (
-          <div className="mt-4 text-sm text-[var(--text-muted)]">注意：調整 Chunk/Overlap 僅影響後續上傳文件；需重新上傳以重建索引。</div>
+        {section === "retrieval" && (
+          <div className="mt-4 text-sm text-[var(--text-muted)]">
+            注意：調整 Chunk/Overlap 僅影響後續上傳文件；需重新上傳以重建索引。
+          </div>
         )}
       </section>
     </div>
