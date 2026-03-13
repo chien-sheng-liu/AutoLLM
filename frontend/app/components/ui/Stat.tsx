@@ -1,6 +1,5 @@
 "use client";
 import React from "react";
-import Card from "@/app/components/ui/Card";
 
 export type StatProps = {
   label: React.ReactNode;
@@ -11,10 +10,10 @@ export type StatProps = {
 
 export default function Stat({ label, value, hint, className }: StatProps) {
   return (
-    <Card className={"p-4 " + (className || "")}>
-      <div className="text-xs uppercase tracking-wide text-[var(--text-muted)]">{label}</div>
-      <div className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{value}</div>
-      {hint && <div className="mt-1 text-xs text-[var(--text-secondary)]">{hint}</div>}
-    </Card>
+    <div className={`rounded-xl border border-[var(--border-light)] bg-[var(--surface)] p-4 ${className || ""}`}>
+      <div className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">{label}</div>
+      <div className="mt-2 font-display text-2xl font-bold tracking-tight text-[var(--text-primary)]">{value}</div>
+      {hint && <div className="mt-1 font-body text-xs text-[var(--text-muted)]">{hint}</div>}
+    </div>
   );
 }

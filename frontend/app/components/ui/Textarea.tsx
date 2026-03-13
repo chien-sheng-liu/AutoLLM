@@ -30,7 +30,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(function T
         else if (ref) (ref as any).current = node;
       }}
       className={cn(
-        "w-full resize-none overflow-auto rounded-2xl border border-[var(--border-light)] bg-[var(--surface-muted)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--brand-200)] focus:ring-2 focus:ring-[var(--brand-100)]",
+        "w-full resize-none overflow-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-4 py-3 font-body text-sm text-[var(--text-primary)] outline-none transition-all placeholder:text-[var(--text-disabled)] focus:border-[var(--brand-300)] focus:ring-2 focus:ring-[var(--brand-100)] focus:bg-[var(--surface-card)]",
         className
       )}
       style={{ ...(style || {}), maxHeight }}

@@ -21,11 +21,8 @@ export default function Nav() {
   }, [pathname]);
 
   useEffect(() => {
-    // Best-effort: refresh profile to get latest auth for this tab only
     fetchProfile()
-      .then((u) => {
-        setUser(u);
-      })
+      .then((u) => { setUser(u); })
       .catch(() => {});
   }, []);
 
@@ -34,11 +31,8 @@ export default function Nav() {
   }
 
   async function handleLogout() {
-    try {
-      await apiLogout();
-    } catch (err) {
-      console.warn("logout failed", err);
-    } finally {
+    try { await apiLogout(); } catch (err) { console.warn("logout failed", err); }
+    finally {
       clearSession();
       setUser(null);
       router.replace("/login");
@@ -46,127 +40,132 @@ export default function Nav() {
   }
 
   const role = ((user?.auth || "") as string).toLowerCase();
-  const canAdmin = role === "admin" || role === "administrator";
-  const canManage = canAdmin || role === "manager";
-  const avatarLabel = (user?.name || user?.email || "A")
-    .slice(0, 1)
-    .toUpperCase();
+  const canAdmin   = role === "admin" || role === "administrator";
+  const canManage  = canAdmin || role === "manager";
+  const avatarLabel = (user?.name || user?.email || "A").slice(0, 1).toUpperCase();
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
     }
     if (menuOpen) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
   const navLinks = [
-    { href: "/dashboard", label: t("nav.home"), show: true },
-    { href: "/chat", label: t("nav.chat"), show: true },
-    { href: "/data", label: t("nav.data"), show: canManage },
-    { href: "/settings", label: t("nav.settings"), show: true },
+    { href: "/dashboard", label: t("nav.home"),     show: true },
+    { href: "/chat",      label: t("nav.chat"),     show: true },
+    { href: "/data",      label: t("nav.data"),     show: canManage },
+    { href: "/settings",  label: t("nav.settings"), show: true },
   ].filter((item) => item.show);
 
   return (
-    <div className="sticky top-0 z-50 px-4 pb-3 pt-4 md:px-10">
-      <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-6 rounded-3xl border border-[var(--border-strong)] bg-[var(--surface)]/95 px-4 py-3 shadow-soft backdrop-blur">
-        <div className="flex items-center gap-3">
+    <div className="sticky top-0 z-50 px-4 pb-2 pt-3 md:px-8">
+      <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-6 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)]/80 px-4 py-2.5 shadow-soft backdrop-blur-md">
+
+        {/* Brand */}
+        <Link href="/" className="flex items-center gap-2.5 group">
           <span
-            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--soft-brand-border)] bg-[var(--soft-brand-background)] text-lg font-semibold text-[var(--brand-primary)] shadow-surface"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--soft-brand-border)] bg-[var(--soft-brand-background)] text-base font-bold text-[var(--brand-primary)] transition-all group-hover:shadow-amber-sm"
             aria-hidden
           >
             ⚡
           </span>
-          <div className="text-sm">
-            <div className="font-semibold tracking-tight text-[var(--text-primary)]">
+          <div>
+            <div className="font-display text-[13px] font-bold tracking-tight text-[var(--text-primary)] leading-none">
               {t("nav.brand")}
             </div>
-            <div className="text-[11px] uppercase tracking-[0.3em] text-[var(--text-muted)]">
+            <div className="font-mono text-[9px] uppercase tracking-[0.35em] text-[var(--text-muted)] leading-none mt-0.5">
               AI Copilot
             </div>
           </div>
-        </div>
+        </Link>
 
-        <nav className="hidden flex-1 items-center justify-center gap-1 text-sm md:flex">
+        {/* Nav links */}
+        <nav className="hidden flex-1 items-center justify-center gap-0.5 text-sm md:flex">
           {navLinks.map((link) => {
             const active = isActive(link.href);
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`rounded-2xl px-4 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-200)] ${
+                className={`relative rounded-xl px-4 py-2 font-display text-[13px] font-semibold tracking-wide transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-200)] ${
                   active
-                    ? "bg-[var(--brand-50)] text-[var(--brand-primary)] shadow-surface"
-                    : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
+                    ? "text-[var(--brand-primary)] bg-[var(--soft-brand-background)]"
+                    : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
                 }`}
               >
                 {link.label}
+                {active && (
+                  <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 h-0.5 w-4 rounded-full bg-[var(--brand-primary)]" />
+                )}
               </Link>
             );
           })}
         </nav>
 
-        <div className="flex items-center gap-4">
+        {/* Right side */}
+        <div className="flex items-center gap-3">
           <LanguageSwitcher />
           {user ? (
             <div className="relative" ref={menuRef}>
               <button
                 type="button"
                 onClick={() => setMenuOpen((open) => !open)}
-                className="flex items-center gap-2 rounded-2xl border border-[var(--border-light)] bg-[var(--surface-muted)] px-3 py-1.5 text-left text-xs text-[var(--text-secondary)] shadow-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-200)]"
+                className="flex items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-2.5 py-1.5 text-left transition-all hover:border-[var(--border-strong)] hover:bg-[var(--surface-card)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-200)]"
               >
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--brand-primary)] text-sm font-semibold text-white">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--brand-primary)] font-display text-xs font-bold text-[var(--text-inverse)]">
                   {avatarLabel}
                 </span>
                 <span className="hidden sm:block">
-                  <div className="text-[12px] font-semibold leading-tight text-[var(--text-primary)]">
+                  <div className="font-display text-[12px] font-semibold leading-none text-[var(--text-primary)]">
                     {user.name || user.email}
                   </div>
-                  <div className="text-[10px] text-[var(--text-muted)]">
+                  <div className="font-mono text-[9px] uppercase tracking-widest text-[var(--text-muted)] mt-0.5">
                     {t("nav.signedIn")}
                   </div>
                 </span>
-                <span className="text-[var(--text-muted)]" aria-hidden>
-                  ▾
-                </span>
+                <svg className="h-3 w-3 text-[var(--text-muted)]" viewBox="0 0 12 12" fill="currentColor">
+                  <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </button>
+
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-52 rounded-2xl border border-[var(--border-light)] bg-[var(--surface)] p-2 text-sm text-[var(--text-secondary)] shadow-panel">
-                  <Link
-                    href="/guide"
-                    className="block rounded-xl px-3 py-2 transition hover:bg-[var(--surface-muted)]"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    {t("nav.guide")}
-                  </Link>
-                  {canAdmin && (
+                <div className="absolute right-0 mt-2 w-52 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] shadow-panel">
+                  <div className="p-1.5">
                     <Link
-                      href="/admin"
-                      className="block rounded-xl px-3 py-2 transition hover:bg-[var(--surface-muted)]"
+                      href="/guide"
+                      className="flex items-center gap-2 rounded-xl px-3 py-2 font-body text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
                       onClick={() => setMenuOpen(false)}
                     >
-                      {t("nav.admin")}
+                      <span className="text-base">📖</span> {t("nav.guide")}
                     </Link>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      handleLogout();
-                    }}
-                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-[var(--danger)] transition hover:bg-[var(--danger-soft)]"
-                  >
-                    {t("nav.logout")}
-                    <span aria-hidden>↗</span>
-                  </button>
+                    {canAdmin && (
+                      <Link
+                        href="/admin"
+                        className="flex items-center gap-2 rounded-xl px-3 py-2 font-body text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        <span className="text-base">⚙️</span> {t("nav.admin")}
+                      </Link>
+                    )}
+                  </div>
+                  <div className="border-t border-[var(--border-light)] p-1.5">
+                    <button
+                      type="button"
+                      onClick={() => { setMenuOpen(false); handleLogout(); }}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-body text-sm text-[var(--danger)] transition hover:bg-[var(--danger-soft)]"
+                    >
+                      <span className="text-base">↗</span> {t("nav.logout")}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
           ) : (
             <Link
               href="/login"
-              className="rounded-2xl border border-[var(--border-strong)] bg-[var(--surface-muted)] px-3 py-1.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-panel)] hover:text-[var(--text-primary)]"
+              className="rounded-xl border border-[var(--border-strong)] bg-[var(--surface-muted)] px-3 py-2 font-display text-[13px] font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-card)] hover:text-[var(--text-primary)]"
             >
               {t("nav.login")}
             </Link>
