@@ -18,17 +18,28 @@ export function showToast(
   listeners.forEach((l) => l(t));
 }
 
+const kindStyles: Record<string, string> = {
+  success: "border-[var(--success)] bg-[var(--success-soft)] text-[var(--success)]",
+  error:   "border-[var(--danger)]  bg-[var(--danger-soft)]  text-[var(--danger)]",
+  info:    "border-[var(--border-subtle)] bg-[var(--surface-card)] text-[var(--text-primary)]",
+};
+
+const kindIcon: Record<string, string> = {
+  success: "✓",
+  error:   "✕",
+  info:    "i",
+};
+
 export default function Toaster() {
   const [items, setItems] = useState<Toast[]>([]);
+
   useEffect(() => {
     const on = (t: Toast) => {
       setItems((prev) => [...prev, t]);
-      setTimeout(() => dismiss(t.id), t.duration ?? 3000);
+      setTimeout(() => dismiss(t.id), t.duration ?? 3500);
     };
     listeners.push(on);
-    return () => {
-      listeners = listeners.filter((l) => l !== on);
-    };
+    return () => { listeners = listeners.filter((l) => l !== on); };
   }, []);
 
   function dismiss(id: string) {
@@ -40,16 +51,16 @@ export default function Toaster() {
       {items.map((t) => (
         <div
           key={t.id}
-          className={`pointer-events-auto w-80 rounded-xl border px-4 py-3 shadow-soft backdrop-blur transition ${
-            t.kind === "success"
-              ? "border-[var(--success)] bg-[var(--success-soft)] text-[var(--success)]"
-              : t.kind === "error"
-                ? "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]"
-                : "border-[var(--border-light)] bg-[var(--surface)] text-[var(--text-primary)]"
-          }`}
+          onClick={() => dismiss(t.id)}
+          className={`pointer-events-auto flex w-80 items-start gap-3 rounded-xl border px-4 py-3 shadow-soft backdrop-blur-md cursor-pointer animate-fade-up ${kindStyles[t.kind ?? "info"]}`}
         >
-          {t.title && <div className="text-sm font-semibold">{t.title}</div>}
-          <div className="text-sm">{t.message}</div>
+          <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border border-current font-mono text-[10px] font-semibold">
+            {kindIcon[t.kind ?? "info"]}
+          </span>
+          <div>
+            {t.title && <div className="font-display text-sm font-semibold leading-tight">{t.title}</div>}
+            <div className="font-body text-sm leading-snug">{t.message}</div>
+          </div>
         </div>
       ))}
     </div>

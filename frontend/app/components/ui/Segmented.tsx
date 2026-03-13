@@ -20,7 +20,7 @@ export default function Segmented({ name, options, value, onChange, className }:
   return (
     <div
       className={
-        "inline-flex overflow-hidden rounded-2xl border border-[var(--border-light)] bg-[var(--surface-muted)] p-0.5 " +
+        "inline-flex overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-0.5 " +
         (className || "")
       }
       aria-label={name}
@@ -33,12 +33,14 @@ export default function Segmented({ name, options, value, onChange, className }:
             type="button"
             onClick={() => onChange(opt.id)}
             aria-pressed={selected}
-            className={`h-8 rounded-xl px-3 text-[12px] font-semibold leading-none transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-200)] ${
+            className={`h-7 rounded-lg px-3 font-mono text-[11px] font-semibold uppercase tracking-wide leading-none transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-200)] ${
               selected
-                ? 'bg-[var(--brand-primary)] text-white shadow-brand'
-                : 'text-[var(--text-secondary)] hover:bg-[var(--surface)]'
+                ? "bg-[var(--brand-primary)] text-[var(--text-inverse)] shadow-amber-sm"
+                : "text-[var(--text-secondary)] hover:bg-[var(--surface-card)] hover:text-[var(--text-primary)]"
             }`}
-          >{opt.label}</button>
+          >
+            {opt.label}
+          </button>
         );
         return opt.tooltip ? (
           <Tooltip key={opt.id} content={opt.tooltip}>{btn}</Tooltip>

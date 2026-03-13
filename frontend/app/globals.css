@@ -2,75 +2,90 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Design tokens */
+/* ─── Design Tokens — Terminal Elegance ──────────────────────────────── */
 :root {
-  color-scheme: light;
-  --bg-app: #F6F8FC;
-  --bg-subtle: #EEF2F8;
-  --bg-base: var(--bg-app);
+  color-scheme: dark;
 
-  --surface: #FFFFFF;
-  --surface-panel: #F9FBFF;
-  --surface-card: #FFFFFF;
-  --surface-muted: #F2F5FB;
-  --surface-soft: #F4F7FC;
+  /* App backgrounds */
+  --bg-app:    #0E0E13;
+  --bg-subtle: #12121A;
+  --bg-base:   var(--bg-app);
 
-  --border-light: #E7ECF5;
-  --border-subtle: #E3E9F4;
-  --border-strong: #D7DEEB;
+  /* Surface layers */
+  --surface:        #16161F;
+  --surface-panel:  #111119;
+  --surface-card:   #1C1C28;
+  --surface-muted:  #1E1E2A;
+  --surface-soft:   #20202E;
 
-  --text-primary: #182033;
-  --text-secondary: #4F5B76;
-  --text-muted: #7A859F;
-  --text-disabled: #A7B0C3;
-  --text-inverse: #FFFFFF;
+  /* Borders */
+  --border-light:  rgba(255, 255, 255, 0.06);
+  --border-subtle: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.14);
 
-  --brand-50: #F6F2FF;
-  --brand-100: #F1EDFF;
-  --brand-200: #E4DAFF;
-  --brand-300: #D8CCFF;
-  --brand-400: #B69CFF;
-  --brand-500: #7C5CFF;
-  --brand-600: #6D4EF2;
-  --brand-700: #5E43D8;
-  --brand-800: #4E38B1;
-  --brand-primary: #7C5CFF;
-  --brand-hover: #6D4EF2;
-  --brand-active: #5E43D8;
-  --soft-brand-background: #F1EDFF;
-  --soft-brand-border: #D8CCFF;
+  /* Text */
+  --text-primary:   #EDEAF5;
+  --text-secondary: #9896AB;
+  --text-muted:     #68667A;
+  --text-disabled:  #48465A;
+  --text-inverse:   #0E0E13;
 
-  --accent-blue: #4F8CFF;
-  --accent-teal: #26B8A6;
-  --accent-pink: #FF6FB5;
-  --accent-from: #7C5CFF;
-  --accent-to: #4F8CFF;
+  /* Brand — warm amber/gold */
+  --brand-50:      rgba(232, 164, 59, 0.08);
+  --brand-100:     rgba(232, 164, 59, 0.14);
+  --brand-200:     rgba(232, 164, 59, 0.30);
+  --brand-300:     rgba(232, 164, 59, 0.50);
+  --brand-400:     #D49428;
+  --brand-500:     #E8A43B;
+  --brand-600:     #F0B44D;
+  --brand-700:     #F5BE62;
+  --brand-800:     #F9CC7F;
+  --brand-primary: #E8A43B;
+  --brand-hover:   #F0B44D;
+  --brand-active:  #D4922A;
+  --soft-brand-background: rgba(232, 164, 59, 0.10);
+  --soft-brand-border:     rgba(232, 164, 59, 0.25);
 
-  --success: #1FA971;
-  --success-soft: #E8F8F1;
-  --warning: #E8A317;
-  --warning-soft: #FFF6DF;
-  --danger: #D84C63;
-  --danger-soft: #FDECEF;
-  --info: #2F7CF6;
-  --info-soft: #EAF2FF;
+  /* Accents */
+  --accent-blue:  #5B9CF6;
+  --accent-teal:  #2CC8A0;
+  --accent-pink:  #E8506A;
+  --accent-from:  #E8A43B;
+  --accent-to:    #F0B44D;
 
-  --shadow-soft-sm: 0 2px 8px rgba(24, 32, 51, 0.05);
-  --shadow-soft-md: 0 8px 24px rgba(24, 32, 51, 0.08);
-  --shadow-soft-lg: 0 18px 45px rgba(15, 23, 42, 0.12);
-  --shadow-brand: 0 20px 40px rgba(124, 92, 255, 0.25);
+  /* State colours */
+  --success:      #2CC88A;
+  --success-soft: rgba(44, 200, 138, 0.12);
+  --warning:      #F0A140;
+  --warning-soft: rgba(240, 161, 64, 0.12);
+  --danger:       #E8506A;
+  --danger-soft:  rgba(232, 80, 106, 0.12);
+  --info:         #5B9CF6;
+  --info-soft:    rgba(91, 156, 246, 0.12);
 
-  --gradient-brand: linear-gradient(135deg, #7C5CFF 0%, #6D4EF2 55%, #4F8CFF 100%);
-  --gradient-brand-soft: linear-gradient(135deg, #F6F2FF 0%, #EEF4FF 100%);
+  /* Shadows */
+  --shadow-soft-sm: 0 2px 8px  rgba(0, 0, 0, 0.35);
+  --shadow-soft-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-soft-lg: 0 18px 45px rgba(0, 0, 0, 0.55);
+  --shadow-brand:   0 8px 32px rgba(232, 164, 59, 0.22);
+
+  /* Gradients */
+  --gradient-brand:      linear-gradient(135deg, #E8A43B 0%, #F0B44D 55%, #E8906A 100%);
+  --gradient-brand-soft: linear-gradient(135deg, rgba(232,164,59,0.10) 0%, rgba(232,144,106,0.08) 100%);
   --gradient-app:
-    radial-gradient(circle at 10% 20%, rgba(124, 92, 255, 0.12), transparent 42%),
-    radial-gradient(circle at 80% 0%, rgba(79, 140, 255, 0.12), transparent 45%),
-    radial-gradient(circle at 20% 80%, rgba(255, 111, 181, 0.08), transparent 40%);
+    radial-gradient(ellipse 60% 50% at 10% -10%, rgba(232, 164, 59, 0.10), transparent),
+    radial-gradient(ellipse 50% 40% at 90% 110%, rgba(91, 156, 246, 0.07), transparent),
+    radial-gradient(ellipse 40% 40% at 50% 50%, rgba(30, 20, 60, 0.5), transparent);
 
-  --grid-line: rgba(71, 86, 120, 0.05);
+  --grid-line: rgba(255, 255, 255, 0.025);
+
+  /* Fonts */
+  --font-display: var(--font-syne), 'Syne', system-ui, sans-serif;
+  --font-body:    var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
+  --font-mono:    var(--font-jetbrains-mono), 'JetBrains Mono', 'SFMono-Regular', monospace;
 }
 
-/* Base tweaks */
+/* ─── Base ────────────────────────────────────────────────────────────── */
 html,
 body {
   height: 100%;
@@ -79,8 +94,9 @@ body {
 body {
   background: var(--bg-app);
   color: var(--text-primary);
-  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
@@ -88,59 +104,58 @@ body {
 }
 
 a {
-  color: var(--brand-600);
+  color: var(--brand-primary);
   text-decoration: none;
 }
 
 pre {
-  @apply whitespace-pre-wrap rounded-2xl border;
+  @apply whitespace-pre-wrap rounded-xl border;
   background: var(--surface-muted);
   border-color: var(--border-subtle);
   color: var(--text-primary);
+  font-family: var(--font-mono);
   padding: 0.85rem 1rem;
   overflow: auto;
 }
 
-/* Typing indicator (three blinking dots) */
+/* ─── Scrollbar ───────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.20);
+}
+
+/* ─── Animations ──────────────────────────────────────────────────────── */
 @keyframes typing-blink {
-  0%,
-  80%,
-  100% {
-    opacity: 0.25;
-  }
-  40% {
-    opacity: 1;
-  }
+  0%, 80%, 100% { opacity: 0.25; }
+  40%           { opacity: 1; }
 }
 
 .typing-dots span {
   display: inline-block;
-  width: 0.35rem;
-  height: 0.35rem;
+  width: 0.3rem;
+  height: 0.3rem;
   border-radius: 9999px;
-  background-color: var(--text-muted);
+  background-color: var(--brand-primary);
   margin-right: 0.25rem;
-  opacity: 0.25;
+  opacity: 0.3;
   animation: typing-blink 1.4s infinite both;
 }
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
 
-.typing-dots span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.typing-dots span:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-/* Streaming cursor (blinking block) */
 @keyframes cursor-blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
 }
 
 .streaming-cursor {
@@ -151,28 +166,52 @@ pre {
   user-select: none;
 }
 
-/* High-tech background utilities */
-.bg-tech {
-  background-image: var(--gradient-app);
-  opacity: 0.9;
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-fade-up  { animation: fade-up 0.45s ease both; }
+.animate-fade-in  { animation: fade-in 0.3s ease both; }
+
+/* ─── Background utilities ────────────────────────────────────────────── */
+.bg-tech {
+  background-image: var(--gradient-app);
+}
+
+/* Fine dot-grid overlay */
 .grid-overlay {
   pointer-events: none;
   position: absolute;
   inset: 0;
-  background-image: linear-gradient(var(--grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-  background-size: 46px 46px;
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
 }
 
-/* Chat markdown typography */
+/* Noise texture layer */
+.noise-overlay {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+}
+
+/* ─── Chat markdown typography ────────────────────────────────────────── */
 .chat-markdown {
   width: 100%;
   font-size: 0.875rem;
-  line-height: 1.55;
+  line-height: 1.6;
   color: inherit;
   word-break: break-word;
+  font-family: var(--font-body);
 }
 
 .chat-markdown > * {
@@ -180,13 +219,8 @@ pre {
   margin-bottom: 0;
 }
 
-.chat-markdown p {
-  margin: 0;
-}
-
-.chat-markdown p + p {
-  margin-top: 0.5em;
-}
+.chat-markdown p { margin: 0; }
+.chat-markdown p + p { margin-top: 0.5em; }
 
 .chat-markdown :is(p, ul, ol, blockquote, pre, table, hr) + :is(ul, ol, blockquote, pre, table, hr) {
   margin-top: 0.5em;
@@ -196,6 +230,7 @@ pre {
 .chat-markdown h2,
 .chat-markdown h3,
 .chat-markdown h4 {
+  font-family: var(--font-display);
   font-weight: 600;
   line-height: 1.3;
   margin-top: 1.1em;
@@ -207,13 +242,10 @@ pre {
 .chat-markdown h3 { font-size: 0.95rem; }
 .chat-markdown h4 { font-size: 0.9rem; }
 
-/* First heading at top of bubble needs no top margin */
 .chat-markdown > h1:first-child,
 .chat-markdown > h2:first-child,
 .chat-markdown > h3:first-child,
-.chat-markdown > h4:first-child {
-  margin-top: 0;
-}
+.chat-markdown > h4:first-child { margin-top: 0; }
 
 .chat-markdown ul,
 .chat-markdown ol {
@@ -221,55 +253,51 @@ pre {
   padding-left: 1.25rem;
 }
 
-.chat-markdown li {
-  margin: 0.1em 0;
-  padding-left: 0.1rem;
-}
-
+.chat-markdown li { margin: 0.1em 0; padding-left: 0.1rem; }
 .chat-markdown li > ul,
-.chat-markdown li > ol {
-  margin-top: 0.1em;
-}
+.chat-markdown li > ol { margin-top: 0.1em; }
 
 .chat-markdown blockquote {
   margin: 0.3rem 0;
-  padding: 0.45rem 0.6rem;
-  border-left: 3px solid var(--soft-brand-border);
-  background: var(--surface-muted);
-  border-radius: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  border-left: 2px solid var(--brand-primary);
+  background: rgba(232, 164, 59, 0.06);
+  border-radius: 0 0.5rem 0.5rem 0;
   color: var(--text-secondary);
 }
 
 .chat-markdown :not(pre) > code {
-  background: var(--surface-muted);
-  color: var(--text-primary);
-  border-radius: 0.5rem;
-  padding: 0.08rem 0.35rem;
-  font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
-  font-size: 0.92em;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--brand-primary);
+  border-radius: 0.35rem;
+  padding: 0.08rem 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .chat-markdown pre {
   margin: 0.55rem 0;
-  border: 1px solid var(--border-light);
-  border-radius: 0.85rem;
-  background: var(--surface-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  background: rgba(0, 0, 0, 0.4);
   padding: 0.9rem;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   overflow: auto;
+  font-family: var(--font-mono);
 }
 
 .chat-markdown table {
   width: 100%;
   margin: 0.6rem 0;
   border-collapse: collapse;
-  font-size: 0.94rem;
+  font-size: 0.9rem;
 }
 
 .chat-markdown th,
 .chat-markdown td {
   border: 1px solid var(--border-subtle);
-  padding: 0.4rem 0.5rem;
+  padding: 0.4rem 0.65rem;
   text-align: left;
 }
 
@@ -277,6 +305,10 @@ pre {
   background: var(--surface-muted);
   color: var(--text-secondary);
   font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .chat-markdown hr {
@@ -290,9 +322,7 @@ pre {
   color: var(--text-primary);
 }
 
-.chat-markdown em {
-  font-style: italic;
-}
+.chat-markdown em { font-style: italic; }
 
 .chat-markdown a {
   color: var(--brand-primary);
@@ -301,9 +331,7 @@ pre {
   text-underline-offset: 0.15em;
 }
 
-.chat-markdown a:hover {
-  color: var(--brand-hover);
-}
+.chat-markdown a:hover { color: var(--brand-hover); }
 
 .chat-markdown img {
   max-width: 100%;
@@ -320,13 +348,11 @@ pre {
   line-height: 1;
 }
 
-.chat-markdown--system {
-  font-size: 0.92rem;
-}
+.chat-markdown--system { font-size: 0.92rem; }
 
 .chat-markdown--user a {
   color: rgba(255, 255, 255, 0.95);
-  text-decoration-color: rgba(255, 255, 255, 0.65);
+  text-decoration-color: rgba(255, 255, 255, 0.55);
 }
 
 .chat-markdown--user .chat-markdown__citation {
