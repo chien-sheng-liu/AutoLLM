@@ -16,7 +16,7 @@ from ..storage.conversation_store import get_conversation_store
 from ..services.agents import AgentPipeline
 from ..services.agents.registry import AgentRegistry
 from ..services.providers.base import ProviderError
-from ..dependencies.auth import get_current_user
+from ..dependencies.auth import get_current_user, require_admin
 from ..models.auth import UserOut
 from dataclasses import replace
 from ..storage.user_store import get_user_store
@@ -60,6 +60,39 @@ router = APIRouter(
     tags=["chat"],
     dependencies=[Depends(get_current_user)],
 )
+
+
+class ReasoningDebugRequest(BaseModel):
+    question: str
+    conversation_history: list = []
+
+
+@router.post("/chat/debug/reasoning")
+def debug_reasoning(req: ReasoningDebugRequest, _: str = Depends(require_admin)):
+    """
+    Debug endpoint: run ReasoningAgent and return the raw intent analysis result.
+    Admin only. Useful for testing prompt tuning without sending a full chat.
+    """
+    cfg = load_config()
+    from ..services.agents.registry import AgentRegistry
+    agent = AgentRegistry.get("reasoning")
+    result = agent.execute(
+        {"question": req.question, "conversation_history": req.conversation_history},
+        cfg,
+    )
+    intent = result.data
+    return {
+        "intent_type": intent.intent_type,
+        "keywords": intent.keywords,
+        "needs_rag": intent.needs_rag,
+        "language": intent.language,
+        "complexity": intent.complexity,
+        "blocked": intent.blocked,
+        "blocked_reason": intent.blocked_reason,
+        "route": intent.route,
+        "raw_analysis": intent.raw_analysis,
+        "fallback_used": result.metadata.get("fallback", False),
+    }
 
 
 # ---------------------------------------------------------------------------
