@@ -49,6 +49,10 @@ class Settings:
     redis_username: str | None = None
     redis_password: str | None = None
     redis_db: int = 0
+    # Intent Analysis Agent settings
+    enable_intent_analysis: bool = True  # Set to False to bypass intent layer (legacy behaviour)
+    intent_provider: str = ""  # Override provider for intent analysis; empty = use chat_provider
+    intent_model: str = ""     # Override model for intent analysis; empty = use chat_model
 
 
 def ensure_dirs(path: str) -> None:
@@ -116,6 +120,9 @@ def get_defaults() -> Settings:
         redis_username=redis_username,
         redis_password=redis_password,
         redis_db=redis_db,
+        enable_intent_analysis=os.getenv("ENABLE_INTENT_ANALYSIS", "true").lower() in ("1", "true", "yes"),
+        intent_provider=os.getenv("INTENT_PROVIDER", ""),
+        intent_model=os.getenv("INTENT_MODEL", ""),
     )
 
 
@@ -172,6 +179,9 @@ def load_config() -> Settings:
                 redis_username=defaults.redis_username,
                 redis_password=defaults.redis_password,
                 redis_db=defaults.redis_db,
+                enable_intent_analysis=bool(data.get("enable_intent_analysis", defaults.enable_intent_analysis)),
+                intent_provider=str(data.get("intent_provider", defaults.intent_provider)),
+                intent_model=str(data.get("intent_model", defaults.intent_model)),
             )
         except Exception:
             # Fall back to defaults if parsing fails

@@ -48,9 +48,3 @@ def build_context_snippets(chunks: List[Tuple[ChunkRecord, float]]) -> str:
     return "\n".join(lines)
 
 
-def system_prompt_guidance() -> str:
-    return (
-        "You are a helpful assistant using RAG.\n"
-        "Cite sources inline as [n] where n is the 1-based index of the source.\n"
-        "Only answer from the provided sources; if the answer is not present, say you don't know.\n"
-    )
