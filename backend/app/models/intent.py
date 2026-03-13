@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 
 class IntentResult(BaseModel):
-    """Structured output from the Intent Analysis Agent."""
+    """Structured output from the Reasoning Agent."""
 
     intent_type: str = Field(
         default="qa",
@@ -26,6 +26,20 @@ class IntentResult(BaseModel):
         default="moderate",
         description="Estimated complexity: 'simple' | 'moderate' | 'complex'",
     )
+    # Safety filter
+    blocked: bool = Field(
+        default=False,
+        description="Whether this message should be blocked (prompt injection, harmful content, etc.)",
+    )
+    blocked_reason: str = Field(
+        default="",
+        description="User-facing reason when blocked=True",
+    )
+    # Routing decision
+    route: str = Field(
+        default="answer_generation",
+        description="Target sub-agent name for downstream routing",
+    )
     raw_analysis: str = Field(
         default="",
         description="Raw LLM analysis text for debugging purposes",
@@ -40,5 +54,8 @@ class IntentResult(BaseModel):
             needs_rag=True,
             language="zh",
             complexity="moderate",
+            blocked=False,
+            blocked_reason="",
+            route="answer_generation",
             raw_analysis="",
         )

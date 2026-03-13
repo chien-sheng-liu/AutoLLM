@@ -14,6 +14,7 @@ from ..storage.chat_store import get_chat_store
 from ..storage.conv_pg_store import get_conv_pg_store
 from ..storage.conversation_store import get_conversation_store
 from ..services.agents import AgentPipeline
+from ..services.agents.registry import AgentRegistry
 from ..services.providers.base import ProviderError
 from ..dependencies.auth import get_current_user
 from ..models.auth import UserOut
@@ -184,14 +185,17 @@ def chat(req: ChatRequest, current_user: UserOut = Depends(get_current_user)):
 
     auth = (getattr(current_user, "auth", "user") or "user").lower()
     top_k = req.top_k or cfg.top_k
-
-    # Allow provider override per-request
     provider_cfg = replace(cfg, chat_provider=(req.chat_provider or cfg.chat_provider).lower())
     model = (req.chat_model or cfg.chat_model).strip() or cfg.chat_model
     temperature = req.temperature if req.temperature is not None else cfg.temperature
 
-    # Run intent analysis first; only retrieve RAG context if intent requires it
-    pipeline = AgentPipeline()
+    retrieved: list = []
+
+    def rag_hook(context: dict) -> None:
+        nonlocal retrieved
+        retrieved, ctx_str = _retrieve_context(provider_cfg, current_user.id, auth, last_user, top_k)
+        context["context"] = ctx_str
+
     pipeline_input: dict = {
         "question": last_user,
         "conversation_history": [{"role": m.role, "content": m.content} for m in req.messages],
@@ -201,32 +205,14 @@ def chat(req: ChatRequest, current_user: UserOut = Depends(get_current_user)):
         "context": "",
     }
 
-    # Run intent analysis synchronously first
-    from ..services.agents.registry import AgentRegistry
-    intent_agent = AgentRegistry.get("intent_analysis")
-    intent_result = intent_agent.execute(pipeline_input, provider_cfg)
-    intent: IntentResult = intent_result.data if intent_result.success else IntentResult.default()
-
-    # Retrieve context only when intent requires it
-    retrieved = []
-    if intent.needs_rag:
-        retrieved, context = _retrieve_context(provider_cfg, current_user.id, auth, last_user, top_k)
-        pipeline_input["context"] = context
-
-    # Run answer generation
-    answer_agent = AgentRegistry.get("answer_generation")
-    pipeline_input["intent"] = intent
-    answer_result = answer_agent.execute(pipeline_input, provider_cfg)
-
-    if not answer_result.success:
+    try:
+        result = AgentPipeline(pre_answer_hook=rag_hook).run(pipeline_input, provider_cfg)
+    except Exception:
         raise HTTPException(status_code=502, detail="chat_failed")
 
-    answer: str = answer_result.data
-
+    answer: str = result.get("answer", "")
     citations = _build_citations(retrieved)
 
-    # Persist & log
-    sys_prompt = pipeline_input.get("messages", [{"content": ""}])[0].get("content", "") if pipeline_input.get("messages") else ""
     conv = _persist_conversation(provider_cfg, current_user.id, req.messages, req.conversation_id, last_user, answer)
     store = get_chat_store(provider_cfg)
     answer_id = store.insert_chat_message(
@@ -260,8 +246,13 @@ def chat_stream(req: ChatRequest, current_user: UserOut = Depends(get_current_us
     model = (req.chat_model or cfg.chat_model).strip() or cfg.chat_model
     temperature = req.temperature if req.temperature is not None else cfg.temperature
 
-    # Run intent analysis synchronously before streaming begins
-    from ..services.agents.registry import AgentRegistry
+    retrieved: list = []
+
+    def rag_hook(context: dict) -> None:
+        nonlocal retrieved
+        retrieved, ctx_str = _retrieve_context(provider_cfg, current_user.id, auth, last_user, top_k)
+        context["context"] = ctx_str
+
     pipeline_input: dict = {
         "question": last_user,
         "conversation_history": [{"role": m.role, "content": m.content} for m in req.messages],
@@ -270,16 +261,6 @@ def chat_stream(req: ChatRequest, current_user: UserOut = Depends(get_current_us
         "temperature": temperature,
         "context": "",
     }
-    intent_agent = AgentRegistry.get("intent_analysis")
-    intent_result = intent_agent.execute(pipeline_input, provider_cfg)
-    intent: IntentResult = intent_result.data if intent_result.success else IntentResult.default()
-
-    retrieved = []
-    if intent.needs_rag:
-        retrieved, context = _retrieve_context(provider_cfg, current_user.id, auth, last_user, top_k)
-        pipeline_input["context"] = context
-
-    pipeline_input["intent"] = intent
 
     def iter_events() -> Generator[bytes, None, None]:
         acc = ""
@@ -316,9 +297,8 @@ def chat_stream(req: ChatRequest, current_user: UserOut = Depends(get_current_us
         conv_store.append_message(user_id=current_user.id, conversation_id=conv["id"], role="user", content=last_user)
         cache.append_message(current_user.id, conv["id"], "user", last_user)
 
-        # Stream from answer agent
-        answer_agent = AgentRegistry.get("answer_generation")
-        for event in answer_agent.stream(pipeline_input, provider_cfg):
+        # Stream via pipeline (reasoning sync → rag hook → sub-agent stream)
+        for event in AgentPipeline(pre_answer_hook=rag_hook).run_stream(pipeline_input, provider_cfg):
             if event.type == "delta":
                 delta = event.payload or ""
                 acc += delta

@@ -75,6 +75,18 @@ class PromptBuilder:
 
     def _resolve_section(self, key: str, intent: "IntentResult") -> str:
         cfg = self._cfg
+        overrides: dict = getattr(cfg, "prompt_overrides", {}) or {}
+
+        # Map template section keys to prompt_overrides keys
+        override_key_map = {
+            "role_instruction": "answer_role",
+            "rag_instruction": "answer_rag",
+            "citation_format": "answer_citation",
+        }
+        override_lookup = override_key_map.get(key, key)
+        if override_lookup in overrides and overrides[override_lookup]:
+            return overrides[override_lookup]
+
         if key == "role_instruction":
             return sec.role_instruction()
         if key == "rag_instruction":

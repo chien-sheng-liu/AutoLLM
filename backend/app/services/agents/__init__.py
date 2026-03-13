@@ -6,8 +6,9 @@ from .registry import AgentRegistry
 from .pipeline import AgentPipeline
 
 # Import agents to trigger @AgentRegistry.register decorators
-from . import intent  # noqa: F401
-from . import answer  # noqa: F401
+from . import reasoning   # noqa: F401  — ReasoningAgent (name="reasoning")
+from . import answer      # noqa: F401  — AnswerGenerationAgent (name="answer_generation")
+from . import chitchat    # noqa: F401  — ChitchatAgent (name="chitchat")
 
 __all__ = [
     "BaseAgent",

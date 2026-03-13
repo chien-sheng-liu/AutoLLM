@@ -15,6 +15,7 @@ from .routes.config import router as config_router
 from .routes.providers import router as providers_router
 from .routes.feedback import router as feedback_router
 from .routes.bootstrap import router as bootstrap_router
+from .routes.prompts import router as prompts_router
 
 
 def _parse_cors_origins() -> list[str]:
@@ -146,6 +147,7 @@ def create_app() -> FastAPI:
     app.include_router(feedback_router)
     app.include_router(admin_router)
     app.include_router(bootstrap_router)
+    app.include_router(prompts_router)
 
     return app
 

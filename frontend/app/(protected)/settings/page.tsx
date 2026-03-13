@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { getConfig, updateConfig, providerHealth } from "@/lib/api";
+import PromptEditor from "@/app/components/PromptEditor";
 import Card from "@/app/components/ui/Card";
 import Input from "@/app/components/ui/Input";
 import Button from "@/app/components/ui/Button";
@@ -62,7 +63,7 @@ export default function SettingsPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showEmbedding, setShowEmbedding] = useState(false);
   const [section, setSection] = useState<
-    "models" | "generation" | "retrieval" | "keys" | "security"
+    "models" | "generation" | "retrieval" | "keys" | "security" | "prompts"
   >("models");
   const [tab, setTab] = useState<"simple" | "advanced">("simple");
   // Ephemeral API key inputs (not returned by GET); admin can set/clear them
@@ -453,6 +454,7 @@ export default function SettingsPage() {
               { id: "retrieval", label: "檢索" },
               { id: "keys", label: "API 金鑰" },
               { id: "security", label: "安全" },
+              { id: "prompts", label: "Prompt" },
             ]}
             value={section as any}
             onChange={(t) => setSection(t as any)}
@@ -1445,6 +1447,12 @@ export default function SettingsPage() {
         {section === "retrieval" && (
           <div className="mt-4 text-sm text-[var(--text-muted)]">
             注意：調整 Chunk/Overlap 僅影響後續上傳文件；需重新上傳以重建索引。
+          </div>
+        )}
+
+        {section === "prompts" && (
+          <div className="mt-2">
+            <PromptEditor />
           </div>
         )}
       </section>
