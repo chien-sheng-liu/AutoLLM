@@ -219,12 +219,11 @@ pre {
   margin-bottom: 0;
 }
 
+/* Vertical rhythm: adjacent block elements get spacing automatically */
+.chat-markdown > * + * { margin-top: 0.45em; }
+
 .chat-markdown p { margin: 0; }
 .chat-markdown p + p { margin-top: 0.5em; }
-
-.chat-markdown :is(p, ul, ol, blockquote, pre, table, hr) + :is(ul, ol, blockquote, pre, table, hr) {
-  margin-top: 0.5em;
-}
 
 .chat-markdown h1,
 .chat-markdown h2,
@@ -249,13 +248,20 @@ pre {
 
 .chat-markdown ul,
 .chat-markdown ol {
-  margin: 0;
-  padding-left: 1.25rem;
+  margin: 0.1em 0;
+  padding-left: 1.4rem;
 }
 
-.chat-markdown li { margin: 0.1em 0; padding-left: 0.1rem; }
+/* Tailwind preflight strips list-style — restore explicitly */
+.chat-markdown ul { list-style-type: disc; }
+.chat-markdown ol { list-style-type: decimal; }
+.chat-markdown ul ul { list-style-type: circle; }
+.chat-markdown ul ul ul { list-style-type: square; }
+.chat-markdown ol ol { list-style-type: lower-alpha; }
+
+.chat-markdown li { margin: 0.25em 0; padding-left: 0.1rem; }
 .chat-markdown li > ul,
-.chat-markdown li > ol { margin-top: 0.1em; }
+.chat-markdown li > ol { margin-top: 0.2em; }
 
 .chat-markdown blockquote {
   margin: 0.3rem 0;

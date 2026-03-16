@@ -573,112 +573,157 @@ export default function ChatPage() {
     setInputKey((k) => k + 1);
   };
 
+  const renderFeedbackRow = () => {
+    if (!lastAnswerId || busy) return null;
+    return (
+      <div className="ml-8 mt-1 flex items-center gap-1.5">
+        <span className="mr-0.5 text-[11px] text-[var(--text-muted)]">
+          {t("chat.feedbackPrompt")}
+        </span>
+        {/* Thumbs up */}
+        <button
+          type="button"
+          disabled={!!feedbackSent}
+          aria-label={t("chat.feedbackUp")}
+          onClick={async () => {
+            if (!lastAnswerId) return;
+            try {
+              await sendFeedback(lastAnswerId, "up");
+              setFeedbackSent("up");
+            } catch (_) {}
+          }}
+          className={`inline-flex h-7 w-7 items-center justify-center rounded-full border transition disabled:cursor-default ${
+            feedbackSent === "up"
+              ? "border-[var(--success)] bg-[var(--success-soft)] text-[var(--success)]"
+              : "border-[var(--border-light)] bg-transparent text-[var(--text-muted)] hover:border-[var(--success)] hover:bg-[var(--success-soft)] hover:text-[var(--success)]"
+          }`}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M7 10v12" />
+            <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
+          </svg>
+        </button>
+        {/* Thumbs down */}
+        <button
+          type="button"
+          disabled={!!feedbackSent}
+          aria-label={t("chat.feedbackDown")}
+          onClick={async () => {
+            if (!lastAnswerId) return;
+            try {
+              await sendFeedback(lastAnswerId, "down");
+              setFeedbackSent("down");
+            } catch (_) {}
+          }}
+          className={`inline-flex h-7 w-7 items-center justify-center rounded-full border transition disabled:cursor-default ${
+            feedbackSent === "down"
+              ? "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]"
+              : "border-[var(--border-light)] bg-transparent text-[var(--text-muted)] hover:border-[var(--danger)] hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]"
+          }`}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M17 14V2" />
+            <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z" />
+          </svg>
+        </button>
+      </div>
+    );
+  };
+
   const renderCitationsSection = () => {
     if (cfg && cfg.show_sources === false) return null;
-    if (!lastCitations.length) return null;
+    const hasCitations = lastCitations.length > 0;
+    const hasPrompt = !!usedPrompt;
+    if (!hasCitations && !hasPrompt) return null;
     return (
-      <section className="rounded-2xl border border-[var(--border-light)] bg-[var(--surface)] p-4 shadow-surface">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="ml-8 mt-3 space-y-2">
+        {/* Sources accordion */}
+        {hasCitations && (
           <div>
-            <p className="text-[11px] uppercase tracking-[0.3em] text-[var(--text-muted)]">
-              {t("chat.citationsTitle")}
-            </p>
-            <h3 className="text-base font-semibold text-[var(--text-primary)]">
-              {t("chat.citationsSubtitle")}
-            </h3>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            {usedPrompt && (
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                className="rounded-full border border-[var(--soft-brand-border)] bg-[var(--soft-brand-background)] px-3 py-1 text-[11px] font-semibold text-[var(--brand-primary)] transition hover:bg-[var(--brand-50)]"
-                onClick={() => setShowPrompt((v) => !v)}
+                onClick={() => setRefsOpen((o) => !o)}
+                className="flex items-center gap-1 text-[11px] text-[var(--text-muted)] transition hover:text-[var(--text-secondary)]"
               >
-                {showPrompt ? t("chat.hidePrompt") : t("chat.showPrompt")}
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 10 10"
+                  fill="currentColor"
+                  className={`shrink-0 transition-transform duration-150 ${refsOpen ? "rotate-90" : ""}`}
+                >
+                  <path d="M3 2l4 3-4 3V2z" />
+                </svg>
+                <span>
+                  {lastCitations.length} {t("chat.citationsTitle")}
+                </span>
               </button>
-            )}
-            <button
-              type="button"
-              className="rounded-full border border-[var(--border-light)] bg-[var(--surface-muted)] px-3 py-1 text-[11px] font-semibold text-[var(--text-primary)] transition hover:bg-[var(--surface)]"
-              onClick={() => setRefsOpen((o) => !o)}
-            >
-              {refsOpen ? t("chat.hideSources") : t("chat.showSources")}
-            </button>
-            {lastAnswerId && (
-              <div className="flex items-center gap-1 text-[var(--text-muted)]">
-                <span>{t("chat.feedbackPrompt")}</span>
+              {hasPrompt && (
                 <button
                   type="button"
-                  disabled={!!feedbackSent}
-                  onClick={async () => {
-                    if (!lastAnswerId) return;
-                    try {
-                      await sendFeedback(lastAnswerId, "up");
-                      setFeedbackSent("up");
-                    } catch (_) {}
-                  }}
-                  className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${feedbackSent === "up" ? "border-[var(--success)] bg-[var(--success-soft)] text-[var(--success)]" : "border-[var(--border-light)] bg-[var(--surface)] text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"}`}
+                  onClick={() => setShowPrompt((v) => !v)}
+                  className="text-[11px] text-[var(--brand-primary)] opacity-70 transition hover:opacity-100"
                 >
-                  {t("chat.feedbackUp")}
+                  {showPrompt ? t("chat.hidePrompt") : t("chat.showPrompt")}
                 </button>
-                <button
-                  type="button"
-                  disabled={!!feedbackSent}
-                  onClick={async () => {
-                    if (!lastAnswerId) return;
-                    try {
-                      await sendFeedback(lastAnswerId, "down");
-                      setFeedbackSent("down");
-                    } catch (_) {}
-                  }}
-                  className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${feedbackSent === "down" ? "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]" : "border-[var(--border-light)] bg-[var(--surface)] text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"}`}
-                >
-                  {t("chat.feedbackDown")}
-                </button>
+              )}
+            </div>
+
+            {refsOpen && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {lastCitations.map((c, i) => (
+                  <span
+                    key={`${c.name}-${i}-${c.page ?? "na"}`}
+                    title={c.name}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-2.5 py-1 text-[11px] text-[var(--text-secondary)]"
+                  >
+                    <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary)] text-[9px] font-bold text-white">
+                      {i + 1}
+                    </span>
+                    <span className="max-w-[180px] truncate">{c.name}</span>
+                    {typeof c.page === "number" && (
+                      <span className="shrink-0 text-[var(--text-muted)]">
+                        p.{c.page}
+                      </span>
+                    )}
+                  </span>
+                ))}
               </div>
             )}
           </div>
-        </div>
-        {refsOpen && (
-          <div className="mt-4 space-y-3">
-            {lastCitations.map((c, i) => (
-              <article
-                key={`${c.name}-${i}-${c.page ?? "na"}`}
-                className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-3 text-sm font-semibold text-[var(--text-primary)]">
-                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--brand-primary)] text-[12px] font-bold text-white">
-                        {i + 1}
-                      </span>
-                      <span className="truncate">{c.name}</span>
-                    </div>
-                    <p className="mt-1 text-xs text-[var(--text-muted)]">
-                      {typeof c.page === "number"
-                        ? t("chat.pageLabel", { page: c.page })
-                        : t("chat.pageUnknown")}
-                    </p>
-                  </div>
-                  <span className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                    {t("chat.sourceLabel")}
-                  </span>
-                </div>
-              </article>
-            ))}
-          </div>
         )}
+
+        {/* Prompt panel */}
         {showPrompt && usedPrompt && (
-          <div className="mt-4 rounded-2xl border border-dashed border-[var(--soft-brand-border)] bg-[var(--soft-brand-background)] p-3 text-[13px] text-[var(--brand-primary)]">
-            <div className="mb-1 text-xs font-semibold uppercase tracking-[0.3em]">
+          <div className="rounded-lg border-l-2 border-[var(--brand-primary)] bg-[var(--soft-brand-background)] py-2 pl-3 pr-2">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-[var(--brand-primary)] opacity-70">
               {t("chat.systemPromptLabel")}
             </div>
-            <pre className="whitespace-pre-wrap border-none bg-transparent p-0 text-[13px] text-[var(--brand-primary)] shadow-none">
+            <pre className="whitespace-pre-wrap border-none bg-transparent p-0 text-[12px] leading-relaxed text-[var(--brand-primary)] opacity-80 shadow-none">
               {usedPrompt}
             </pre>
           </div>
         )}
-      </section>
+      </div>
     );
   };
 
@@ -726,7 +771,7 @@ export default function ChatPage() {
                 {t("chat.emptyState")}
               </div>
             )}
-            <div className="grid gap-1">
+            <div className="flex flex-col gap-4">
               {messages.map((m, i) => (
                 <ChatMessage key={i} role={m.role} content={m.content} />
               ))}
@@ -736,6 +781,7 @@ export default function ChatPage() {
                   isTyping={!streamAnswer}
                 />
               )}
+              {renderFeedbackRow()}
               {renderCitationsSection()}
               {showScroller && (
                 <div className="sticky bottom-2 flex justify-end pr-2">
@@ -979,7 +1025,7 @@ export default function ChatPage() {
         <div className="relative flex min-h-0 flex-1 bg-[var(--surface-panel)]">
           <div
             ref={chatRef}
-            className="flex h-full w-full flex-col gap-1 overflow-y-auto px-4 pb-32 pt-8 sm:px-8 lg:px-12"
+            className="flex h-full w-full flex-col gap-4 overflow-y-auto px-4 pb-32 pt-8 sm:px-8 lg:px-12"
           >
             {messages.length === 0 && !streamAnswer && (
               <div className="mx-auto w-full max-w-[640px] rounded-3xl border border-dashed border-[var(--border-light)] px-6 py-12 text-center text-sm text-[var(--text-muted)]">
@@ -995,6 +1041,7 @@ export default function ChatPage() {
                 isTyping={!streamAnswer}
               />
             )}
+            {renderFeedbackRow()}
             {renderCitationsSection()}
           </div>
           <div

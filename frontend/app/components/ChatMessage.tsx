@@ -108,7 +108,7 @@ export default function ChatMessage({ role, content }: Props) {
   const avatar = avatarMap[role] || avatarMap.assistant;
   const { t } = useLanguage();
   const bubbleBase =
-    "relative w-fit max-w-full rounded-[14px] px-[12px] py-[7px] text-left text-[13px] break-words hyphens-auto shadow-sm";
+    "relative w-fit max-w-full rounded-[14px] px-3.5 py-2 text-left text-sm break-words hyphens-auto shadow-sm";
   const assistantBubble = `${bubbleBase} border border-[var(--border-subtle)] bg-[var(--surface-card)] text-[var(--text-primary)]`;
   const userBubble = `${bubbleBase} border border-transparent bg-[var(--brand-primary)] text-white shadow-brand`;
 
@@ -124,7 +124,7 @@ export default function ChatMessage({ role, content }: Props) {
       className={`group relative flex w-full ${isUser ? "justify-end" : "justify-start"}`}
     >
       <div
-        className={`flex items-start gap-0.5 ${isUser ? "flex-row-reverse max-w-[64%]" : "flex-row max-w-[74%]"}`}
+        className={`flex items-start gap-1.5 ${isUser ? "flex-row-reverse max-w-[64%]" : "flex-row max-w-[80%]"}`}
       >
         <div
           className={`flex h-6 w-6 shrink-0 select-none items-center justify-center rounded-[14px] border text-[12px] font-medium shadow-sm ${
@@ -164,7 +164,7 @@ export default function ChatMessage({ role, content }: Props) {
               </div>
             ) : isUser ? (
               <div className={userBubble}>
-                <span className="whitespace-pre-wrap leading-[1.45]">
+                <span className="whitespace-pre-wrap leading-relaxed">
                   {content}
                 </span>
               </div>
