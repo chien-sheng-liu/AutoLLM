@@ -2,9 +2,16 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
 
 
+class Citation(BaseModel):
+    name: str
+    page: Optional[int] = None
+    text: Optional[str] = None
+
+
 class Message(BaseModel):
     role: Literal["system", "user", "assistant"]
     content: str
+    citations: Optional[List[Citation]] = None
 
 
 class ChatRequest(BaseModel):
@@ -14,12 +21,7 @@ class ChatRequest(BaseModel):
     chat_model: Optional[str] = None
     chat_provider: Optional[str] = None
     conversation_id: Optional[str] = None
-
-
-class Citation(BaseModel):
-    name: str
-    page: Optional[int] = None
-    text: Optional[str] = None
+    document_ids: Optional[List[str]] = None
 
 
 class ChatResponse(BaseModel):

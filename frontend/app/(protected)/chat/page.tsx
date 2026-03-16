@@ -1,6 +1,12 @@
 "use client";
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { Message, Citation, ChatStreamEvent, Config } from "@/lib/api";
+import type {
+  Message,
+  Citation,
+  ChatStreamEvent,
+  Config,
+  DocumentItem,
+} from "@/lib/api";
 import {
   chatStream,
   getConfig,
@@ -10,10 +16,14 @@ import {
   createServerConversation,
   renameServerConversation,
   deleteServerConversation,
+  listDocuments,
+  getConversationDocuments,
+  setConversationDocuments,
 } from "@/lib/api";
 import ChatMessage from "@/app/components/ChatMessage";
 import StreamingBubble from "@/app/components/StreamingBubble";
 import CitationTooltip from "@/app/components/CitationTooltip";
+import DocumentScopeSelector from "@/app/components/DocumentScopeSelector";
 import Button from "@/app/components/ui/Button";
 import Textarea from "@/app/components/ui/Textarea";
 import {
@@ -41,6 +51,8 @@ export default function ChatPage() {
   const [immersive, setImmersive] = useState(false);
   const [abortCtrl, setAbortCtrl] = useState<AbortController | null>(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [availableDocs, setAvailableDocs] = useState<DocumentItem[]>([]);
+  const [selectedDocIds, setSelectedDocIds] = useState<string[] | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [inputHeight, setInputHeight] = useState<number>(48);
   // Incrementing this key forces the Textarea to remount with a fresh DOM node,
@@ -143,10 +155,34 @@ export default function ChatPage() {
               const msgs = await fetchConversationMessages(target);
               if (version !== loadVersionRef.current) return;
               setMessages(msgs);
+              // Restore citations from the last assistant message that has them
+              const lastWithCitations = [...msgs]
+                .reverse()
+                .find(
+                  (m) =>
+                    m.role === "assistant" &&
+                    m.citations &&
+                    m.citations.length > 0,
+                );
+              if (lastWithCitations?.citations) {
+                setLastCitations(lastWithCitations.citations);
+              } else {
+                setLastCitations([]);
+              }
+              setUsedPrompt(undefined);
+              setFeedbackSent(null);
+              setLastAnswerId(null);
             } catch {
               if (version !== loadVersionRef.current) return;
               setMessages([]);
             }
+          }
+          // Load document scope for this conversation
+          try {
+            const scope = await getConversationDocuments(target);
+            setSelectedDocIds(scope.document_ids ?? null);
+          } catch {
+            setSelectedDocIds(null);
           }
         }
       } catch {
@@ -163,6 +199,13 @@ export default function ChatPage() {
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
+
+  // Load available documents once on mount
+  useEffect(() => {
+    listDocuments()
+      .then((res) => setAvailableDocs(res.items || []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     // Restore last selection from localStorage first
@@ -360,6 +403,7 @@ export default function ChatPage() {
           chat_model: model || cfg?.chat_model,
           chat_provider: provider || (cfg?.chat_provider as any),
           conversation_id: currentId || undefined,
+          document_ids: selectedDocIds,
           language,
         },
       );
@@ -437,6 +481,7 @@ export default function ChatPage() {
           chat_model: model || cfg?.chat_model,
           chat_provider: provider || (cfg?.chat_provider as any),
           conversation_id: currentId || undefined,
+          document_ids: selectedDocIds,
           signal: ctrl.signal,
           language,
         },
@@ -719,6 +764,15 @@ export default function ChatPage() {
     );
   };
 
+  async function handleDocScopeChange(ids: string[] | null) {
+    setSelectedDocIds(ids);
+    if (currentId) {
+      try {
+        await setConversationDocuments(currentId, ids);
+      } catch {}
+    }
+  }
+
   const composerActionClasses =
     "rounded-full border border-transparent px-3 py-1 text-[12px] font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-200)]";
   const conversationTitle = displayTitle(
@@ -901,9 +955,29 @@ export default function ChatPage() {
                 onClick={async () => {
                   setCurrentId(c.id);
                   try {
-                    setMessages(await fetchConversationMessages(c.id));
+                    const msgs = await fetchConversationMessages(c.id);
+                    setMessages(msgs);
+                    const lastWithCitations = [...msgs]
+                      .reverse()
+                      .find(
+                        (m) =>
+                          m.role === "assistant" &&
+                          m.citations &&
+                          m.citations.length > 0,
+                      );
+                    setLastCitations(lastWithCitations?.citations ?? []);
+                    setUsedPrompt(undefined);
+                    setFeedbackSent(null);
+                    setLastAnswerId(null);
                   } catch {
                     setMessages([]);
+                    setLastCitations([]);
+                  }
+                  try {
+                    const scope = await getConversationDocuments(c.id);
+                    setSelectedDocIds(scope.document_ids ?? null);
+                  } catch {
+                    setSelectedDocIds(null);
                   }
                   onSelect?.();
                 }}
@@ -1131,6 +1205,11 @@ export default function ChatPage() {
 
         <div className="border-t border-[var(--border-light)] bg-[var(--surface)] px-4 py-4 sm:px-8">
           <div className="mb-3 flex flex-wrap items-center gap-2">
+            <DocumentScopeSelector
+              docs={availableDocs}
+              selectedIds={selectedDocIds}
+              onChange={handleDocScopeChange}
+            />
             {!busy && (
               <>
                 <button

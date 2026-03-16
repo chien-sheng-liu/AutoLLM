@@ -175,10 +175,13 @@ class ConversationStore:
         return None
 
     # Per-conversation messages cached in Redis (3-day TTL)
-    def append_message(self, user_id: str, conversation_id: str, role: str, content: str) -> None:
+    def append_message(self, user_id: str, conversation_id: str, role: str, content: str, citations: list | None = None) -> None:
         key = self._msg_key(user_id, conversation_id)
         try:
-            self._client.rpush(key, json.dumps({"role": role, "content": content}, ensure_ascii=False))
+            payload: dict = {"role": role, "content": content}
+            if citations:
+                payload["citations"] = citations
+            self._client.rpush(key, json.dumps(payload, ensure_ascii=False))
             self._client.expire(key, 3 * 24 * 3600)
         except Exception:
             return

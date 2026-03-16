@@ -109,7 +109,7 @@ def _extract_last_user_message(messages) -> str:
     return ""
 
 
-def _retrieve_context(cfg, user_id: str, auth: str, query: str, top_k: int):
+def _retrieve_context(cfg, user_id: str, auth: str, query: str, top_k: int, scope_document_ids: list[str] | None = None):
     """Run RAG retrieval (Redis first, Postgres fallback). Returns (retrieved, context_str)."""
     user_store = get_user_store(cfg)
     allow_ids = user_store.get_user_allowed_docs(user_id)
@@ -117,6 +117,16 @@ def _retrieve_context(cfg, user_id: str, auth: str, query: str, top_k: int):
         allow_ids = None
     elif not allow_ids:
         allow_ids = None
+
+    # Apply user-selected document scope: intersect with permission-based allow_ids
+    if scope_document_ids is not None:
+        if allow_ids is None:
+            # admin or no restrictions: scope directly
+            allow_ids = scope_document_ids if scope_document_ids else None
+        else:
+            # intersection — never bypass permission restrictions
+            allow_set = set(allow_ids)
+            allow_ids = [d for d in scope_document_ids if d in allow_set] or None
 
     store = RedisVectorStore(cfg)
     embedder = EmbeddingService.from_config(cfg)
@@ -149,7 +159,7 @@ def _build_citations(retrieved) -> List[Citation]:
     return citations
 
 
-def _persist_conversation(cfg, user_id: str, messages, conv_id, question: str, answer: str):
+def _persist_conversation(cfg, user_id: str, messages, conv_id, question: str, answer: str, citations: list | None = None):
     """Persist conversation + messages to Postgres and Redis cache. Returns conv dict."""
     conv_store = get_conv_pg_store(cfg)
     conv = conv_store.get_or_create_conversation(
@@ -185,8 +195,8 @@ def _persist_conversation(cfg, user_id: str, messages, conv_id, question: str, a
 
     conv_store.append_message(user_id=user_id, conversation_id=conv["id"], role="user", content=question)
     cache.append_message(user_id, conv["id"], "user", question)
-    conv_store.append_message(user_id=user_id, conversation_id=conv["id"], role="assistant", content=answer)
-    cache.append_message(user_id, conv["id"], "assistant", answer)
+    conv_store.append_message(user_id=user_id, conversation_id=conv["id"], role="assistant", content=answer, citations=citations)
+    cache.append_message(user_id, conv["id"], "assistant", answer, citations=citations)
 
     # Bump Redis updatedAt index
     try:
@@ -226,9 +236,18 @@ def chat(req: ChatRequest, current_user: UserOut = Depends(get_current_user)):
 
     retrieved: list = []
 
+    # Resolve document scope: request-level overrides persisted conversation scope
+    scope_doc_ids: list[str] | None = req.document_ids
+    if scope_doc_ids is None and req.conversation_id:
+        try:
+            pg = get_conv_pg_store(provider_cfg)
+            scope_doc_ids = pg.get_document_scope(user_id=current_user.id, conversation_id=req.conversation_id)
+        except Exception:
+            pass
+
     def rag_hook(context: dict) -> None:
         nonlocal retrieved
-        retrieved, ctx_str = _retrieve_context(provider_cfg, current_user.id, auth, last_user, top_k)
+        retrieved, ctx_str = _retrieve_context(provider_cfg, current_user.id, auth, last_user, top_k, scope_document_ids=scope_doc_ids)
         context["context"] = ctx_str
 
     pipeline_input: dict = {
@@ -247,14 +266,15 @@ def chat(req: ChatRequest, current_user: UserOut = Depends(get_current_user)):
 
     answer: str = result.get("answer", "")
     citations = _build_citations(retrieved)
+    citations_dicts = [c.dict() for c in citations]
 
-    conv = _persist_conversation(provider_cfg, current_user.id, req.messages, req.conversation_id, last_user, answer)
+    conv = _persist_conversation(provider_cfg, current_user.id, req.messages, req.conversation_id, last_user, answer, citations=citations_dicts)
     store = get_chat_store(provider_cfg)
     answer_id = store.insert_chat_message(
         user_id=current_user.id,
         question=last_user,
         answer=answer,
-        citations=[c.dict() for c in citations],
+        citations=citations_dicts,
         used_prompt="",
     )
 
@@ -283,9 +303,18 @@ def chat_stream(req: ChatRequest, current_user: UserOut = Depends(get_current_us
 
     retrieved: list = []
 
+    # Resolve document scope: request-level overrides persisted conversation scope
+    scope_doc_ids: list[str] | None = req.document_ids
+    if scope_doc_ids is None and req.conversation_id:
+        try:
+            pg_pre = get_conv_pg_store(provider_cfg)
+            scope_doc_ids = pg_pre.get_document_scope(user_id=current_user.id, conversation_id=req.conversation_id)
+        except Exception:
+            pass
+
     def rag_hook(context: dict) -> None:
         nonlocal retrieved
-        retrieved, ctx_str = _retrieve_context(provider_cfg, current_user.id, auth, last_user, top_k)
+        retrieved, ctx_str = _retrieve_context(provider_cfg, current_user.id, auth, last_user, top_k, scope_document_ids=scope_doc_ids)
         context["context"] = ctx_str
 
     pipeline_input: dict = {
@@ -347,9 +376,10 @@ def chat_stream(req: ChatRequest, current_user: UserOut = Depends(get_current_us
 
         # Finalize: persist assistant message + emit citations
         citations = _build_citations(retrieved)
+        citations_dicts = [c.dict() for c in citations]
         try:
-            conv_store.append_message(user_id=current_user.id, conversation_id=conv["id"], role="assistant", content=acc)
-            cache.append_message(current_user.id, conv["id"], "assistant", acc)
+            conv_store.append_message(user_id=current_user.id, conversation_id=conv["id"], role="assistant", content=acc, citations=citations_dicts)
+            cache.append_message(current_user.id, conv["id"], "assistant", acc, citations=citations_dicts)
         except Exception:
             pass
         try:
@@ -414,12 +444,29 @@ def get_conversation_messages(conversation_id: str, current_user: UserOut = Depe
     cfg = load_config()
     cache = get_conversation_store(cfg)
     raw = cache.get_messages(current_user.id, conversation_id)
+
+    # Fall back to Postgres if Redis cache is empty (expired or first load)
+    if not raw:
+        try:
+            pg = get_conv_pg_store(cfg)
+            raw = pg.get_messages(user_id=current_user.id, conversation_id=conversation_id)
+        except Exception:
+            raw = []
+
     msgs: List[MessageModel] = []
     for r in raw:
         role = (str(r.get("role")) or "assistant").lower()
         content = str(r.get("content") or "")
-        if role in ("system", "user", "assistant") and content:
-            msgs.append(MessageModel(role=role, content=content))
+        if role not in ("system", "user", "assistant") or not content:
+            continue
+        citations_raw = r.get("citations")
+        citations: List[Citation] | None = None
+        if citations_raw and isinstance(citations_raw, list):
+            try:
+                citations = [Citation(**c) for c in citations_raw if isinstance(c, dict)]
+            except Exception:
+                citations = None
+        msgs.append(MessageModel(role=role, content=content, citations=citations or None))
     return MessagesResponse(messages=msgs)
 
 
@@ -541,3 +588,53 @@ def migrate_legacy_conversations(current_user: UserOut = Depends(get_current_use
         except Exception:
             continue
     return {"ok": True, "migrated": migrated}
+
+
+# ---------------------------------------------------------------------------
+# Document scope endpoints
+# ---------------------------------------------------------------------------
+
+class DocumentScopePayload(BaseModel):
+    document_ids: List[str] | None = None
+
+
+@router.get("/chat/conversations/{conversation_id}/documents")
+def get_conversation_document_scope(conversation_id: str, current_user: UserOut = Depends(get_current_user)):
+    """Return the document IDs scoped for this conversation (None = all documents)."""
+    cfg = load_config()
+    pg = get_conv_pg_store(cfg)
+    doc_ids = pg.get_document_scope(user_id=current_user.id, conversation_id=conversation_id)
+    return {"document_ids": doc_ids}
+
+
+@router.put("/chat/conversations/{conversation_id}/documents")
+def set_conversation_document_scope(
+    conversation_id: str,
+    payload: DocumentScopePayload,
+    current_user: UserOut = Depends(get_current_user),
+):
+    """Set or clear the document scope for this conversation."""
+    cfg = load_config()
+    pg = get_conv_pg_store(cfg)
+
+    # Validate: each requested ID must exist in documents the user can access
+    if payload.document_ids is not None:
+        from ..storage.user_store import get_user_store as _get_user_store
+        user_store = _get_user_store(cfg)
+        auth = (getattr(current_user, "auth", "user") or "user").lower()
+        if auth not in ("admin", "administrator"):
+            allowed = user_store.get_user_allowed_docs(current_user.id)
+            if allowed is not None:
+                allowed_set = set(allowed)
+                invalid = [d for d in payload.document_ids if d not in allowed_set]
+                if invalid:
+                    raise HTTPException(status_code=403, detail="One or more document IDs are not accessible")
+
+    ok = pg.set_document_scope(
+        user_id=current_user.id,
+        conversation_id=conversation_id,
+        document_ids=payload.document_ids,
+    )
+    if not ok:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return {"ok": True}

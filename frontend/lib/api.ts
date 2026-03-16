@@ -4,6 +4,7 @@ import type { Conversation } from "@/lib/conversations";
 export type Message = {
   role: "system" | "user" | "assistant";
   content: string;
+  citations?: Citation[];
 };
 export type Citation = { name: string; page?: number | null; text?: string };
 export type Config = {
@@ -218,6 +219,28 @@ export type ChatStreamEvent =
     }
   | { type: "error"; message: string };
 
+export async function getConversationDocuments(
+  conversationId: string,
+): Promise<{ document_ids: string[] | null }> {
+  return apiFetch<{ document_ids: string[] | null }>(
+    `/api/v1/chat/conversations/${conversationId}/documents`,
+  );
+}
+
+export async function setConversationDocuments(
+  conversationId: string,
+  documentIds: string[] | null,
+): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>(
+    `/api/v1/chat/conversations/${conversationId}/documents`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ document_ids: documentIds }),
+    },
+  );
+}
+
 export async function chatStream(
   messages: Message[],
   onEvent: (ev: ChatStreamEvent) => void,
@@ -227,6 +250,7 @@ export async function chatStream(
     chat_model?: string;
     chat_provider?: string;
     conversation_id?: string;
+    document_ids?: string[] | null;
     signal?: AbortSignal;
     language?: "en" | "zh";
   },
@@ -243,7 +267,7 @@ export async function chatStream(
     method: "POST",
     headers,
     body: JSON.stringify({
-      messages,
+      messages: messages.map(({ citations: _c, ...m }) => m),
       ...options,
       language: options?.language || preferredLanguage(),
     }),
