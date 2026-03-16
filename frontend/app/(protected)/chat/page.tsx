@@ -379,7 +379,11 @@ export default function ChatPage() {
           } else if (ev.type === "done") {
             const finalMsgs = [
               ...newMsgs,
-              { role: "assistant", content: acc } as Message,
+              {
+                role: "assistant",
+                content: acc,
+                citations: ev.citations || [],
+              } as Message,
             ];
             setMessages(finalMsgs);
             setLastCitations(ev.citations || []);
@@ -458,7 +462,11 @@ export default function ChatPage() {
           } else if (ev.type === "done") {
             const finalMsgs = [
               ...withMessages,
-              { role: "assistant", content: acc } as Message,
+              {
+                role: "assistant",
+                content: acc,
+                citations: ev.citations || [],
+              } as Message,
             ];
             setMessages(finalMsgs);
             setLastCitations(ev.citations || []);
@@ -1043,7 +1051,7 @@ export default function ChatPage() {
   return (
     <div
       ref={rootRef}
-      className="relative mx-auto flex w-full max-w-[1800px] flex-1 gap-5 px-4 pb-6 pt-4 lg:gap-7 lg:px-8"
+      className="relative mx-auto flex w-full max-w-[1800px] flex-1 gap-5 px-4 pb-4 pt-2 lg:gap-7 lg:px-8"
       style={{ height: containerH ? `${containerH}px` : undefined }}
     >
       {/* Mobile sidebar overlay */}
@@ -1094,7 +1102,7 @@ export default function ChatPage() {
             {conversationTitle}
           </span>
         </div>
-        <header className="hidden flex-wrap items-center justify-between gap-4 border-b border-[var(--border-light)] px-6 py-5 md:flex lg:px-10">
+        <header className="hidden flex-wrap items-center justify-between gap-4 border-b border-[var(--border-light)] px-6 py-3 md:flex lg:px-10">
           <div>
             <p className="text-[11px] uppercase tracking-[0.3em] text-[var(--text-muted)]">
               {t("chat.activeLabel")}
@@ -1114,7 +1122,7 @@ export default function ChatPage() {
           </div>
         </header>
 
-        <div className="border-b border-[var(--border-light)] px-6 py-4 lg:px-10">
+        <div className="border-b border-[var(--border-light)] px-6 py-2 lg:px-10">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[11px] uppercase tracking-[0.25em] text-[var(--text-muted)]">
@@ -1172,7 +1180,7 @@ export default function ChatPage() {
         <div className="relative flex min-h-0 flex-1 bg-[var(--surface-panel)]">
           <div
             ref={chatRef}
-            className="flex h-full w-full flex-col gap-4 overflow-y-auto px-4 pb-32 pt-8 sm:px-8 lg:px-12"
+            className="flex h-full w-full flex-col gap-4 overflow-y-auto px-4 pb-32 pt-4 sm:px-8 lg:px-12"
           >
             {messages.length === 0 && !streamAnswer && (
               <div className="mx-auto w-full max-w-[640px] rounded-3xl border border-dashed border-[var(--border-light)] px-6 py-12 text-center text-sm text-[var(--text-muted)]">

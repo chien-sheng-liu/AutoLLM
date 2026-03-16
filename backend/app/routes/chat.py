@@ -151,8 +151,8 @@ def _build_citations(retrieved) -> List[Citation]:
         page = None
         if isinstance(cr.metadata, dict):
             p = cr.metadata.get("page")
-            if isinstance(p, int):
-                page = p
+            if isinstance(p, (int, float)) and not isinstance(p, bool):
+                page = int(p)
         raw = getattr(cr, "text", None) or ""
         snippet = (raw[:300] + "…") if len(raw) > 300 else raw or None
         citations.append(Citation(name=name, page=page, text=snippet))

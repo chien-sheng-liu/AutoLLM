@@ -61,7 +61,7 @@ export default function RootLayout({
               {/* Content */}
               <div className="relative z-10 flex flex-1 flex-col">
                 <Nav />
-                <main className="relative flex-1 px-2 py-4 md:px-10 md:py-10">
+                <main className="relative flex-1 px-2 py-2 md:px-10 md:py-4">
                   {children}
                 </main>
               </div>
