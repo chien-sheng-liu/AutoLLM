@@ -864,31 +864,31 @@ export default function SettingsPage() {
                     {[
                       {
                         id: "qna",
-                        title: "Q&A with Sources",
-                        desc: "問答並附來源",
+                        title: "問答附來源",
+                        desc: "問答並附引用來源",
                         icon: "📚",
                       },
                       {
                         id: "summarize",
-                        title: "Summarize & Explain",
+                        title: "摘要與說明",
                         desc: "總結與說明",
                         icon: "📝",
                       },
                       {
                         id: "extract",
-                        title: "Extract & Structure",
+                        title: "萃取與結構化",
                         desc: "萃取與結構化",
                         icon: "🧩",
                       },
                       {
                         id: "brainstorm",
-                        title: "Brainstorm",
+                        title: "發想提案",
                         desc: "發想與提案",
                         icon: "💡",
                       },
                       {
                         id: "compliance",
-                        title: "Strict Compliance",
+                        title: "嚴謹合規",
                         desc: "嚴謹與一致",
                         icon: "✅",
                       },

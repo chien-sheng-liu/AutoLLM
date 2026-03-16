@@ -22,7 +22,9 @@ export default function Nav() {
 
   useEffect(() => {
     fetchProfile()
-      .then((u) => { setUser(u); })
+      .then((u) => {
+        setUser(u);
+      })
       .catch(() => {});
   }, []);
 
@@ -31,8 +33,11 @@ export default function Nav() {
   }
 
   async function handleLogout() {
-    try { await apiLogout(); } catch (err) { console.warn("logout failed", err); }
-    finally {
+    try {
+      await apiLogout();
+    } catch (err) {
+      console.warn("logout failed", err);
+    } finally {
       clearSession();
       setUser(null);
       router.replace("/login");
@@ -40,29 +45,31 @@ export default function Nav() {
   }
 
   const role = ((user?.auth || "") as string).toLowerCase();
-  const canAdmin   = role === "admin" || role === "administrator";
-  const canManage  = canAdmin || role === "manager";
-  const avatarLabel = (user?.name || user?.email || "A").slice(0, 1).toUpperCase();
+  const canAdmin = role === "admin" || role === "administrator";
+  const canManage = canAdmin || role === "manager";
+  const avatarLabel = (user?.name || user?.email || "A")
+    .slice(0, 1)
+    .toUpperCase();
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      if (menuRef.current && !menuRef.current.contains(e.target as Node))
+        setMenuOpen(false);
     }
     if (menuOpen) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
   const navLinks = [
-    { href: "/dashboard", label: t("nav.home"),     show: true },
-    { href: "/chat",      label: t("nav.chat"),     show: true },
-    { href: "/data",      label: t("nav.data"),     show: canManage },
-    { href: "/settings",  label: t("nav.settings"), show: true },
+    { href: "/dashboard", label: t("nav.home"), show: true },
+    { href: "/chat", label: t("nav.chat"), show: true },
+    { href: "/data", label: t("nav.data"), show: canManage },
+    { href: "/settings", label: t("nav.settings"), show: true },
   ].filter((item) => item.show);
 
   return (
     <div className="sticky top-0 z-50 px-4 pb-2 pt-3 md:px-8">
       <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-6 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)]/80 px-4 py-2.5 shadow-soft backdrop-blur-md">
-
         {/* Brand */}
         <Link href="/" className="flex items-center gap-2.5 group">
           <span
@@ -76,7 +83,7 @@ export default function Nav() {
               {t("nav.brand")}
             </div>
             <div className="font-mono text-[9px] uppercase tracking-[0.35em] text-[var(--text-muted)] leading-none mt-0.5">
-              AI Copilot
+              AI 助理
             </div>
           </div>
         </Link>
@@ -125,8 +132,19 @@ export default function Nav() {
                     {t("nav.signedIn")}
                   </div>
                 </span>
-                <svg className="h-3 w-3 text-[var(--text-muted)]" viewBox="0 0 12 12" fill="currentColor">
-                  <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg
+                  className="h-3 w-3 text-[var(--text-muted)]"
+                  viewBox="0 0 12 12"
+                  fill="currentColor"
+                >
+                  <path
+                    d="M2 4l4 4 4-4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </button>
 
@@ -153,7 +171,10 @@ export default function Nav() {
                   <div className="border-t border-[var(--border-light)] p-1.5">
                     <button
                       type="button"
-                      onClick={() => { setMenuOpen(false); handleLogout(); }}
+                      onClick={() => {
+                        setMenuOpen(false);
+                        handleLogout();
+                      }}
                       className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-body text-sm text-[var(--danger)] transition hover:bg-[var(--danger-soft)]"
                     >
                       <span className="text-base">↗</span> {t("nav.logout")}
