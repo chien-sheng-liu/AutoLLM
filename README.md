@@ -75,8 +75,12 @@ Docker images are tagged automatically based on git history. No manual version s
 Every `make up` prints the current version and tags images accordingly:
 ```
 ▶ Building autollm 2.47…
-✓ Services running as autollm:2.47
+✓ Services running as autollm:2.47 (also tagged :latest)
 ```
+
+Each build produces **two tags** per service:
+- `autollm-backend:2.47` — pinned version for traceability and rollback
+- `autollm-backend:latest` — always points to the most recent build
 
 ### Bumping the major version
 

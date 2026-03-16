@@ -37,14 +37,18 @@ up: .env
 	@until $(COMPOSE) exec -T postgres pg_isready -q; do sleep 2; done
 	@echo "Initializing database schema..."
 	@$(COMPOSE) exec -T postgres bash -c 'psql -U $$POSTGRES_USER -d $$POSTGRES_DB -f /docker-entrypoint-initdb.d/init.sql'
-	@echo "✓ Database ready. Services running as autollm:$(VERSION)"
+	@docker tag autollm-backend:$(VERSION) autollm-backend:latest
+	@docker tag autollm-frontend:$(VERSION) autollm-frontend:latest
+	@echo "✓ Database ready. Services running as autollm:$(VERSION) (also tagged :latest)"
 
 ## 完整重新 build（不使用任何 cache）並啟動
 up-nocache: .env
 	@echo "▶ Force-rebuilding autollm $(VERSION) (no cache)…"
 	$(COMPOSE) build --no-cache
 	$(COMPOSE) up -d
-	@echo "✓ Services running as autollm:$(VERSION)"
+	@docker tag autollm-backend:$(VERSION) autollm-backend:latest
+	@docker tag autollm-frontend:$(VERSION) autollm-frontend:latest
+	@echo "✓ Services running as autollm:$(VERSION) (also tagged :latest)"
 
 down:
 	$(COMPOSE) down
