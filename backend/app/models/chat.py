@@ -19,6 +19,7 @@ class ChatRequest(BaseModel):
 class Citation(BaseModel):
     name: str
     page: Optional[int] = None
+    text: Optional[str] = None
 
 
 class ChatResponse(BaseModel):

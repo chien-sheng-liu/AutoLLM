@@ -14,6 +14,7 @@ export default function Nav() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const { t } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -68,7 +69,7 @@ export default function Nav() {
   ].filter((item) => item.show);
 
   return (
-    <div className="sticky top-0 z-50 px-4 pb-2 pt-3 md:px-8">
+    <div className="relative sticky top-0 z-50 px-4 pb-2 pt-3 md:px-8">
       <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-6 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)]/80 px-4 py-2.5 shadow-soft backdrop-blur-md">
         {/* Brand */}
         <Link href="/" className="flex items-center gap-2.5 group">
@@ -110,6 +111,46 @@ export default function Nav() {
             );
           })}
         </nav>
+
+        {/* Mobile hamburger */}
+        <button
+          type="button"
+          onClick={() => setMobileNavOpen((o) => !o)}
+          aria-label="開啟導航選單"
+          aria-expanded={mobileNavOpen}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-muted)] text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] md:hidden"
+        >
+          {mobileNavOpen ? (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          ) : (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          )}
+        </button>
 
         {/* Right side */}
         <div className="flex items-center gap-3">
@@ -193,6 +234,31 @@ export default function Nav() {
           )}
         </div>
       </div>
+
+      {/* Mobile nav dropdown */}
+      {mobileNavOpen && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] shadow-soft-md md:hidden">
+          <nav className="flex flex-col p-2">
+            {navLinks.map((link) => {
+              const active = isActive(link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMobileNavOpen(false)}
+                  className={`rounded-xl px-4 py-3 font-display text-[14px] font-semibold tracking-wide transition ${
+                    active
+                      ? "bg-[var(--soft-brand-background)] text-[var(--brand-primary)]"
+                      : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+      )}
     </div>
   );
 }

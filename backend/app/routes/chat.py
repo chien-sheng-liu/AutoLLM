@@ -143,7 +143,9 @@ def _build_citations(retrieved) -> List[Citation]:
             p = cr.metadata.get("page")
             if isinstance(p, int):
                 page = p
-        citations.append(Citation(name=name, page=page))
+        raw = getattr(cr, "text", None) or ""
+        snippet = (raw[:300] + "…") if len(raw) > 300 else raw or None
+        citations.append(Citation(name=name, page=page, text=snippet))
     return citations
 
 

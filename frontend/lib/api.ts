@@ -5,7 +5,7 @@ export type Message = {
   role: "system" | "user" | "assistant";
   content: string;
 };
-export type Citation = { name: string; page?: number | null };
+export type Citation = { name: string; page?: number | null; text?: string };
 export type Config = {
   chat_provider?: "openai" | "gemini" | "anthropic" | string;
   embedding_provider?: "openai" | "gemini" | "anthropic" | string;
