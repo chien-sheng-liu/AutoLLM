@@ -819,7 +819,12 @@ export default function ChatPage() {
             )}
             <div className="flex flex-col gap-4">
               {messages.map((m, i) => (
-                <ChatMessage key={i} role={m.role} content={m.content} />
+                <ChatMessage
+                  key={i}
+                  role={m.role}
+                  content={m.content}
+                  citations={m.citations}
+                />
               ))}
               {busy && (
                 <StreamingBubble
@@ -1175,7 +1180,12 @@ export default function ChatPage() {
               </div>
             )}
             {messages.map((m, i) => (
-              <ChatMessage key={i} role={m.role} content={m.content} />
+              <ChatMessage
+                key={i}
+                role={m.role}
+                content={m.content}
+                citations={m.citations}
+              />
             ))}
             {busy && (
               <StreamingBubble

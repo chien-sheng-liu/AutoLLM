@@ -3,98 +3,120 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import CodeBlock from "@/app/components/CodeBlock";
+import CitationTooltip from "@/app/components/CitationTooltip";
 import { useLanguage } from "@/app/providers/LanguageProvider";
+import type { Citation } from "@/lib/api";
 
 type Props = {
   role: "user" | "assistant" | "system";
   content: string;
+  citations?: Citation[];
 };
 
-const CITATION_SEGMENT = /\[(\d+)\]/;
+const CITATION_RE = /(\[\d+\])/g;
 
-function renderCitationAware(children: React.ReactNode) {
-  return React.Children.map(children, (child, idx) => {
-    if (typeof child === "string") {
-      const segments = child.split(/(\[\d+\])/g).filter(Boolean);
-      return segments.map((segment, segIdx) => {
-        const match = segment.match(CITATION_SEGMENT);
-        if (match) {
+function makeCitationAwareRenderer(citations: Citation[] | undefined) {
+  return function renderCitationAware(children: React.ReactNode) {
+    return React.Children.map(children, (child, idx) => {
+      if (typeof child === "string") {
+        const segments = child.split(CITATION_RE).filter(Boolean);
+        return segments.map((segment, segIdx) => {
+          const match = segment.match(/^\[(\d+)\]$/);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            const citationIndex = num - 1; // text is 1-indexed
+            const citation = citations?.[citationIndex];
+            if (citation) {
+              return (
+                <CitationTooltip
+                  key={`cite-${idx}-${segIdx}`}
+                  citation={citation}
+                  index={citationIndex}
+                  inline
+                />
+              );
+            }
+            // Fallback: no citation data, render static superscript
+            return (
+              <sup
+                key={`cite-${idx}-${segIdx}`}
+                className="chat-markdown__citation"
+              >
+                [{num}]
+              </sup>
+            );
+          }
           return (
-            <sup
-              key={`cite-${idx}-${segIdx}`}
-              className="chat-markdown__citation"
-            >
-              [{match[1]}]
-            </sup>
+            <React.Fragment key={`txt-${idx}-${segIdx}`}>
+              {segment}
+            </React.Fragment>
           );
-        }
-        return (
-          <React.Fragment key={`txt-${idx}-${segIdx}`}>
-            {segment}
-          </React.Fragment>
-        );
-      });
-    }
-    return child;
-  });
+        });
+      }
+      return child;
+    });
+  };
 }
 
-const markdownComponents = {
-  code({ inline, className, children }: any) {
-    const match = /language-(\w+)/.exec(className || "");
-    const code = String(children).replace(/\n$/, "");
-    if (!inline) {
-      return <CodeBlock code={code} lang={match?.[1]} />;
-    }
-    return <code>{children}</code>;
-  },
-  p({ children }: any) {
-    return <p>{renderCitationAware(children)}</p>;
-  },
-  ul({ children }: any) {
-    return <ul>{children}</ul>;
-  },
-  ol({ children }: any) {
-    return <ol>{children}</ol>;
-  },
-  li({ children }: any) {
-    return <li>{renderCitationAware(children)}</li>;
-  },
-  blockquote({ children }: any) {
-    return <blockquote>{renderCitationAware(children)}</blockquote>;
-  },
-  a({ href, children }: any) {
-    return (
-      <a href={href} target="_blank" rel="noreferrer">
-        {children}
-      </a>
-    );
-  },
-  h1({ children }: any) {
-    return <h1>{renderCitationAware(children)}</h1>;
-  },
-  h2({ children }: any) {
-    return <h2>{renderCitationAware(children)}</h2>;
-  },
-  h3({ children }: any) {
-    return <h3>{renderCitationAware(children)}</h3>;
-  },
-  h4({ children }: any) {
-    return <h4>{renderCitationAware(children)}</h4>;
-  },
-  table({ children }: any) {
-    return <table>{children}</table>;
-  },
-  th({ children }: any) {
-    return <th>{children}</th>;
-  },
-  td({ children }: any) {
-    return <td>{children}</td>;
-  },
-  hr() {
-    return <hr />;
-  },
-};
+function buildMarkdownComponents(citations: Citation[] | undefined) {
+  const renderCitationAware = makeCitationAwareRenderer(citations);
+  return {
+    code({ inline, className, children }: any) {
+      const match = /language-(\w+)/.exec(className || "");
+      const code = String(children).replace(/\n$/, "");
+      if (!inline) {
+        return <CodeBlock code={code} lang={match?.[1]} />;
+      }
+      return <code>{children}</code>;
+    },
+    p({ children }: any) {
+      return <p>{renderCitationAware(children)}</p>;
+    },
+    ul({ children }: any) {
+      return <ul>{children}</ul>;
+    },
+    ol({ children }: any) {
+      return <ol>{children}</ol>;
+    },
+    li({ children }: any) {
+      return <li>{renderCitationAware(children)}</li>;
+    },
+    blockquote({ children }: any) {
+      return <blockquote>{renderCitationAware(children)}</blockquote>;
+    },
+    a({ href, children }: any) {
+      return (
+        <a href={href} target="_blank" rel="noreferrer">
+          {children}
+        </a>
+      );
+    },
+    h1({ children }: any) {
+      return <h1>{renderCitationAware(children)}</h1>;
+    },
+    h2({ children }: any) {
+      return <h2>{renderCitationAware(children)}</h2>;
+    },
+    h3({ children }: any) {
+      return <h3>{renderCitationAware(children)}</h3>;
+    },
+    h4({ children }: any) {
+      return <h4>{renderCitationAware(children)}</h4>;
+    },
+    table({ children }: any) {
+      return <table>{children}</table>;
+    },
+    th({ children }: any) {
+      return <th>{children}</th>;
+    },
+    td({ children }: any) {
+      return <td>{renderCitationAware(children)}</td>;
+    },
+    hr() {
+      return <hr />;
+    },
+  };
+}
 
 const avatarMap: Record<string, { label: string; emoji: string }> = {
   user: { label: "user", emoji: "🧑‍💻" },
@@ -102,7 +124,7 @@ const avatarMap: Record<string, { label: string; emoji: string }> = {
   system: { label: "system", emoji: "⚙️" },
 };
 
-export default function ChatMessage({ role, content }: Props) {
+export default function ChatMessage({ role, content, citations }: Props) {
   const isUser = role === "user";
   const isSystem = role === "system";
   const avatar = avatarMap[role] || avatarMap.assistant;
@@ -118,6 +140,8 @@ export default function ChatMessage({ role, content }: Props) {
   const copyButtonTone = isUser
     ? "border-transparent bg-[var(--brand-primary)]/90 text-white shadow-brand/30"
     : "border-[var(--border-light)] bg-[var(--surface)] text-[var(--text-secondary)]";
+
+  const markdownComponents = buildMarkdownComponents(citations);
 
   return (
     <article
