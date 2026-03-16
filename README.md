@@ -7,6 +7,7 @@ A clear, production‑ready Retrieval‑Augmented Generation (RAG) chatbot. Uplo
 - [Features](#features)
 - [Architecture](#architecture)
 - [Quick Start (Docker + Make)](#quick-start-docker--make)
+- [Image Versioning](#image-versioning)
 - [Development Setup](#development-setup)
 - [Configuration (Env Vars)](#configuration-env-vars)
 - [Production Guide](#production-guide)
@@ -58,6 +59,79 @@ Front end (Next.js) → API (FastAPI) → Redis (UI cache) + PostgreSQL (pgvecto
 3) Use the app
 - Visit `http://localhost:3000/login` to register/log in
 - Upload on Data page → Chat page to ask questions → Settings to tune RAG
+
+## Image Versioning
+
+Docker images are tagged automatically based on git history. No manual version string maintenance is required.
+
+### Version format: `MAJOR.MINOR`
+
+| Component | Source | Example |
+|-----------|--------|---------|
+| `MAJOR` | Latest git tag (e.g. `v2`) | `2` |
+| `MINOR` | Total commit count on current branch | `47` |
+| Full tag | `MAJOR.MINOR` | `autollm-backend:2.47` |
+
+Every `make up` prints the current version and tags images accordingly:
+```
+▶ Building autollm 2.47…
+✓ Services running as autollm:2.47
+```
+
+### Bumping the major version
+
+When starting a new major release cycle, create a git tag:
+
+```bash
+make tag v=2        # creates git tag v2
+# or equivalently:
+git tag v2
+```
+
+The next `make up` will produce `autollm-backend:2.X` and `autollm-frontend:2.X`.
+
+### Minor version (automatic)
+
+Every commit automatically increments the minor version — no action needed.
+
+```bash
+git commit -m "feat: add something"   # MINOR +1 on next build
+make up                               # → autollm:2.48
+```
+
+### Inspect current version
+
+```bash
+make version    # prints e.g. 2.47
+```
+
+### First-time setup (no tag yet)
+
+If the repo has no git tag, the version defaults to `0.<commit-count>` (e.g. `0.12`). Create `v1` when you're ready for a named release:
+
+```bash
+make tag v=1
+```
+
+### How it works internally
+
+The Makefile derives the version at build time:
+
+```makefile
+GIT_TAG := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "v0")
+MAJOR   := $(shell echo "$(GIT_TAG)" | grep -oE '[0-9]+' | head -1)
+MINOR   := $(shell git rev-list --count HEAD 2>/dev/null || echo "0")
+VERSION := $(MAJOR).$(MINOR)
+```
+
+`IMAGE_TAG` is exported as an environment variable and consumed by `docker-compose.yml`:
+
+```yaml
+image: autollm-backend:${IMAGE_TAG:-latest}
+image: autollm-frontend:${IMAGE_TAG:-latest}
+```
+
+---
 
 ## Development Setup
 Backend
