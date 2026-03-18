@@ -83,9 +83,105 @@
   --font-display: var(--font-syne), 'Syne', system-ui, sans-serif;
   --font-body:    var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
   --font-mono:    var(--font-jetbrains-mono), 'JetBrains Mono', 'SFMono-Regular', monospace;
+
+  /* Font scale (controlled by ThemeProvider) */
+  --font-scale: 1;
+}
+
+/* ─── Light Theme ─────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* App backgrounds */
+  --bg-app:    #FAFAF7;
+  --bg-subtle: #F4F3EE;
+  --bg-base:   var(--bg-app);
+
+  /* Surface layers */
+  --surface:        #FFFFFF;
+  --surface-panel:  #F6F5F0;
+  --surface-card:   #FFFFFF;
+  --surface-muted:  #F0EFE9;
+  --surface-soft:   #ECEAE3;
+
+  /* Borders */
+  --border-light:  rgba(0, 0, 0, 0.07);
+  --border-subtle: rgba(0, 0, 0, 0.10);
+  --border-strong: rgba(0, 0, 0, 0.17);
+
+  /* Text */
+  --text-primary:   #1A1924;
+  --text-secondary: #4C4A60;
+  --text-muted:     #7C7A90;
+  --text-disabled:  #AEACBE;
+  --text-inverse:   #FAFAF7;
+
+  /* Brand — slightly deeper amber for light bg contrast */
+  --brand-50:      rgba(180, 110, 10, 0.07);
+  --brand-100:     rgba(180, 110, 10, 0.12);
+  --brand-200:     rgba(180, 110, 10, 0.28);
+  --brand-300:     rgba(180, 110, 10, 0.48);
+  --brand-400:     #A86808;
+  --brand-500:     #C07A12;
+  --brand-600:     #D4891E;
+  --brand-primary: #B8720E;
+  --brand-hover:   #C8821E;
+  --brand-active:  #A0620A;
+  --soft-brand-background: rgba(184, 114, 14, 0.07);
+  --soft-brand-border:     rgba(184, 114, 14, 0.22);
+
+  /* State colours */
+  --success:      #1A9A66;
+  --success-soft: rgba(26, 154, 102, 0.10);
+  --warning:      #C07A12;
+  --warning-soft: rgba(192, 122, 18, 0.10);
+  --danger:       #C02840;
+  --danger-soft:  rgba(192, 40, 64, 0.09);
+  --info:         #3270CC;
+  --info-soft:    rgba(50, 112, 204, 0.10);
+
+  /* Shadows */
+  --shadow-soft-sm: 0 2px 8px  rgba(0, 0, 0, 0.07);
+  --shadow-soft-md: 0 8px 24px rgba(0, 0, 0, 0.10);
+  --shadow-soft-lg: 0 18px 45px rgba(0, 0, 0, 0.14);
+  --shadow-brand:   0 8px 32px rgba(184, 114, 14, 0.16);
+
+  /* Gradients */
+  --gradient-brand:      linear-gradient(135deg, #C07A12 0%, #D4891E 55%, #C8706A 100%);
+  --gradient-brand-soft: linear-gradient(135deg, rgba(184,114,14,0.08) 0%, rgba(200,112,106,0.06) 100%);
+  --gradient-app:
+    radial-gradient(ellipse 60% 50% at 10% -10%, rgba(232, 164, 59, 0.07), transparent),
+    radial-gradient(ellipse 50% 40% at 90% 110%, rgba(91, 156, 246, 0.05), transparent),
+    radial-gradient(ellipse 40% 40% at 50% 50%, rgba(244, 242, 234, 0.9), transparent);
+
+  --grid-line: rgba(0, 0, 0, 0.025);
+}
+
+/* Light mode scrollbar */
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.14);
+}
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.24);
+}
+
+/* Light mode code blocks */
+[data-theme="light"] .chat-markdown :not(pre) > code {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.09);
+}
+[data-theme="light"] .chat-markdown pre {
+  background: rgba(0, 0, 0, 0.04);
+}
+[data-theme="light"] .chat-markdown blockquote {
+  background: rgba(184, 114, 14, 0.06);
 }
 
 /* ─── Base ────────────────────────────────────────────────────────────── */
+html {
+  font-size: calc(16px * var(--font-scale));
+}
+
 html,
 body {
   height: 100%;
@@ -219,12 +315,11 @@ pre {
   margin-bottom: 0;
 }
 
+/* Vertical rhythm: adjacent block elements get spacing automatically */
+.chat-markdown > * + * { margin-top: 0.45em; }
+
 .chat-markdown p { margin: 0; }
 .chat-markdown p + p { margin-top: 0.5em; }
-
-.chat-markdown :is(p, ul, ol, blockquote, pre, table, hr) + :is(ul, ol, blockquote, pre, table, hr) {
-  margin-top: 0.5em;
-}
 
 .chat-markdown h1,
 .chat-markdown h2,
@@ -249,13 +344,20 @@ pre {
 
 .chat-markdown ul,
 .chat-markdown ol {
-  margin: 0;
-  padding-left: 1.25rem;
+  margin: 0.1em 0;
+  padding-left: 1.4rem;
 }
 
-.chat-markdown li { margin: 0.1em 0; padding-left: 0.1rem; }
+/* Tailwind preflight strips list-style — restore explicitly */
+.chat-markdown ul { list-style-type: disc; }
+.chat-markdown ol { list-style-type: decimal; }
+.chat-markdown ul ul { list-style-type: circle; }
+.chat-markdown ul ul ul { list-style-type: square; }
+.chat-markdown ol ol { list-style-type: lower-alpha; }
+
+.chat-markdown li { margin: 0.25em 0; padding-left: 0.1rem; }
 .chat-markdown li > ul,
-.chat-markdown li > ol { margin-top: 0.1em; }
+.chat-markdown li > ol { margin-top: 0.2em; }
 
 .chat-markdown blockquote {
   margin: 0.3rem 0;

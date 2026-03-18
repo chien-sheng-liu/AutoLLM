@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { getConfig, updateConfig, providerHealth } from "@/lib/api";
+import PromptEditor from "@/app/components/PromptEditor";
 import Card from "@/app/components/ui/Card";
 import Input from "@/app/components/ui/Input";
 import Button from "@/app/components/ui/Button";
@@ -62,7 +63,7 @@ export default function SettingsPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showEmbedding, setShowEmbedding] = useState(false);
   const [section, setSection] = useState<
-    "models" | "generation" | "retrieval" | "keys" | "security"
+    "models" | "generation" | "retrieval" | "keys" | "security" | "prompts"
   >("models");
   const [tab, setTab] = useState<"simple" | "advanced">("simple");
   // Ephemeral API key inputs (not returned by GET); admin can set/clear them
@@ -453,6 +454,7 @@ export default function SettingsPage() {
               { id: "retrieval", label: "檢索" },
               { id: "keys", label: "API 金鑰" },
               { id: "security", label: "安全" },
+              { id: "prompts", label: "Prompt" },
             ]}
             value={section as any}
             onChange={(t) => setSection(t as any)}
@@ -862,31 +864,31 @@ export default function SettingsPage() {
                     {[
                       {
                         id: "qna",
-                        title: "Q&A with Sources",
-                        desc: "問答並附來源",
+                        title: "問答附來源",
+                        desc: "問答並附引用來源",
                         icon: "📚",
                       },
                       {
                         id: "summarize",
-                        title: "Summarize & Explain",
+                        title: "摘要與說明",
                         desc: "總結與說明",
                         icon: "📝",
                       },
                       {
                         id: "extract",
-                        title: "Extract & Structure",
+                        title: "萃取與結構化",
                         desc: "萃取與結構化",
                         icon: "🧩",
                       },
                       {
                         id: "brainstorm",
-                        title: "Brainstorm",
+                        title: "發想提案",
                         desc: "發想與提案",
                         icon: "💡",
                       },
                       {
                         id: "compliance",
-                        title: "Strict Compliance",
+                        title: "嚴謹合規",
                         desc: "嚴謹與一致",
                         icon: "✅",
                       },
@@ -1445,6 +1447,12 @@ export default function SettingsPage() {
         {section === "retrieval" && (
           <div className="mt-4 text-sm text-[var(--text-muted)]">
             注意：調整 Chunk/Overlap 僅影響後續上傳文件；需重新上傳以重建索引。
+          </div>
+        )}
+
+        {section === "prompts" && (
+          <div className="mt-2">
+            <PromptEditor />
           </div>
         )}
       </section>

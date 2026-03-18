@@ -1,6 +1,6 @@
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict
 
@@ -49,6 +49,12 @@ class Settings:
     redis_username: str | None = None
     redis_password: str | None = None
     redis_db: int = 0
+    # Reasoning Agent settings
+    enable_intent_analysis: bool = True  # Set to False to bypass reasoning layer
+    intent_provider: str = ""  # Override provider for reasoning agent; empty = use chat_provider
+    intent_model: str = ""     # Override model for reasoning agent; empty = use chat_model
+    # Prompt overrides: section_key -> custom text (stored in config.json, editable via admin UI)
+    prompt_overrides: Dict[str, str] = field(default_factory=dict)
 
 
 def ensure_dirs(path: str) -> None:
@@ -116,6 +122,9 @@ def get_defaults() -> Settings:
         redis_username=redis_username,
         redis_password=redis_password,
         redis_db=redis_db,
+        enable_intent_analysis=os.getenv("ENABLE_INTENT_ANALYSIS", "true").lower() in ("1", "true", "yes"),
+        intent_provider=os.getenv("INTENT_PROVIDER", ""),
+        intent_model=os.getenv("INTENT_MODEL", ""),
     )
 
 
@@ -172,6 +181,10 @@ def load_config() -> Settings:
                 redis_username=defaults.redis_username,
                 redis_password=defaults.redis_password,
                 redis_db=defaults.redis_db,
+                enable_intent_analysis=bool(data.get("enable_intent_analysis", defaults.enable_intent_analysis)),
+                intent_provider=str(data.get("intent_provider", defaults.intent_provider)),
+                intent_model=str(data.get("intent_model", defaults.intent_model)),
+                prompt_overrides={k: v for k, v in (data.get("prompt_overrides") or {}).items() if isinstance(k, str) and isinstance(v, str)},
             )
         except Exception:
             # Fall back to defaults if parsing fails
@@ -213,6 +226,8 @@ def save_config(cfg: Settings) -> None:
                 "jwt_secret_key": cfg.jwt_secret_key,
                 "jwt_algorithm": cfg.jwt_algorithm,
                 "jwt_access_token_minutes": cfg.jwt_access_token_minutes,
+                # Prompt overrides: only persist non-empty overrides
+                "prompt_overrides": {k: v for k, v in (cfg.prompt_overrides or {}).items() if v},
             },
             f,
             indent=2,

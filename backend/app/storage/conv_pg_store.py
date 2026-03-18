@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
-from typing import Optional, List, TypedDict
+from typing import Optional, List, TypedDict, Any
 from uuid import uuid4
 
 import psycopg
@@ -19,13 +20,17 @@ class ConversationRow(TypedDict):
     series: int
 
 
-class MessageRow(TypedDict):
+class _MessageRowRequired(TypedDict):
     id: str
     conversation_id: str
     user_id: str
     role: str
     content: str
     created_at: str
+
+
+class MessageRow(_MessageRowRequired, total=False):
+    citations: Any  # list[dict] | None
 
 
 @dataclass
@@ -93,6 +98,15 @@ class ConversationPgStore:
                 )
                 """
             )
+            # Migrate existing tables: add new columns if not present
+            try:
+                cur.execute("ALTER TABLE conversation_messages ADD COLUMN IF NOT EXISTS citations JSONB DEFAULT NULL")
+            except Exception:
+                pass
+            try:
+                cur.execute("ALTER TABLE conversations ADD COLUMN IF NOT EXISTS document_ids JSONB DEFAULT NULL")
+            except Exception:
+                pass
             cur.execute("CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_messages_conv ON conversation_messages(conversation_id, created_at)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_messages_user ON conversation_messages(user_id)")
@@ -160,8 +174,9 @@ class ConversationPgStore:
             conn.commit()
             return row  # type: ignore
 
-    def append_message(self, *, user_id: str, conversation_id: str, role: str, content: str) -> str:
+    def append_message(self, *, user_id: str, conversation_id: str, role: str, content: str, citations: list | None = None) -> str:
         mid = str(uuid4())
+        citations_json = json.dumps(citations, ensure_ascii=False) if citations else None
         with self._connect() as conn, conn.cursor() as cur:
             try:
                 cur.execute("SET LOCAL app.user_id = %s", (user_id,))
@@ -170,10 +185,10 @@ class ConversationPgStore:
                 except Exception: pass
             cur.execute(
                 """
-                INSERT INTO conversation_messages (id, conversation_id, user_id, role, content)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO conversation_messages (id, conversation_id, user_id, role, content, citations)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
-                (mid, conversation_id, user_id, role, content),
+                (mid, conversation_id, user_id, role, content, citations_json),
             )
             cur.execute("UPDATE conversations SET updated_at = NOW() WHERE id = %s", (conversation_id,))
             conn.commit()
@@ -213,7 +228,8 @@ class ConversationPgStore:
             cur.execute(
                 """
                 SELECT id::text AS id, conversation_id::text AS conversation_id,
-                       user_id::text AS user_id, role, content, created_at::text
+                       user_id::text AS user_id, role, content, created_at::text,
+                       citations
                 FROM conversation_messages
                 WHERE conversation_id = %s
                 ORDER BY created_at ASC
@@ -221,7 +237,18 @@ class ConversationPgStore:
                 (conversation_id,),
             )
             rows = cur.fetchall()
-            return [row for row in rows]  # type: ignore
+            result = []
+            for row in rows:
+                d = dict(row)
+                # citations stored as JSONB comes back as list/dict already, or as str
+                raw_cit = d.get("citations")
+                if isinstance(raw_cit, str):
+                    try:
+                        d["citations"] = json.loads(raw_cit)
+                    except Exception:
+                        d["citations"] = None
+                result.append(d)
+            return result  # type: ignore
 
     def create_conversation(self, *, user_id: str, title: str) -> ConversationRow:
         with self._connect() as conn, conn.cursor(row_factory=dict_row) as cur:
@@ -271,6 +298,50 @@ class ConversationPgStore:
             deleted = cur.rowcount > 0
             conn.commit()
             return deleted
+
+    def get_document_scope(self, *, user_id: str, conversation_id: str) -> list[str] | None:
+        """Return the user-selected document IDs for this conversation, or None (= all docs)."""
+        with self._connect() as conn, conn.cursor(row_factory=dict_row) as cur:
+            try:
+                cur.execute("SET LOCAL app.user_id = %s", (user_id,))
+            except Exception:
+                try: conn.rollback()
+                except Exception: pass
+            cur.execute(
+                "SELECT document_ids FROM conversations WHERE id=%s AND user_id=%s",
+                (conversation_id, user_id),
+            )
+            row = cur.fetchone()
+            if row is None:
+                return None
+            raw = row.get("document_ids")
+            if raw is None:
+                return None
+            if isinstance(raw, str):
+                try:
+                    raw = json.loads(raw)
+                except Exception:
+                    return None
+            if isinstance(raw, list):
+                return [str(x) for x in raw]
+            return None
+
+    def set_document_scope(self, *, user_id: str, conversation_id: str, document_ids: list[str] | None) -> bool:
+        """Persist the document scope for a conversation. Pass None to clear (= all docs)."""
+        scope_json = json.dumps(document_ids, ensure_ascii=False) if document_ids is not None else None
+        with self._connect() as conn, conn.cursor() as cur:
+            try:
+                cur.execute("SET LOCAL app.user_id = %s", (user_id,))
+            except Exception:
+                try: conn.rollback()
+                except Exception: pass
+            cur.execute(
+                "UPDATE conversations SET document_ids=%s WHERE id=%s AND user_id=%s",
+                (scope_json, conversation_id, user_id),
+            )
+            updated = cur.rowcount > 0
+            conn.commit()
+            return updated
 
 
 _pg_store: ConversationPgStore | None = None

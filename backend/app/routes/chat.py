@@ -6,14 +6,17 @@ import json
 from pydantic import BaseModel, Field
 from ..config import load_config
 from ..models.chat import ChatRequest, ChatResponse, Citation, Message as MessageModel
+from ..models.intent import IntentResult
 from ..services.embeddings import EmbeddingService
-from ..services.rag import retrieve, build_context_snippets, system_prompt_guidance
+from ..services.rag import retrieve, build_context_snippets
 from ..storage.vector_redis_store import RedisVectorStore
 from ..storage.chat_store import get_chat_store
 from ..storage.conv_pg_store import get_conv_pg_store
 from ..storage.conversation_store import get_conversation_store
-from ..services.providers.factory import get_chat_provider
-from ..dependencies.auth import get_current_user
+from ..services.agents import AgentPipeline
+from ..services.agents.registry import AgentRegistry
+from ..services.providers.base import ProviderError
+from ..dependencies.auth import get_current_user, require_admin
 from ..models.auth import UserOut
 from dataclasses import replace
 from ..storage.user_store import get_user_store
@@ -59,151 +62,223 @@ router = APIRouter(
 )
 
 
-@router.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest, current_user: UserOut = Depends(get_current_user)):
+class ReasoningDebugRequest(BaseModel):
+    question: str
+    conversation_history: list = []
+
+
+@router.post("/chat/debug/reasoning")
+def debug_reasoning(req: ReasoningDebugRequest, _: str = Depends(require_admin)):
+    """
+    Debug endpoint: run ReasoningAgent and return the raw intent analysis result.
+    Admin only. Useful for testing prompt tuning without sending a full chat.
+    """
     cfg = load_config()
-    # rate limit per-user
-    try:
-        check_rate_limit(cfg, current_user.id, scope="chat", limit=60, window_seconds=60)
-    except HTTPException:
-        raise
-    # Provider will validate corresponding API key
+    from ..services.agents.registry import AgentRegistry
+    agent = AgentRegistry.get("reasoning")
+    result = agent.execute(
+        {"question": req.question, "conversation_history": req.conversation_history},
+        cfg,
+    )
+    intent = result.data
+    return {
+        "intent_type": intent.intent_type,
+        "keywords": intent.keywords,
+        "needs_rag": intent.needs_rag,
+        "language": intent.language,
+        "complexity": intent.complexity,
+        "blocked": intent.blocked,
+        "blocked_reason": intent.blocked_reason,
+        "route": intent.route,
+        "raw_analysis": intent.raw_analysis,
+        "fallback_used": result.metadata.get("fallback", False),
+    }
 
-    top_k = req.top_k or cfg.top_k
-    # Retrieval must read from Redis; Postgres remains audit/log only
-    store = RedisVectorStore(cfg)
-    embedder = EmbeddingService.from_config(cfg)
 
-    # Use last user message for retrieval
-    if not req.messages:
-        raise HTTPException(status_code=422, detail="messages must not be empty")
-    last_user = None
-    for m in reversed(req.messages):
-        if m.role == "user":
-            last_user = m.content
-            break
-    if not last_user:
-        raise HTTPException(status_code=422, detail="no user message provided")
+# ---------------------------------------------------------------------------
+# Shared helpers (extracted to eliminate duplication between chat / stream)
+# ---------------------------------------------------------------------------
 
-    # Document permissions: if user has explicit permissions, restrict retrieval; otherwise allow all
+def _extract_last_user_message(messages) -> str:
+    """Return the content of the most recent user-role message."""
+    for m in reversed(messages):
+        role = m.role if hasattr(m, "role") else m.get("role", "")
+        if role == "user":
+            content = m.content if hasattr(m, "content") else m.get("content", "")
+            return content
+    return ""
+
+
+def _retrieve_context(cfg, user_id: str, auth: str, query: str, top_k: int, scope_document_ids: list[str] | None = None):
+    """Run RAG retrieval (Redis first, Postgres fallback). Returns (retrieved, context_str)."""
     user_store = get_user_store(cfg)
-    allow_ids = user_store.get_user_allowed_docs(current_user.id)
-    auth = (getattr(current_user, 'auth', 'user') or 'user').lower()
-    if auth in ('admin', 'administrator'):
+    allow_ids = user_store.get_user_allowed_docs(user_id)
+    if auth in ("admin", "administrator"):
         allow_ids = None
     elif not allow_ids:
-        # No explicit permissions set -> allow all documents
         allow_ids = None
-    retrieved = retrieve(store, embedder, last_user, top_k=top_k, allow_document_ids=allow_ids)
-    # Fallback: if Redis has no data (e.g., legacy docs), query Postgres vector store
+
+    # Apply user-selected document scope: intersect with permission-based allow_ids
+    if scope_document_ids is not None:
+        if allow_ids is None:
+            # admin or no restrictions: scope directly
+            allow_ids = scope_document_ids if scope_document_ids else None
+        else:
+            # intersection — never bypass permission restrictions
+            allow_set = set(allow_ids)
+            allow_ids = [d for d in scope_document_ids if d in allow_set] or None
+
+    store = RedisVectorStore(cfg)
+    embedder = EmbeddingService.from_config(cfg)
+    retrieved = retrieve(store, embedder, query, top_k=top_k, allow_document_ids=allow_ids)
+
     if not retrieved:
         from ..storage.vector_store import VectorStore as PgVS
         try:
             pg_store = PgVS(cfg)
-            retrieved = retrieve(pg_store, embedder, last_user, top_k=top_k, allow_document_ids=allow_ids)
+            retrieved = retrieve(pg_store, embedder, query, top_k=top_k, allow_document_ids=allow_ids)
         except Exception:
             pass
+
     context = build_context_snippets(retrieved)
+    return retrieved, context
 
-    # Build prompt
-    sys_prompt = system_prompt_guidance()
-    user_prompt = f"User question:\n{last_user}\n\nContext sources:\n{context}\n\nAnswer with citations as [n]."
 
-    # Chat via provider
-    # Allow provider override per request
-    provider_cfg = replace(cfg, chat_provider=(req.chat_provider or cfg.chat_provider).lower())
-    provider = get_chat_provider(provider_cfg)
-    model = (req.chat_model or cfg.chat_model).strip() or cfg.chat_model
-    temperature = req.temperature if req.temperature is not None else cfg.temperature
-    messages_payload = [
-        {"role": "system", "content": sys_prompt},
-        *[{"role": m.role, "content": m.content} for m in req.messages if m.role != "system"],
-        {"role": "user", "content": user_prompt},
-    ]
-    try:
-        answer = provider.complete(
-            messages=messages_payload,
-            model=model,
-            temperature=temperature,
-            max_tokens=cfg.max_tokens,
-            top_p=cfg.top_p,
-            presence_penalty=cfg.presence_penalty,
-            frequency_penalty=cfg.frequency_penalty,
-        )
-    except ProviderError as e:
-        # Fallback if configured; otherwise surface standardized provider error
-        fb_provider = cfg.fallback_chat_provider
-        fb_model = cfg.fallback_chat_model
-        if fb_provider and fb_model:
-            fb_cfg = replace(cfg, chat_provider=fb_provider)
-            fb = get_chat_provider(fb_cfg)
-            answer = fb.complete(messages=messages_payload, model=fb_model, temperature=temperature)
-        else:
-            raise HTTPException(status_code=502, detail={"error": "provider_error", "provider": e.provider, "code": e.code, "message": str(e)})
-    except Exception:
-        raise HTTPException(status_code=500, detail="chat_failed")
-
+def _build_citations(retrieved) -> List[Citation]:
     citations: List[Citation] = []
-    for idx, (cr, _score) in enumerate(retrieved, start=1):
+    for _idx, (cr, _score) in enumerate(retrieved, start=1):
         name = cr.metadata.get("name") if isinstance(cr.metadata, dict) else cr.document_id
         page = None
         if isinstance(cr.metadata, dict):
             p = cr.metadata.get("page")
-            if isinstance(p, int):
-                page = p
-        citations.append(Citation(name=name, page=page))
+            if isinstance(p, (int, float)) and not isinstance(p, bool):
+                page = int(p)
+        raw = getattr(cr, "text", None) or ""
+        snippet = (raw[:300] + "…") if len(raw) > 300 else raw or None
+        citations.append(Citation(name=name, page=page, text=snippet))
+    return citations
 
-    # Persist conversation + messages
+
+def _persist_conversation(cfg, user_id: str, messages, conv_id, question: str, answer: str, citations: list | None = None):
+    """Persist conversation + messages to Postgres and Redis cache. Returns conv dict."""
     conv_store = get_conv_pg_store(cfg)
-    conv = conv_store.get_or_create_conversation(user_id=current_user.id, conversation_id=req.conversation_id, title=title_from_first_user_message(req.messages))
+    conv = conv_store.get_or_create_conversation(
+        user_id=user_id,
+        conversation_id=conv_id,
+        title=title_from_first_user_message(messages),
+    )
     cache = get_conversation_store(cfg)
-    # Auto-name conversation from the first user message if title is default/empty
+
+    # Auto-rename conversation from first user message
     try:
-        suggested = title_from_first_user_message([m.dict() for m in req.messages]) if hasattr(req.messages[0], 'dict') else title_from_first_user_message([{"role": m.role, "content": m.content} for m in req.messages])
+        suggested = title_from_first_user_message(
+            [m.dict() for m in messages] if hasattr(messages[0], "dict")
+            else [{"role": m.role if hasattr(m, "role") else m.get("role"), "content": m.content if hasattr(m, "content") else m.get("content")} for m in messages]
+        )
     except Exception:
         suggested = title_from_first_user_message([])
+
     current_title = str(conv.get("title") or "")
     if suggested and (not current_title or current_title.strip() == "新的對話"):
         try:
-            renamed = conv_store.rename_conversation(user_id=current_user.id, conversation_id=conv["id"], title=suggested)
+            renamed = conv_store.rename_conversation(user_id=user_id, conversation_id=conv["id"], title=suggested)
             if renamed:
-                # refresh conv ref
-                conv = renamed  # type: ignore
-                # update Redis index title
-                from datetime import datetime
+                conv = renamed
+                from datetime import datetime as _dt
                 def to_ms(txt: str) -> int:
-                    from datetime import datetime as _dt
                     dt = _dt.fromisoformat(txt.replace("Z", "+00:00"))
                     return int(dt.timestamp() * 1000)
                 s = conv.get("series")
-                cache.upsert_conversation_meta(current_user.id, conv["id"], conv["title"], to_ms(conv["created_at"]), to_ms(conv["updated_at"]), series=int(s) if s is not None else None)
+                cache.upsert_conversation_meta(user_id, conv["id"], conv["title"], to_ms(conv["created_at"]), to_ms(conv["updated_at"]), series=int(s) if s is not None else None)
         except Exception:
             pass
-    # append user and assistant messages to Postgres (audit) and Redis (cache)
-    conv_store.append_message(user_id=current_user.id, conversation_id=conv["id"], role="user", content=last_user)
-    cache.append_message(current_user.id, conv["id"], "user", last_user)
-    conv_store.append_message(user_id=current_user.id, conversation_id=conv["id"], role="assistant", content=answer)
-    cache.append_message(current_user.id, conv["id"], "assistant", answer)
-    # bump Redis index updatedAt
+
+    conv_store.append_message(user_id=user_id, conversation_id=conv["id"], role="user", content=question)
+    cache.append_message(user_id, conv["id"], "user", question)
+    conv_store.append_message(user_id=user_id, conversation_id=conv["id"], role="assistant", content=answer, citations=citations)
+    cache.append_message(user_id, conv["id"], "assistant", answer, citations=citations)
+
+    # Bump Redis updatedAt index
     try:
         from datetime import datetime as _dt
         now_ms = int(_dt.utcnow().timestamp() * 1000)
         s = conv.get("series")
-        cache.upsert_conversation_meta(current_user.id, conv["id"], conv.get("title") or "新的對話", None, now_ms, series=int(s) if s is not None else None)
+        cache.upsert_conversation_meta(user_id, conv["id"], conv.get("title") or "新的對話", None, now_ms, series=int(s) if s is not None else None)
     except Exception:
         pass
 
-    # Log chat message and return answer_id (legacy table)
-    store = get_chat_store(cfg)
+    return conv
+
+
+# ---------------------------------------------------------------------------
+# Chat endpoints
+# ---------------------------------------------------------------------------
+
+@router.post("/chat", response_model=ChatResponse)
+def chat(req: ChatRequest, current_user: UserOut = Depends(get_current_user)):
+    cfg = load_config()
+    try:
+        check_rate_limit(cfg, current_user.id, scope="chat", limit=60, window_seconds=60)
+    except HTTPException:
+        raise
+
+    if not req.messages:
+        raise HTTPException(status_code=422, detail="messages must not be empty")
+    last_user = _extract_last_user_message(req.messages)
+    if not last_user:
+        raise HTTPException(status_code=422, detail="no user message provided")
+
+    auth = (getattr(current_user, "auth", "user") or "user").lower()
+    top_k = req.top_k or cfg.top_k
+    provider_cfg = replace(cfg, chat_provider=(req.chat_provider or cfg.chat_provider).lower())
+    model = (req.chat_model or cfg.chat_model).strip() or cfg.chat_model
+    temperature = req.temperature if req.temperature is not None else cfg.temperature
+
+    retrieved: list = []
+
+    # Resolve document scope: request-level overrides persisted conversation scope
+    scope_doc_ids: list[str] | None = req.document_ids
+    if scope_doc_ids is None and req.conversation_id:
+        try:
+            pg = get_conv_pg_store(provider_cfg)
+            scope_doc_ids = pg.get_document_scope(user_id=current_user.id, conversation_id=req.conversation_id)
+        except Exception:
+            pass
+
+    def rag_hook(context: dict) -> None:
+        nonlocal retrieved
+        retrieved, ctx_str = _retrieve_context(provider_cfg, current_user.id, auth, last_user, top_k, scope_document_ids=scope_doc_ids)
+        context["context"] = ctx_str
+
+    pipeline_input: dict = {
+        "question": last_user,
+        "conversation_history": [{"role": m.role, "content": m.content} for m in req.messages],
+        "messages": [{"role": m.role, "content": m.content} for m in req.messages],
+        "model": model,
+        "temperature": temperature,
+        "context": "",
+    }
+
+    try:
+        result = AgentPipeline(pre_answer_hook=rag_hook).run(pipeline_input, provider_cfg)
+    except Exception:
+        raise HTTPException(status_code=502, detail="chat_failed")
+
+    answer: str = result.get("answer", "")
+    citations = _build_citations(retrieved)
+    citations_dicts = [c.dict() for c in citations]
+
+    conv = _persist_conversation(provider_cfg, current_user.id, req.messages, req.conversation_id, last_user, answer, citations=citations_dicts)
+    store = get_chat_store(provider_cfg)
     answer_id = store.insert_chat_message(
         user_id=current_user.id,
         question=last_user,
         answer=answer,
-        citations=[c.dict() for c in citations],
-        used_prompt=sys_prompt,
+        citations=citations_dicts,
+        used_prompt="",
     )
 
-    return ChatResponse(answer=answer, citations=citations, used_prompt=sys_prompt, answer_id=answer_id)
+    return ChatResponse(answer=answer, citations=citations, used_prompt="", answer_id=answer_id)
 
 
 @router.post("/chat/stream")
@@ -213,139 +288,100 @@ def chat_stream(req: ChatRequest, current_user: UserOut = Depends(get_current_us
         check_rate_limit(cfg, current_user.id, scope="chat", limit=60, window_seconds=60)
     except HTTPException:
         raise
-    # Provider will validate corresponding API key
-
-    top_k = req.top_k or cfg.top_k
-    # Retrieval must read from Redis; Postgres remains audit/log only
-    store = RedisVectorStore(cfg)
-    embedder = EmbeddingService.from_config(cfg)
 
     if not req.messages:
         raise HTTPException(status_code=422, detail="messages must not be empty")
-    last_user = None
-    for m in reversed(req.messages):
-        if m.role == "user":
-            last_user = m.content
-            break
+    last_user = _extract_last_user_message(req.messages)
     if not last_user:
         raise HTTPException(status_code=422, detail="no user message provided")
 
-    user_store = get_user_store(cfg)
-    allow_ids = user_store.get_user_allowed_docs(current_user.id)
-    auth = (getattr(current_user, 'auth', 'user') or 'user').lower()
-    if auth in ('admin', 'administrator'):
-        allow_ids = None
-    elif not allow_ids:
-        allow_ids = None
-    retrieved = retrieve(store, embedder, last_user, top_k=top_k, allow_document_ids=allow_ids)
-    if not retrieved:
-        from ..storage.vector_store import VectorStore as PgVS
-        try:
-            pg_store = PgVS(cfg)
-            retrieved = retrieve(pg_store, embedder, last_user, top_k=top_k, allow_document_ids=allow_ids)
-        except Exception:
-            pass
-    context = build_context_snippets(retrieved)
-
-    sys_prompt = system_prompt_guidance()
-    user_prompt = f"User question:\n{last_user}\n\nContext sources:\n{context}\n\nAnswer with citations as [n]."
-
+    auth = (getattr(current_user, "auth", "user") or "user").lower()
+    top_k = req.top_k or cfg.top_k
     provider_cfg = replace(cfg, chat_provider=(req.chat_provider or cfg.chat_provider).lower())
-    provider = get_chat_provider(provider_cfg)
     model = (req.chat_model or cfg.chat_model).strip() or cfg.chat_model
     temperature = req.temperature if req.temperature is not None else cfg.temperature
 
-    def iter_events() -> Generator[bytes, None, None]:
-        try:
-            acc = ""
-            # persist conversation + the initial user message
-            conv_store = get_conv_pg_store(cfg)
-            conv = conv_store.get_or_create_conversation(user_id=current_user.id, conversation_id=req.conversation_id, title=title_from_first_user_message(req.messages))
-            cache = get_conversation_store(cfg)
-            # Auto-name from first user message if needed
-            try:
-                suggested = title_from_first_user_message([m.dict() for m in req.messages]) if hasattr(req.messages[0], 'dict') else title_from_first_user_message([{"role": m.role, "content": m.content} for m in req.messages])
-            except Exception:
-                suggested = title_from_first_user_message([])
-            current_title = str(conv.get("title") or "")
-            if suggested and (not current_title or current_title.strip() == "新的對話"):
-                try:
-                    renamed = conv_store.rename_conversation(user_id=current_user.id, conversation_id=conv["id"], title=suggested)
-                    if renamed:
-                        conv = renamed  # type: ignore
-                        from datetime import datetime
-                        def to_ms(txt: str) -> int:
-                            from datetime import datetime as _dt
-                            dt = _dt.fromisoformat(txt.replace("Z", "+00:00"))
-                            return int(dt.timestamp() * 1000)
-                        s = conv.get("series")
-                        cache.upsert_conversation_meta(current_user.id, conv["id"], conv["title"], to_ms(conv["created_at"]), to_ms(conv["updated_at"]), series=int(s) if s is not None else None)
-                except Exception:
-                    pass
-            conv_store.append_message(user_id=current_user.id, conversation_id=conv["id"], role="user", content=last_user)
-            cache.append_message(current_user.id, conv["id"], "user", last_user)
-            try:
-                for delta in provider.stream(
-                    messages=[
-                        {"role": "system", "content": sys_prompt},
-                        *[{"role": m.role, "content": m.content} for m in req.messages if m.role != "system"],
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    model=model,
-                    temperature=temperature,
-                    max_tokens=cfg.max_tokens,
-                    top_p=cfg.top_p,
-                    presence_penalty=cfg.presence_penalty,
-                    frequency_penalty=cfg.frequency_penalty,
-                ):
-                    acc += delta or ""
-                    payload = {"type": "delta", "content": delta}
-                    yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
-            except ProviderError as e:
-                err = {"type": "error", "error": "provider_error", "provider": e.provider, "code": e.code, "message": str(e)}
-                yield f"data: {json.dumps(err, ensure_ascii=False)}\n\n".encode("utf-8")
-                return
-            except Exception:
-                # Try fallback as non-stream complete
-                fb_provider = cfg.fallback_chat_provider
-                fb_model = cfg.fallback_chat_model
-                if fb_provider and fb_model:
-                    fb_cfg = replace(cfg, chat_provider=fb_provider)
-                    fb = get_chat_provider(fb_cfg)
-                    acc = fb.complete(
-                        messages=[
-                            {"role": "system", "content": sys_prompt},
-                            *[{"role": m.role, "content": m.content} for m in req.messages if m.role != "system"],
-                            {"role": "user", "content": user_prompt},
-                        ],
-                        model=fb_model,
-                        temperature=temperature,
-                    )
-                else:
-                    err = {"type": "error", "message": "chat_stream_failed"}
-                    yield f"data: {json.dumps(err, ensure_ascii=False)}\n\n".encode("utf-8")
-                    return
-        except Exception as e:
-            err = {"type": "error", "message": str(e)}
-            yield f"data: {json.dumps(err, ensure_ascii=False)}\n\n".encode("utf-8")
-        # after stream, send citations and prompt
-        citations: List[Citation] = []
-        for idx, (cr, _score) in enumerate(retrieved, start=1):
-            name = cr.metadata.get("name") if isinstance(cr.metadata, dict) else cr.document_id
-            page = None
-            if isinstance(cr.metadata, dict):
-                p = cr.metadata.get("page")
-                if isinstance(p, int):
-                    page = p
-            citations.append(Citation(name=name, page=page))
+    retrieved: list = []
 
-        # Persist assistant message in Postgres conversation messages
+    # Resolve document scope: request-level overrides persisted conversation scope
+    scope_doc_ids: list[str] | None = req.document_ids
+    if scope_doc_ids is None and req.conversation_id:
         try:
-            conv_store.append_message(user_id=current_user.id, conversation_id=conv["id"], role="assistant", content=acc)
-            cache.append_message(current_user.id, conv["id"], "assistant", acc)
+            pg_pre = get_conv_pg_store(provider_cfg)
+            scope_doc_ids = pg_pre.get_document_scope(user_id=current_user.id, conversation_id=req.conversation_id)
         except Exception:
             pass
-        # bump Redis index updatedAt
+
+    def rag_hook(context: dict) -> None:
+        nonlocal retrieved
+        retrieved, ctx_str = _retrieve_context(provider_cfg, current_user.id, auth, last_user, top_k, scope_document_ids=scope_doc_ids)
+        context["context"] = ctx_str
+
+    pipeline_input: dict = {
+        "question": last_user,
+        "conversation_history": [{"role": m.role, "content": m.content} for m in req.messages],
+        "messages": [{"role": m.role, "content": m.content} for m in req.messages],
+        "model": model,
+        "temperature": temperature,
+        "context": "",
+    }
+
+    def iter_events() -> Generator[bytes, None, None]:
+        acc = ""
+
+        # Persist conversation + initial user message before streaming
+        conv_store = get_conv_pg_store(provider_cfg)
+        conv = conv_store.get_or_create_conversation(
+            user_id=current_user.id,
+            conversation_id=req.conversation_id,
+            title=title_from_first_user_message(req.messages),
+        )
+        cache = get_conversation_store(provider_cfg)
+        try:
+            suggested = title_from_first_user_message(
+                [m.dict() for m in req.messages] if hasattr(req.messages[0], "dict")
+                else [{"role": m.role, "content": m.content} for m in req.messages]
+            )
+        except Exception:
+            suggested = title_from_first_user_message([])
+        current_title = str(conv.get("title") or "")
+        if suggested and (not current_title or current_title.strip() == "新的對話"):
+            try:
+                renamed = conv_store.rename_conversation(user_id=current_user.id, conversation_id=conv["id"], title=suggested)
+                if renamed:
+                    conv = renamed
+                    from datetime import datetime as _dt
+                    def to_ms(txt: str) -> int:
+                        dt = _dt.fromisoformat(txt.replace("Z", "+00:00"))
+                        return int(dt.timestamp() * 1000)
+                    s = conv.get("series")
+                    cache.upsert_conversation_meta(current_user.id, conv["id"], conv["title"], to_ms(conv["created_at"]), to_ms(conv["updated_at"]), series=int(s) if s is not None else None)
+            except Exception:
+                pass
+        conv_store.append_message(user_id=current_user.id, conversation_id=conv["id"], role="user", content=last_user)
+        cache.append_message(current_user.id, conv["id"], "user", last_user)
+
+        # Stream via pipeline (reasoning sync → rag hook → sub-agent stream)
+        for event in AgentPipeline(pre_answer_hook=rag_hook).run_stream(pipeline_input, provider_cfg):
+            if event.type == "delta":
+                delta = event.payload or ""
+                acc += delta
+                payload = {"type": "delta", "content": delta}
+                yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+            elif event.type == "error":
+                err = {"type": "error", **(event.payload if isinstance(event.payload, dict) else {"message": str(event.payload)})}
+                yield f"data: {json.dumps(err, ensure_ascii=False)}\n\n".encode("utf-8")
+                return
+            # "done" event: fall through to finalization below
+
+        # Finalize: persist assistant message + emit citations
+        citations = _build_citations(retrieved)
+        citations_dicts = [c.dict() for c in citations]
+        try:
+            conv_store.append_message(user_id=current_user.id, conversation_id=conv["id"], role="assistant", content=acc, citations=citations_dicts)
+            cache.append_message(current_user.id, conv["id"], "assistant", acc, citations=citations_dicts)
+        except Exception:
+            pass
         try:
             from datetime import datetime as _dt
             now_ms = int(_dt.utcnow().timestamp() * 1000)
@@ -354,27 +390,28 @@ def chat_stream(req: ChatRequest, current_user: UserOut = Depends(get_current_us
         except Exception:
             pass
 
-        # Log the chat message and include answer_id (legacy table)
-        store = get_chat_store(cfg)
+        store = get_chat_store(provider_cfg)
         answer_id = store.insert_chat_message(
             user_id=current_user.id,
             question=last_user,
             answer=acc,
             citations=[c.dict() for c in citations],
-            used_prompt=sys_prompt,
+            used_prompt="",
         )
 
-        final = {"type": "done", "citations": [c.dict() for c in citations], "used_prompt": sys_prompt, "answer_id": answer_id}
+        final = {"type": "done", "citations": [c.dict() for c in citations], "used_prompt": "", "answer_id": answer_id}
         yield f"data: {json.dumps(final, ensure_ascii=False)}\n\n".encode("utf-8")
 
     return StreamingResponse(iter_events(), media_type="text/event-stream")
 
 
-def title_from_first_user_message(msgs: list[dict]) -> str:
+def title_from_first_user_message(msgs) -> str:
     try:
         for m in msgs:
-            if (m.get("role") or "").lower() == "user":
-                t = str(m.get("content") or "").strip().split("\n")[0]
+            role = (m.get("role") if isinstance(m, dict) else getattr(m, "role", "")).lower()
+            content = (m.get("content") if isinstance(m, dict) else getattr(m, "content", "")) or ""
+            if role == "user":
+                t = str(content).strip().split("\n")[0]
                 return (t[:40] + ("…" if len(t) > 40 else "")) or "新的對話"
     except Exception:
         pass
@@ -386,7 +423,6 @@ def list_conversations(current_user: UserOut = Depends(get_current_user)):
     cfg = load_config()
     store = get_conversation_store(cfg)
     items = store.get_conversations(current_user.id)
-    # Serve Redis as the canonical UI list; do not resurrect deleted items from Postgres
     return ConversationListPayload(items=items or [])
 
 
@@ -408,12 +444,29 @@ def get_conversation_messages(conversation_id: str, current_user: UserOut = Depe
     cfg = load_config()
     cache = get_conversation_store(cfg)
     raw = cache.get_messages(current_user.id, conversation_id)
+
+    # Fall back to Postgres if Redis cache is empty (expired or first load)
+    if not raw:
+        try:
+            pg = get_conv_pg_store(cfg)
+            raw = pg.get_messages(user_id=current_user.id, conversation_id=conversation_id)
+        except Exception:
+            raw = []
+
     msgs: List[MessageModel] = []
     for r in raw:
         role = (str(r.get("role")) or "assistant").lower()
         content = str(r.get("content") or "")
-        if role in ("system", "user", "assistant") and content:
-            msgs.append(MessageModel(role=role, content=content))
+        if role not in ("system", "user", "assistant") or not content:
+            continue
+        citations_raw = r.get("citations")
+        citations: List[Citation] | None = None
+        if citations_raw and isinstance(citations_raw, list):
+            try:
+                citations = [Citation(**c) for c in citations_raw if isinstance(c, dict)]
+            except Exception:
+                citations = None
+        msgs.append(MessageModel(role=role, content=content, citations=citations or None))
     return MessagesResponse(messages=msgs)
 
 
@@ -427,7 +480,6 @@ def create_conversation(payload: ConversationCreate, current_user: UserOut = Dep
     pg = get_conv_pg_store(cfg)
     store = get_conversation_store(cfg)
     row = pg.create_conversation(user_id=current_user.id, title=(payload.title or "新的對話"))
-    # update redis index
     from datetime import datetime
     try:
         def to_ms(txt: str) -> int:
@@ -473,7 +525,6 @@ def delete_conversation(conversation_id: str, current_user: UserOut = Depends(ge
         raise
     pg = get_conv_pg_store(cfg)
     store = get_conversation_store(cfg)
-    # Allow deletion via series number if provided
     if series is not None:
         cid = store.get_conversation_id_by_series(current_user.id, int(series))
         if cid:
@@ -537,3 +588,53 @@ def migrate_legacy_conversations(current_user: UserOut = Depends(get_current_use
         except Exception:
             continue
     return {"ok": True, "migrated": migrated}
+
+
+# ---------------------------------------------------------------------------
+# Document scope endpoints
+# ---------------------------------------------------------------------------
+
+class DocumentScopePayload(BaseModel):
+    document_ids: List[str] | None = None
+
+
+@router.get("/chat/conversations/{conversation_id}/documents")
+def get_conversation_document_scope(conversation_id: str, current_user: UserOut = Depends(get_current_user)):
+    """Return the document IDs scoped for this conversation (None = all documents)."""
+    cfg = load_config()
+    pg = get_conv_pg_store(cfg)
+    doc_ids = pg.get_document_scope(user_id=current_user.id, conversation_id=conversation_id)
+    return {"document_ids": doc_ids}
+
+
+@router.put("/chat/conversations/{conversation_id}/documents")
+def set_conversation_document_scope(
+    conversation_id: str,
+    payload: DocumentScopePayload,
+    current_user: UserOut = Depends(get_current_user),
+):
+    """Set or clear the document scope for this conversation."""
+    cfg = load_config()
+    pg = get_conv_pg_store(cfg)
+
+    # Validate: each requested ID must exist in documents the user can access
+    if payload.document_ids is not None:
+        from ..storage.user_store import get_user_store as _get_user_store
+        user_store = _get_user_store(cfg)
+        auth = (getattr(current_user, "auth", "user") or "user").lower()
+        if auth not in ("admin", "administrator"):
+            allowed = user_store.get_user_allowed_docs(current_user.id)
+            if allowed is not None:
+                allowed_set = set(allowed)
+                invalid = [d for d in payload.document_ids if d not in allowed_set]
+                if invalid:
+                    raise HTTPException(status_code=403, detail="One or more document IDs are not accessible")
+
+    ok = pg.set_document_scope(
+        user_id=current_user.id,
+        conversation_id=conversation_id,
+        document_ids=payload.document_ids,
+    )
+    if not ok:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return {"ok": True}

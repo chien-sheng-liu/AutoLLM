@@ -1,6 +1,12 @@
 "use client";
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { Message, Citation, ChatStreamEvent, Config } from "@/lib/api";
+import type {
+  Message,
+  Citation,
+  ChatStreamEvent,
+  Config,
+  DocumentItem,
+} from "@/lib/api";
 import {
   chatStream,
   getConfig,
@@ -10,9 +16,14 @@ import {
   createServerConversation,
   renameServerConversation,
   deleteServerConversation,
+  listDocuments,
+  getConversationDocuments,
+  setConversationDocuments,
 } from "@/lib/api";
 import ChatMessage from "@/app/components/ChatMessage";
 import StreamingBubble from "@/app/components/StreamingBubble";
+import CitationTooltip from "@/app/components/CitationTooltip";
+import DocumentScopeSelector from "@/app/components/DocumentScopeSelector";
 import Button from "@/app/components/ui/Button";
 import Textarea from "@/app/components/ui/Textarea";
 import {
@@ -39,6 +50,9 @@ export default function ChatPage() {
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [immersive, setImmersive] = useState(false);
   const [abortCtrl, setAbortCtrl] = useState<AbortController | null>(null);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [availableDocs, setAvailableDocs] = useState<DocumentItem[]>([]);
+  const [selectedDocIds, setSelectedDocIds] = useState<string[] | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [inputHeight, setInputHeight] = useState<number>(48);
   // Incrementing this key forces the Textarea to remount with a fresh DOM node,
@@ -141,10 +155,34 @@ export default function ChatPage() {
               const msgs = await fetchConversationMessages(target);
               if (version !== loadVersionRef.current) return;
               setMessages(msgs);
+              // Restore citations from the last assistant message that has them
+              const lastWithCitations = [...msgs]
+                .reverse()
+                .find(
+                  (m) =>
+                    m.role === "assistant" &&
+                    m.citations &&
+                    m.citations.length > 0,
+                );
+              if (lastWithCitations?.citations) {
+                setLastCitations(lastWithCitations.citations);
+              } else {
+                setLastCitations([]);
+              }
+              setUsedPrompt(undefined);
+              setFeedbackSent(null);
+              setLastAnswerId(null);
             } catch {
               if (version !== loadVersionRef.current) return;
               setMessages([]);
             }
+          }
+          // Load document scope for this conversation
+          try {
+            const scope = await getConversationDocuments(target);
+            setSelectedDocIds(scope.document_ids ?? null);
+          } catch {
+            setSelectedDocIds(null);
           }
         }
       } catch {
@@ -161,6 +199,13 @@ export default function ChatPage() {
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
+
+  // Load available documents once on mount
+  useEffect(() => {
+    listDocuments()
+      .then((res) => setAvailableDocs(res.items || []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     // Restore last selection from localStorage first
@@ -334,7 +379,11 @@ export default function ChatPage() {
           } else if (ev.type === "done") {
             const finalMsgs = [
               ...newMsgs,
-              { role: "assistant", content: acc } as Message,
+              {
+                role: "assistant",
+                content: acc,
+                citations: ev.citations || [],
+              } as Message,
             ];
             setMessages(finalMsgs);
             setLastCitations(ev.citations || []);
@@ -358,6 +407,7 @@ export default function ChatPage() {
           chat_model: model || cfg?.chat_model,
           chat_provider: provider || (cfg?.chat_provider as any),
           conversation_id: currentId || undefined,
+          document_ids: selectedDocIds,
           language,
         },
       );
@@ -412,7 +462,11 @@ export default function ChatPage() {
           } else if (ev.type === "done") {
             const finalMsgs = [
               ...withMessages,
-              { role: "assistant", content: acc } as Message,
+              {
+                role: "assistant",
+                content: acc,
+                citations: ev.citations || [],
+              } as Message,
             ];
             setMessages(finalMsgs);
             setLastCitations(ev.citations || []);
@@ -435,6 +489,7 @@ export default function ChatPage() {
           chat_model: model || cfg?.chat_model,
           chat_provider: provider || (cfg?.chat_provider as any),
           conversation_id: currentId || undefined,
+          document_ids: selectedDocIds,
           signal: ctrl.signal,
           language,
         },
@@ -573,114 +628,158 @@ export default function ChatPage() {
     setInputKey((k) => k + 1);
   };
 
+  const renderFeedbackRow = () => {
+    if (!lastAnswerId || busy) return null;
+    return (
+      <div className="ml-8 mt-1 flex items-center gap-1.5">
+        <span className="mr-0.5 text-[11px] text-[var(--text-muted)]">
+          {t("chat.feedbackPrompt")}
+        </span>
+        {/* Thumbs up */}
+        <button
+          type="button"
+          disabled={!!feedbackSent}
+          aria-label={t("chat.feedbackUp")}
+          onClick={async () => {
+            if (!lastAnswerId) return;
+            try {
+              await sendFeedback(lastAnswerId, "up");
+              setFeedbackSent("up");
+            } catch (_) {}
+          }}
+          className={`inline-flex h-7 w-7 items-center justify-center rounded-full border transition disabled:cursor-default ${
+            feedbackSent === "up"
+              ? "border-[var(--success)] bg-[var(--success-soft)] text-[var(--success)]"
+              : "border-[var(--border-light)] bg-transparent text-[var(--text-muted)] hover:border-[var(--success)] hover:bg-[var(--success-soft)] hover:text-[var(--success)]"
+          }`}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M7 10v12" />
+            <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
+          </svg>
+        </button>
+        {/* Thumbs down */}
+        <button
+          type="button"
+          disabled={!!feedbackSent}
+          aria-label={t("chat.feedbackDown")}
+          onClick={async () => {
+            if (!lastAnswerId) return;
+            try {
+              await sendFeedback(lastAnswerId, "down");
+              setFeedbackSent("down");
+            } catch (_) {}
+          }}
+          className={`inline-flex h-7 w-7 items-center justify-center rounded-full border transition disabled:cursor-default ${
+            feedbackSent === "down"
+              ? "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]"
+              : "border-[var(--border-light)] bg-transparent text-[var(--text-muted)] hover:border-[var(--danger)] hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]"
+          }`}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M17 14V2" />
+            <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z" />
+          </svg>
+        </button>
+      </div>
+    );
+  };
+
   const renderCitationsSection = () => {
     if (cfg && cfg.show_sources === false) return null;
-    if (!lastCitations.length) return null;
+    const hasCitations = lastCitations.length > 0;
+    const hasPrompt = !!usedPrompt;
+    if (!hasCitations && !hasPrompt) return null;
     return (
-      <section className="rounded-2xl border border-[var(--border-light)] bg-[var(--surface)] p-4 shadow-surface">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="ml-8 mt-3 space-y-2">
+        {/* Sources accordion */}
+        {hasCitations && (
           <div>
-            <p className="text-[11px] uppercase tracking-[0.3em] text-[var(--text-muted)]">
-              {t("chat.citationsTitle")}
-            </p>
-            <h3 className="text-base font-semibold text-[var(--text-primary)]">
-              {t("chat.citationsSubtitle")}
-            </h3>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            {usedPrompt && (
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                className="rounded-full border border-[var(--soft-brand-border)] bg-[var(--soft-brand-background)] px-3 py-1 text-[11px] font-semibold text-[var(--brand-primary)] transition hover:bg-[var(--brand-50)]"
-                onClick={() => setShowPrompt((v) => !v)}
+                onClick={() => setRefsOpen((o) => !o)}
+                className="flex items-center gap-1 text-[11px] text-[var(--text-muted)] transition hover:text-[var(--text-secondary)]"
               >
-                {showPrompt ? t("chat.hidePrompt") : t("chat.showPrompt")}
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 10 10"
+                  fill="currentColor"
+                  className={`shrink-0 transition-transform duration-150 ${refsOpen ? "rotate-90" : ""}`}
+                >
+                  <path d="M3 2l4 3-4 3V2z" />
+                </svg>
+                <span>
+                  {lastCitations.length} {t("chat.citationsTitle")}
+                </span>
               </button>
-            )}
-            <button
-              type="button"
-              className="rounded-full border border-[var(--border-light)] bg-[var(--surface-muted)] px-3 py-1 text-[11px] font-semibold text-[var(--text-primary)] transition hover:bg-[var(--surface)]"
-              onClick={() => setRefsOpen((o) => !o)}
-            >
-              {refsOpen ? t("chat.hideSources") : t("chat.showSources")}
-            </button>
-            {lastAnswerId && (
-              <div className="flex items-center gap-1 text-[var(--text-muted)]">
-                <span>{t("chat.feedbackPrompt")}</span>
+              {hasPrompt && (
                 <button
                   type="button"
-                  disabled={!!feedbackSent}
-                  onClick={async () => {
-                    if (!lastAnswerId) return;
-                    try {
-                      await sendFeedback(lastAnswerId, "up");
-                      setFeedbackSent("up");
-                    } catch (_) {}
-                  }}
-                  className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${feedbackSent === "up" ? "border-[var(--success)] bg-[var(--success-soft)] text-[var(--success)]" : "border-[var(--border-light)] bg-[var(--surface)] text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"}`}
+                  onClick={() => setShowPrompt((v) => !v)}
+                  className="text-[11px] text-[var(--brand-primary)] opacity-70 transition hover:opacity-100"
                 >
-                  {t("chat.feedbackUp")}
+                  {showPrompt ? t("chat.hidePrompt") : t("chat.showPrompt")}
                 </button>
-                <button
-                  type="button"
-                  disabled={!!feedbackSent}
-                  onClick={async () => {
-                    if (!lastAnswerId) return;
-                    try {
-                      await sendFeedback(lastAnswerId, "down");
-                      setFeedbackSent("down");
-                    } catch (_) {}
-                  }}
-                  className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${feedbackSent === "down" ? "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]" : "border-[var(--border-light)] bg-[var(--surface)] text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"}`}
-                >
-                  {t("chat.feedbackDown")}
-                </button>
+              )}
+            </div>
+
+            {refsOpen && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {lastCitations.map((c, i) => (
+                  <CitationTooltip
+                    key={`${c.name}-${i}-${c.page ?? "na"}`}
+                    citation={c}
+                    index={i}
+                  />
+                ))}
               </div>
             )}
           </div>
-        </div>
-        {refsOpen && (
-          <div className="mt-4 space-y-3">
-            {lastCitations.map((c, i) => (
-              <article
-                key={`${c.name}-${i}-${c.page ?? "na"}`}
-                className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-3 text-sm font-semibold text-[var(--text-primary)]">
-                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--brand-primary)] text-[12px] font-bold text-white">
-                        {i + 1}
-                      </span>
-                      <span className="truncate">{c.name}</span>
-                    </div>
-                    <p className="mt-1 text-xs text-[var(--text-muted)]">
-                      {typeof c.page === "number"
-                        ? t("chat.pageLabel", { page: c.page })
-                        : t("chat.pageUnknown")}
-                    </p>
-                  </div>
-                  <span className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                    {t("chat.sourceLabel")}
-                  </span>
-                </div>
-              </article>
-            ))}
-          </div>
         )}
+
+        {/* Prompt panel */}
         {showPrompt && usedPrompt && (
-          <div className="mt-4 rounded-2xl border border-dashed border-[var(--soft-brand-border)] bg-[var(--soft-brand-background)] p-3 text-[13px] text-[var(--brand-primary)]">
-            <div className="mb-1 text-xs font-semibold uppercase tracking-[0.3em]">
+          <div className="rounded-lg border-l-2 border-[var(--brand-primary)] bg-[var(--soft-brand-background)] py-2 pl-3 pr-2">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-[var(--brand-primary)] opacity-70">
               {t("chat.systemPromptLabel")}
             </div>
-            <pre className="whitespace-pre-wrap border-none bg-transparent p-0 text-[13px] text-[var(--brand-primary)] shadow-none">
+            <pre className="whitespace-pre-wrap border-none bg-transparent p-0 text-[12px] leading-relaxed text-[var(--brand-primary)] opacity-80 shadow-none">
               {usedPrompt}
             </pre>
           </div>
         )}
-      </section>
+      </div>
     );
   };
+
+  async function handleDocScopeChange(ids: string[] | null) {
+    setSelectedDocIds(ids);
+    if (currentId) {
+      try {
+        await setConversationDocuments(currentId, ids);
+      } catch {}
+    }
+  }
 
   const composerActionClasses =
     "rounded-full border border-transparent px-3 py-1 text-[12px] font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-200)]";
@@ -726,9 +825,14 @@ export default function ChatPage() {
                 {t("chat.emptyState")}
               </div>
             )}
-            <div className="grid gap-1">
+            <div className="flex flex-col gap-4">
               {messages.map((m, i) => (
-                <ChatMessage key={i} role={m.role} content={m.content} />
+                <ChatMessage
+                  key={i}
+                  role={m.role}
+                  content={m.content}
+                  citations={m.citations}
+                />
               ))}
               {busy && (
                 <StreamingBubble
@@ -736,6 +840,7 @@ export default function ChatPage() {
                   isTyping={!streamAnswer}
                 />
               )}
+              {renderFeedbackRow()}
               {renderCitationsSection()}
               {showScroller && (
                 <div className="sticky bottom-2 flex justify-end pr-2">
@@ -807,101 +912,197 @@ export default function ChatPage() {
     );
   }
 
-  return (
-    <div
-      ref={rootRef}
-      className="relative mx-auto flex w-full max-w-[1800px] flex-1 gap-5 px-4 pb-6 pt-4 lg:gap-7 lg:px-8"
-      style={{ height: containerH ? `${containerH}px` : undefined }}
-    >
-      <aside className="flex h-full w-[250px] shrink-0 flex-col overflow-hidden rounded-[30px] border border-[var(--border-light)] bg-[var(--surface)] shadow-panel">
-        <div className="flex items-center justify-between gap-2 border-b border-[var(--border-light)] px-4 py-4">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.35em] text-[var(--text-muted)]">
-              {t("chat.historyBadge")}
-            </p>
-            <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-              {t("chat.conversationListTitle")}
-            </h2>
-          </div>
+  // Shared sidebar content
+  const sidebarContent = (onSelect?: () => void, onClose?: () => void) => (
+    <>
+      <div className="flex items-center justify-between gap-2 border-b border-[var(--border-light)] px-4 py-4">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.35em] text-[var(--text-muted)]">
+            {t("chat.historyBadge")}
+          </p>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+            {t("chat.conversationListTitle")}
+          </h2>
+        </div>
+        <div className="flex items-center gap-1.5">
           <Button size="sm" onClick={newChat} disabled={!conversationsReady}>
             {t("chat.createConversation")}
           </Button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-3 py-4">
-          <div className="space-y-1.5">
-            {convs.map((c) => {
-              const active = c.id === currentId;
-              const baseClasses =
-                "w-full rounded-2xl border px-3.5 py-3 text-left text-sm transition";
-              const variant = active
-                ? "border-[var(--border-subtle)] bg-[var(--surface-panel)] shadow-surface"
-                : "border-transparent bg-[var(--surface-muted)] hover:border-[var(--border-light)] hover:bg-[var(--surface)]";
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={async () => {
-                    setCurrentId(c.id);
-                    try {
-                      setMessages(await fetchConversationMessages(c.id));
-                    } catch {
-                      setMessages([]);
-                    }
-                  }}
-                  className={`${baseClasses} ${variant}`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="truncate font-semibold text-[var(--text-primary)]">
-                      {displayTitle(c.title)}
-                    </div>
-                    {active && (
-                      <span className="text-[10px] uppercase tracking-[0.25em] text-[var(--brand-primary)]">
-                        {t("chat.latestBadge")}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-1 truncate text-[11px] text-[var(--text-muted)]">
-                    {new Date(c.updatedAt).toLocaleString()}
-                  </div>
-                </button>
-              );
-            })}
-            {!convs.length && (
-              <div className="rounded-2xl border border-dashed border-[var(--border-light)] px-3 py-4 text-center text-[12px] text-[var(--text-muted)]">
-                {t("chat.noConversations")}
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="border-t border-[var(--border-light)] px-4 py-4">
-          {currentId ? (
-            <div className="flex flex-col gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={renameChat}
-                disabled={!conversationsReady}
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+              aria-label="關閉"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                {t("chat.menuRename")}
-              </Button>
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={deleteChat}
-                disabled={!conversationsReady}
-              >
-                {t("chat.menuDelete")}
-              </Button>
-            </div>
-          ) : (
-            <p className="text-xs text-[var(--text-muted)]">
-              {t("chat.noConversations")}
-            </p>
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
           )}
         </div>
+      </div>
+      <div className="flex-1 overflow-y-auto px-3 py-4">
+        <div className="space-y-1.5">
+          {convs.map((c) => {
+            const active = c.id === currentId;
+            const baseClasses =
+              "w-full rounded-2xl border px-3.5 py-3 text-left text-sm transition";
+            const variant = active
+              ? "border-[var(--border-subtle)] bg-[var(--surface-panel)] shadow-surface"
+              : "border-transparent bg-[var(--surface-muted)] hover:border-[var(--border-light)] hover:bg-[var(--surface)]";
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={async () => {
+                  setCurrentId(c.id);
+                  try {
+                    const msgs = await fetchConversationMessages(c.id);
+                    setMessages(msgs);
+                    const lastWithCitations = [...msgs]
+                      .reverse()
+                      .find(
+                        (m) =>
+                          m.role === "assistant" &&
+                          m.citations &&
+                          m.citations.length > 0,
+                      );
+                    setLastCitations(lastWithCitations?.citations ?? []);
+                    setUsedPrompt(undefined);
+                    setFeedbackSent(null);
+                    setLastAnswerId(null);
+                  } catch {
+                    setMessages([]);
+                    setLastCitations([]);
+                  }
+                  try {
+                    const scope = await getConversationDocuments(c.id);
+                    setSelectedDocIds(scope.document_ids ?? null);
+                  } catch {
+                    setSelectedDocIds(null);
+                  }
+                  onSelect?.();
+                }}
+                className={`${baseClasses} ${variant}`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="truncate font-semibold text-[var(--text-primary)]">
+                    {displayTitle(c.title)}
+                  </div>
+                  {active && (
+                    <span className="text-[10px] uppercase tracking-[0.25em] text-[var(--brand-primary)]">
+                      {t("chat.latestBadge")}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1 truncate text-[11px] text-[var(--text-muted)]">
+                  {new Date(c.updatedAt).toLocaleString()}
+                </div>
+              </button>
+            );
+          })}
+          {!convs.length && (
+            <div className="rounded-2xl border border-dashed border-[var(--border-light)] px-3 py-4 text-center text-[12px] text-[var(--text-muted)]">
+              {t("chat.noConversations")}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="border-t border-[var(--border-light)] px-4 py-4">
+        {currentId ? (
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={renameChat}
+              disabled={!conversationsReady}
+            >
+              {t("chat.menuRename")}
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={deleteChat}
+              disabled={!conversationsReady}
+            >
+              {t("chat.menuDelete")}
+            </Button>
+          </div>
+        ) : (
+          <p className="text-xs text-[var(--text-muted)]">
+            {t("chat.noConversations")}
+          </p>
+        )}
+      </div>
+    </>
+  );
+
+  return (
+    <div
+      ref={rootRef}
+      className="relative mx-auto flex w-full max-w-[1800px] flex-1 gap-5 px-4 pb-4 pt-2 lg:gap-7 lg:px-8"
+      style={{ height: containerH ? `${containerH}px` : undefined }}
+    >
+      {/* Mobile sidebar overlay */}
+      {mobileSidebarOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-[55] bg-black/50 backdrop-blur-sm md:hidden"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+          <aside className="fixed left-0 top-0 z-[56] flex h-full w-[280px] flex-col overflow-hidden bg-[var(--surface)] shadow-soft-lg md:hidden">
+            {sidebarContent(
+              () => setMobileSidebarOpen(false),
+              () => setMobileSidebarOpen(false),
+            )}
+          </aside>
+        </>
+      )}
+
+      {/* Desktop sidebar */}
+      <aside className="hidden h-full w-[250px] shrink-0 flex-col overflow-hidden rounded-[30px] border border-[var(--border-light)] bg-[var(--surface)] shadow-panel md:flex">
+        {sidebarContent()}
       </aside>
       <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[36px] border border-[var(--border-light)] bg-[var(--surface)] shadow-panel">
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border-light)] px-6 py-5 lg:px-10">
+        {/* Mobile top bar */}
+        <div className="flex items-center gap-3 border-b border-[var(--border-light)] px-4 py-3 md:hidden">
+          <button
+            type="button"
+            onClick={() => setMobileSidebarOpen(true)}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+            aria-label="開啟對話列表"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--text-primary)]">
+            {conversationTitle}
+          </span>
+        </div>
+        <header className="hidden flex-wrap items-center justify-between gap-4 border-b border-[var(--border-light)] px-6 py-3 md:flex lg:px-10">
           <div>
             <p className="text-[11px] uppercase tracking-[0.3em] text-[var(--text-muted)]">
               {t("chat.activeLabel")}
@@ -921,7 +1122,7 @@ export default function ChatPage() {
           </div>
         </header>
 
-        <div className="border-b border-[var(--border-light)] px-6 py-4 lg:px-10">
+        <div className="border-b border-[var(--border-light)] px-6 py-2 lg:px-10">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[11px] uppercase tracking-[0.25em] text-[var(--text-muted)]">
@@ -979,7 +1180,7 @@ export default function ChatPage() {
         <div className="relative flex min-h-0 flex-1 bg-[var(--surface-panel)]">
           <div
             ref={chatRef}
-            className="flex h-full w-full flex-col gap-1 overflow-y-auto px-4 pb-32 pt-8 sm:px-8 lg:px-12"
+            className="flex h-full w-full flex-col gap-4 overflow-y-auto px-4 pb-32 pt-4 sm:px-8 lg:px-12"
           >
             {messages.length === 0 && !streamAnswer && (
               <div className="mx-auto w-full max-w-[640px] rounded-3xl border border-dashed border-[var(--border-light)] px-6 py-12 text-center text-sm text-[var(--text-muted)]">
@@ -987,7 +1188,12 @@ export default function ChatPage() {
               </div>
             )}
             {messages.map((m, i) => (
-              <ChatMessage key={i} role={m.role} content={m.content} />
+              <ChatMessage
+                key={i}
+                role={m.role}
+                content={m.content}
+                citations={m.citations}
+              />
             ))}
             {busy && (
               <StreamingBubble
@@ -995,6 +1201,7 @@ export default function ChatPage() {
                 isTyping={!streamAnswer}
               />
             )}
+            {renderFeedbackRow()}
             {renderCitationsSection()}
           </div>
           <div
@@ -1016,6 +1223,11 @@ export default function ChatPage() {
 
         <div className="border-t border-[var(--border-light)] bg-[var(--surface)] px-4 py-4 sm:px-8">
           <div className="mb-3 flex flex-wrap items-center gap-2">
+            <DocumentScopeSelector
+              docs={availableDocs}
+              selectedIds={selectedDocIds}
+              onChange={handleDocScopeChange}
+            />
             {!busy && (
               <>
                 <button
